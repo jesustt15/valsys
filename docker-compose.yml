@@ -1,0 +1,48 @@
+version: '3.8'
+services:
+  # Base de Datos Relacional
+  postgres:
+    image: postgres:15-alpine
+    container_name: valvulas_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: sistema_valvulas
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  # Buscador Ultra-Rápido
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: valvulas_search
+    restart: always
+    environment:
+      - MEILI_MASTER_KEY=masterKey123!
+      - MEILI_ENV=development
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+
+  # Almacenamiento de Fotos y PDFs
+  minio:
+    image: minio/minio:latest
+    container_name: valvulas_storage
+    restart: always
+    environment:
+      MINIO_ROOT_USER: admin_minio
+      MINIO_ROOT_PASSWORD: password_minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"  # Puerto de la API
+      - "9001:9001"  # Puerto del Panel Web
+    volumes:
+      - minio_data:/data
+
+volumes:
+  pg_data:
+  meili_data:
+  minio_data:
