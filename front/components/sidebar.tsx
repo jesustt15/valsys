@@ -4,7 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export function Sidebar() {
+interface SidebarProps {
+  role: string
+}
+
+export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(true)
 
@@ -61,6 +65,7 @@ export function Sidebar() {
   ]
 
   const isActive = (href: string) => pathname === href
+  const isAdmin = role === 'admin'
 
   return (
     <aside
@@ -74,14 +79,14 @@ export function Sidebar() {
           {isOpen && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                <span className="text-sidebar-primary-foreground font-bold text-sm">C</span>
+                <span className="text-sidebar-primary-foreground font-bold text-sm">V</span>
               </div>
-              <span className="font-bold text-lg whitespace-nowrap">CylinderCheck</span>
+              <span className="font-bold text-lg whitespace-nowrap">ValSys</span>
             </div>
           )}
           {!isOpen && (
             <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center mx-auto">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">C</span>
+              <span className="text-sidebar-primary-foreground font-bold text-sm">V</span>
             </div>
           )}
         </div>
@@ -104,26 +109,30 @@ export function Sidebar() {
             </Link>
           ))}
 
-          {/* Divider */}
-          <div className="my-4 border-t border-sidebar-border" />
+          {/* Admin Section — only visible for admin role */}
+          {isAdmin && (
+            <>
+              {/* Divider */}
+              <div className="my-4 border-t border-sidebar-border" />
 
-          {/* Admin Section */}
-          {isOpen && <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase">Admin</p>}
-          {adminItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
-                isActive(item.href)
-                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/10'
-              }`}
-              title={!isOpen ? item.label : undefined}
-            >
-              {item.icon}
-              {isOpen && <span className="font-medium">{item.label}</span>}
-            </Link>
-          ))}
+              {isOpen && <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase">Admin</p>}
+              {adminItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
+                    isActive(item.href)
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent/10'
+                  }`}
+                  title={!isOpen ? item.label : undefined}
+                >
+                  {item.icon}
+                  {isOpen && <span className="font-medium">{item.label}</span>}
+                </Link>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* Toggle Button */}

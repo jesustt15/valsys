@@ -1,30 +1,21 @@
 'use client'
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { useEffect } from 'react'
+import { useActionState } from 'react'
+import { useRouter } from 'next/navigation'
+import { loginAction } from '@/lib/actions/auth'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const router = useRouter()
+  const [state, formAction, isPending] = useActionState(loginAction, null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
-
-    try {
-      // TODO: Lógica de autenticación
-      console.log('Login attempt:', { email, password })
-      await new Promise(resolve => setTimeout(resolve, 500))
-    } catch (err) {
-      setError('Error en la autenticación')
-    } finally {
-      setIsLoading(false)
+  useEffect(() => {
+    if (state?.success) {
+      router.push('/dashboard')
     }
-  }
+  }, [state?.success, router])
 
   return (
     <div className="min-h-screen bg-white flex">
@@ -88,26 +79,25 @@ export default function LoginPage() {
             <p className="text-gray-600">Inicia sesión en tu cuenta para continuar</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
+          <form action={formAction} className="space-y-6">
+            {state?.error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
                 <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <span className="text-red-800 text-sm">{error}</span>
+                <span className="text-red-800 text-sm">{state.error}</span>
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-900 mb-2">
-                Correo Electrónico
+              <label htmlFor="username" className="block text-sm font-medium text-gray-900 mb-2">
+                Usuario
               </label>
               <Input
-                id="email"
-                type="email"
-                placeholder="tu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                name="username"
+                type="text"
+                placeholder="tu-usuario"
                 required
                 className="bg-gray-50 border border-gray-300 text-gray-900 placeholder-gray-500 h-11"
               />
@@ -124,10 +114,9 @@ export default function LoginPage() {
               </div>
               <Input
                 id="password"
+                name="password"
                 type="password"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 required
                 className="bg-gray-50 border border-gray-300 text-gray-900 h-11"
               />
@@ -135,10 +124,10 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              disabled={isLoading}
+              disabled={isPending}
               className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200"
             >
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {isPending ? 'Ingresando...' : 'Iniciar Sesión'}
             </Button>
           </form>
 

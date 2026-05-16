@@ -13,9 +13,11 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@node-rs/bcrypt": "^1.10.7",
     "@vercel/analytics": "^2.0.1",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.3",
     "lucide-react": "^1.16.0",
     "meilisearch": "^0.58.0",
     "minio": "^8.0.7",

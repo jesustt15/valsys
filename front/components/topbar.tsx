@@ -1,15 +1,31 @@
 'use client'
 
+import { ReactNode } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 
-export function Topbar() {
+interface TopbarProps {
+  fullName: string
+  role: string
+  logoutButton: ReactNode
+}
+
+export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const handleLogout = () => {
-    console.log('Logout')
-    // Tu lógica de logout aquí
-  }
+  const initials = fullName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+  const roleLabel =
+    role === 'admin'
+      ? 'Administrador'
+      : role === 'viewer'
+        ? 'Visualizador'
+        : 'Operador'
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-border h-16 flex items-center px-6">
@@ -32,11 +48,11 @@ export function Topbar() {
             className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors"
           >
             <div className="flex flex-col items-end">
-              <span className="text-sm font-medium text-foreground">Juan García</span>
-              <span className="text-xs text-muted-foreground">Inspector</span>
+              <span className="text-sm font-medium text-foreground">{fullName}</span>
+              <span className="text-xs text-muted-foreground">{roleLabel}</span>
             </div>
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
-              JG
+              {initials}
             </div>
           </button>
 
@@ -56,12 +72,7 @@ export function Topbar() {
                 Configuración
               </a>
               <div className="border-t border-border my-1" />
-              <button
-                onClick={handleLogout}
-                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
-              >
-                Cerrar Sesión
-              </button>
+              {logoutButton}
             </div>
           )}
         </div>

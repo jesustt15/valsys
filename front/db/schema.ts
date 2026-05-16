@@ -49,6 +49,7 @@ export const signatures = pgTable('signatures', {
 // ─── 2. Users & Owners ──────────────────────────────────────────
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
+  username: varchar('username').unique().notNull(),
   fullName: varchar('full_name').notNull(),
   email: varchar('email').unique().notNull(),
   passwordHash: varchar('password_hash').notNull(),
