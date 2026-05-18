@@ -3,6 +3,7 @@
 import { ReactNode } from 'react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 interface TopbarProps {
   fullName: string
@@ -28,11 +29,14 @@ export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
         : 'Operador'
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-border h-16 flex items-center px-6">
+    <header className="sticky top-0 z-40 bg-white dark:bg-card border-b border-border h-16 flex items-center px-6">
       <div className="flex-1" />
 
-      {/* Right side - User menu */}
-      <div className="flex items-center gap-4">
+      {/* Right side */}
+      <div className="flex items-center gap-3">
+        {/* Theme Toggle */}
+        <ThemeToggle />
+
         {/* Notifications */}
         <button className="relative p-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -58,7 +62,7 @@ export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
 
           {/* Dropdown Menu */}
           {isOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white border border-border rounded-lg shadow-lg py-2 z-50">
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-card border border-border rounded-lg shadow-lg py-2 z-50">
               <a
                 href="#"
                 className="block px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"

@@ -10,6 +10,14 @@ interface UserFormProps {
   user?: UserRecord
 }
 
+const inputClass = `
+  mt-1 block w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-sm shadow-sm
+  placeholder:text-muted-foreground
+  focus:border-ring focus:ring-1 focus:ring-ring focus:outline-none
+  disabled:opacity-50 disabled:cursor-not-allowed
+  transition-colors
+`.trim()
+
 export function UserForm({ mode, user }: UserFormProps) {
   const router = useRouter()
   const action = mode === 'create' ? createUserAction : updateUserAction
@@ -25,10 +33,10 @@ export function UserForm({ mode, user }: UserFormProps) {
     <form action={formAction} className="space-y-5" noValidate>
       {/* Encabezado */}
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-foreground">
           {mode === 'create' ? 'Nuevo Usuario' : 'Editar Usuario'}
         </h2>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           {mode === 'create'
             ? 'Complete los datos para crear un nuevo usuario del sistema'
             : 'Modifique los datos del usuario y guarde los cambios'}
@@ -41,8 +49,8 @@ export function UserForm({ mode, user }: UserFormProps) {
 
       {/* Username */}
       <div>
-        <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-          Usuario <span className="text-red-500">*</span>
+        <label htmlFor="username" className="block text-sm font-medium text-foreground">
+          Usuario <span className="text-destructive">*</span>
         </label>
         <input
           id="username"
@@ -55,18 +63,16 @@ export function UserForm({ mode, user }: UserFormProps) {
           pattern="^[a-zA-Z0-9_.-]+$"
           title="Solo letras, números, guiones, puntos y guiones bajos"
           placeholder="Ej: jperez"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                     placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                     disabled:opacity-50 disabled:cursor-not-allowed"
+          className={inputClass}
           disabled={isPending}
         />
-        <p className="mt-1 text-xs text-gray-400">3-30 caracteres, sin espacios</p>
+        <p className="mt-1 text-xs text-muted-foreground">3-30 caracteres, sin espacios</p>
       </div>
 
       {/* Full Name */}
       <div>
-        <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">
-          Nombre completo <span className="text-red-500">*</span>
+        <label htmlFor="fullName" className="block text-sm font-medium text-foreground">
+          Nombre completo <span className="text-destructive">*</span>
         </label>
         <input
           id="fullName"
@@ -77,17 +83,15 @@ export function UserForm({ mode, user }: UserFormProps) {
           minLength={3}
           maxLength={100}
           placeholder="Ej: Juan Pérez"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                     placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                     disabled:opacity-50 disabled:cursor-not-allowed"
+          className={inputClass}
           disabled={isPending}
         />
       </div>
 
       {/* Email */}
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-          Email <span className="text-red-500">*</span>
+        <label htmlFor="email" className="block text-sm font-medium text-foreground">
+          Email <span className="text-destructive">*</span>
         </label>
         <input
           id="email"
@@ -96,18 +100,21 @@ export function UserForm({ mode, user }: UserFormProps) {
           defaultValue={user?.email ?? ''}
           required
           placeholder="ej@correo.com"
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                     placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                     disabled:opacity-50 disabled:cursor-not-allowed"
+          className={inputClass}
           disabled={isPending}
         />
       </div>
 
       {/* Password */}
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-          Contraseña {mode === 'edit' && <span className="text-gray-500 font-normal">(dejar vacío para mantener la actual)</span>}
-          <span className="text-red-500">{mode === 'create' ? ' *' : ''}</span>
+        <label htmlFor="password" className="block text-sm font-medium text-foreground">
+          Contraseña{' '}
+          {mode === 'edit' && (
+            <span className="text-muted-foreground font-normal">
+              (dejar vacío para mantener la actual)
+            </span>
+          )}
+          <span className="text-destructive">{mode === 'create' ? ' *' : ''}</span>
         </label>
         <input
           id="password"
@@ -116,29 +123,25 @@ export function UserForm({ mode, user }: UserFormProps) {
           required={mode === 'create'}
           minLength={6}
           placeholder={mode === 'create' ? 'Mínimo 6 caracteres' : ''}
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                     placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                     disabled:opacity-50 disabled:cursor-not-allowed"
+          className={inputClass}
           disabled={isPending}
         />
         {mode === 'create' && (
-          <p className="mt-1 text-xs text-gray-400">Mínimo 6 caracteres</p>
+          <p className="mt-1 text-xs text-muted-foreground">Mínimo 6 caracteres</p>
         )}
       </div>
 
       {/* Role */}
       <div>
-        <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-          Rol <span className="text-red-500">*</span>
+        <label htmlFor="role" className="block text-sm font-medium text-foreground">
+          Rol <span className="text-destructive">*</span>
         </label>
         <select
           id="role"
           name="role"
           defaultValue={user?.role ?? 'operator'}
           required
-          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                     focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                     disabled:opacity-50 disabled:cursor-not-allowed"
+          className={inputClass}
           disabled={isPending}
         >
           <option value="admin">Administrador</option>
@@ -149,15 +152,15 @@ export function UserForm({ mode, user }: UserFormProps) {
 
       {/* Error feedback */}
       {state?.error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-          <p className="text-sm text-red-700">{state.error}</p>
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 px-4 py-3">
+          <p className="text-sm text-destructive">{state.error}</p>
         </div>
       )}
 
       {/* Success feedback */}
       {state?.success && (
-        <div className="rounded-lg bg-green-50 border border-green-200 px-4 py-3">
-          <p className="text-sm text-green-700">
+        <div className="rounded-lg bg-green-500/10 border border-green-500/20 px-4 py-3">
+          <p className="text-sm text-green-600 dark:text-green-400">
             Usuario {mode === 'create' ? 'creado' : 'actualizado'} correctamente
           </p>
         </div>
@@ -168,9 +171,10 @@ export function UserForm({ mode, user }: UserFormProps) {
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold
-                     text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500
-                     focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold
+                     text-primary-foreground shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2
+                     focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors"
         >
           {isPending ? (
             <>
@@ -186,7 +190,7 @@ export function UserForm({ mode, user }: UserFormProps) {
         <button
           type="button"
           onClick={() => router.back()}
-          className="text-sm text-gray-600 hover:text-gray-500 font-medium"
+          className="text-sm text-muted-foreground hover:text-foreground font-medium transition-colors"
         >
           Cancelar
         </button>
