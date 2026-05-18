@@ -9,7 +9,8 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith('/dashboard') ||
     request.nextUrl.pathname.startsWith('/owners') ||
-    request.nextUrl.pathname.startsWith('/vehicles')
+    request.nextUrl.pathname.startsWith('/vehicles') ||
+    request.nextUrl.pathname.startsWith('/admin')
 
   if (token) {
     const payload = await verifySession(token)
@@ -36,5 +37,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/dashboard/:path*', '/owners/:path*', '/vehicles/:path*'],
+  matcher: ['/', '/dashboard/:path*', '/owners/:path*', '/vehicles/:path*', '/admin/:path*'],
 }

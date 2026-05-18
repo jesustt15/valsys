@@ -19,6 +19,7 @@
 - `skills/valsys-forms/SKILL.md` — form patterns, Server Actions, file uploads, signatures
 - `skills/valsys-architecture/SKILL.md` — folder structure, naming, clean architecture layers
 - `skills/valsys-drizzle/SKILL.md` — schema design, migrations, queries, indexing
+- `skills/valsys-nextjs/SKILL.md` — RSC vs Client boundary, Server Actions, useActionState, common pitfalls
 
 ## Technical Workflow
 
