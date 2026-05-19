@@ -49,6 +49,18 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [stepError, setStepError] = useState<string | null>(null)
 
+  // Prevenir "ghost clicks" o doble taps en tablets al cambiar de paso
+  const [canSubmit, setCanSubmit] = useState(false)
+
+  useEffect(() => {
+    if (currentStep === 4) {
+      const timer = setTimeout(() => setCanSubmit(true), 500)
+      return () => clearTimeout(timer)
+    } else {
+      setCanSubmit(false)
+    }
+  }, [currentStep])
+
   const [vehicleId, setVehicleId] = useState('')
   const [kmCurrent, setKmCurrent] = useState('')
   const [observations, setObservations] = useState('')
@@ -107,13 +119,15 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
     [vehicleId, kmCurrent, answers],
   )
 
-  const nextStep = () => {
+  const nextStep = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault()
     if (validateStep(currentStep)) {
       setCurrentStep((s) => Math.min(s + 1, 4))
     }
   }
 
-  const prevStep = () => {
+  const prevStep = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault()
     setStepError(null)
     setCurrentStep((s) => Math.max(s - 1, 1))
   }
@@ -317,6 +331,9 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                       min={1}
                       value={kmCurrent}
                       onChange={(e) => setKmCurrent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.preventDefault()
+                      }}
                       required
                       disabled={pending}
                       placeholder="Ej: 45000"
@@ -417,8 +434,8 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
           <Button
             type="submit"
             size="lg"
-            disabled={pending}
-            className="h-12 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25"
+            disabled={pending || !canSubmit}
+            className="h-12 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25 transition-all duration-300"
           >
             {pending ? (
               <div className="flex items-center gap-2">
@@ -531,6 +548,9 @@ function ChecklistSection({
                   <Input
                     value={current.observations}
                     onChange={(e) => setObservation(q.key, e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.preventDefault()
+                    }}
                     disabled={disabled}
                     placeholder="Observaciones (opcional)..."
                     className="h-10 text-sm"
