@@ -3,6 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  LayoutDashboard,
+  Users,
+  Truck,
+  ClipboardCheck,
+  UserCog,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
 
 interface SidebarProps {
   role: string
@@ -13,146 +23,155 @@ export function Sidebar({ role }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true)
 
   const menuItems = [
-    {
-      label: 'Dashboard',
-      href: '/dashboard',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Dueños',
-      href: '/owners',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10h.01M13 16h.01M9 16h.01M7 20h10a2 2 0 002-2V6a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Vehículos',
-      href: '/vehicles',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12M8 7a2 2 0 100-4 2 2 0 000 4zm0 0H6a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3v2m0 0V5m0 2V3" />
-        </svg>
-      ),
-    },
-    {
-      label: 'Inspecciones',
-      href: '/inspections',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-        </svg>
-      ),
-    },
+    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { label: 'Dueños', href: '/owners', icon: Users },
+    { label: 'Vehículos', href: '/vehicles', icon: Truck },
+    { label: 'Inspecciones', href: '/inspections', icon: ClipboardCheck },
   ]
 
   const adminItems = [
-    {
-      label: 'Usuarios',
-      href: '/admin/users',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-        </svg>
-      ),
-    },
+    { label: 'Usuarios', href: '/admin/users', icon: UserCog },
   ]
 
   const isActive = (href: string) => pathname === href
   const isAdmin = role === 'admin'
 
   return (
-    <aside
-      className={`bg-sidebar text-sidebar-foreground border-r border-sidebar-border transition-all duration-300 h-screen sticky top-0 ${
-        isOpen ? 'w-64' : 'w-20'
-      }`}
+    <motion.aside
+      animate={{ width: isOpen ? 256 : 80 }}
+      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex flex-col"
     >
-      <div className="flex flex-col h-full">
-        {/* Logo */}
-        <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
-          {isOpen && (
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
+      {/* Logo */}
+      <div className="p-5 border-b border-sidebar-border flex items-center justify-between">
+        <AnimatePresence mode="wait">
+          {isOpen ? (
+            <motion.div
+              key="logo-full"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="flex items-center gap-3"
+            >
+              <div className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-sm">
                 <span className="text-sidebar-primary-foreground font-bold text-sm">V</span>
               </div>
-              <span className="font-bold text-lg whitespace-nowrap">ValSys</span>
-            </div>
-          )}
-          {!isOpen && (
-            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center mx-auto">
+              <span className="font-bold text-lg">ValSys</span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="logo-icon"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-sm"
+            >
               <span className="text-sidebar-primary-foreground font-bold text-sm">V</span>
-            </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
+      </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 px-3 py-6 space-y-2">
-          {menuItems.map((item) => (
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-5 space-y-1.5">
+        {menuItems.map((item) => {
+          const Icon = item.icon
+          const active = isActive(item.href)
+          return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
-                isActive(item.href)
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent/10'
+              className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden ${
+                active
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
+                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground'
               }`}
               title={!isOpen ? item.label : undefined}
             >
-              {item.icon}
-              {isOpen && <span className="font-medium">{item.label}</span>}
+              {active && (
+                <motion.div
+                  layoutId="activeIndicator"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white/30 rounded-r-full"
+                  transition={{ duration: 0.2 }}
+                />
+              )}
+              <Icon className="w-5 h-5 flex-shrink-0" />
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.span
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="font-medium whitespace-nowrap overflow-hidden"
+                  >
+                    {item.label}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </Link>
-          ))}
+          )
+        })}
 
-          {/* Admin Section — only visible for admin role */}
-          {isAdmin && (
-            <>
-              {/* Divider */}
-              <div className="my-4 border-t border-sidebar-border" />
-
-              {isOpen && <p className="px-4 py-2 text-xs font-semibold text-sidebar-foreground/60 uppercase">Admin</p>}
-              {adminItems.map((item) => (
+        {/* Admin Section */}
+        {isAdmin && (
+          <>
+            <div className="my-3 border-t border-sidebar-border/50" />
+            {isOpen && (
+              <p className="px-3.5 py-2 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider">
+                Administración
+              </p>
+            )}
+            {adminItems.map((item) => {
+              const Icon = item.icon
+              const active = isActive(item.href)
+              return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200 ${
-                    isActive(item.href)
+                  className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 ${
+                    active
                       ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent/10'
+                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground'
                   }`}
                   title={!isOpen ? item.label : undefined}
                 >
-                  {item.icon}
-                  {isOpen && <span className="font-medium">{item.label}</span>}
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <AnimatePresence>
+                    {isOpen && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="font-medium whitespace-nowrap"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                 </Link>
-              ))}
-            </>
-          )}
-        </nav>
+              )
+            })}
+          </>
+        )}
+      </nav>
 
-        {/* Toggle Button */}
-        <div className="p-4 border-t border-sidebar-border">
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className="w-full flex items-center justify-center p-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent/10 transition-colors duration-200"
-            aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-          >
-            {isOpen ? (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            ) : (
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            )}
-          </button>
-        </div>
+      {/* Toggle Button */}
+      <div className="p-4 border-t border-sidebar-border/50">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full flex items-center justify-center p-2.5 rounded-xl text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground transition-all duration-200"
+          aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        >
+          {isOpen ? (
+            <ChevronLeft className="w-5 h-5" />
+          ) : (
+            <ChevronRight className="w-5 h-5" />
+          )}
+        </button>
       </div>
-    </aside>
+    </motion.aside>
   )
 }

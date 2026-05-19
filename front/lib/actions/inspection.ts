@@ -86,6 +86,14 @@ export async function createInspectionAction(
   if (photos.length > 0) {
     try {
       for (const file of photos) {
+        console.log(
+          '[createInspectionAction] photos received:',
+          photos.map((f) => ({
+            name: f?.name,
+            size: f?.size,
+            type: f?.type,
+          }))
+        )
         if (!file || file.size === 0) continue
         const timestamp = Date.now()
         const minioKey = `inspections/${inspectionId}/${category}/${timestamp}-${file.name}`

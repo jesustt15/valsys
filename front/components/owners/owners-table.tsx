@@ -2,7 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Plus, Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 interface OwnersTableProps {
   owners: Array<{
@@ -29,43 +33,32 @@ export function OwnersTable({ owners }: OwnersTableProps) {
   }, [owners, query])
 
   return (
-    <div className="space-y-4">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="space-y-4"
+    >
       {/* Search bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
             id="owners-search"
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por nombre o documento..."
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-border bg-background text-foreground
-                       placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring
-                       transition-colors"
+            className="pl-9 h-11"
           />
         </div>
 
-        <Link
-          href="/owners/new"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium
-                     text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo Dueño
-        </Link>
+        <Button asChild className="h-11">
+          <Link href="/owners/new">
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Dueño
+          </Link>
+        </Button>
       </div>
 
       {/* Results count */}
@@ -76,51 +69,59 @@ export function OwnersTable({ owners }: OwnersTableProps) {
       ) : null}
 
       {/* Table */}
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-muted/50 border-b border-border">
-            <tr>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Documento
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Nombre
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                Teléfono
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                Email
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                Creado
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {filtered.map((owner) => (
-              <tr key={owner.id} className="hover:bg-muted/30 transition-colors">
-                <td className="px-4 py-3 text-sm font-medium text-foreground font-mono">
-                  {owner.documentId}
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground">
-                  {owner.fullName}
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                  {owner.phone ?? '—'}
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                  {owner.email ?? '—'}
-                </td>
-                <td className="px-4 py-3 text-sm text-muted-foreground hidden sm:table-cell">
-                  {owner.createdAt
-                    ? new Date(owner.createdAt).toLocaleDateString('es-AR')
-                    : '—'}
-                </td>
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50 border-b border-border">
+              <tr>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Documento
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Nombre
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                  Teléfono
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                  Email
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                  Creado
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map((owner, i) => (
+                <motion.tr
+                  key={owner.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.03 }}
+                  className="hover:bg-muted/30 transition-colors"
+                >
+                  <td className="px-4 py-3.5 text-sm font-medium text-foreground font-mono">
+                    {owner.documentId}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground">
+                    {owner.fullName}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
+                    {owner.phone ?? '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
+                    {owner.email ?? '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
+                    {owner.createdAt
+                      ? new Date(owner.createdAt).toLocaleDateString('es-AR')
+                      : '—'}
+                  </td>
+                </motion.tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
@@ -131,7 +132,7 @@ export function OwnersTable({ owners }: OwnersTableProps) {
                 : 'No hay dueños registrados'}
           </div>
         )}
-      </div>
-    </div>
+      </Card>
+    </motion.div>
   )
 }

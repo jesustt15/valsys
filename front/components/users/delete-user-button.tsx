@@ -2,6 +2,8 @@
 
 import { useActionState } from 'react'
 import { deleteUserAction } from '@/lib/actions/user'
+import { Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface DeleteUserButtonProps {
   userId: string
@@ -20,15 +22,17 @@ export function DeleteUserButton({ userId }: DeleteUserButtonProps) {
     <form action={formAction} onSubmit={handleSubmit} className="inline">
       <input type="hidden" name="id" value={userId} />
       {state?.error && (
-        <span className="text-xs text-red-600 mr-2">{state.error}</span>
+        <span className="text-xs text-destructive mr-2">{state.error}</span>
       )}
-      <button
+      <Button
         type="submit"
+        variant="ghost"
+        size="icon"
         disabled={isPending}
-        className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="h-9 w-9 text-destructive hover:bg-destructive/10"
       >
-        {isPending ? 'Eliminando...' : 'Eliminar'}
-      </button>
+        <Trash2 className="w-4 h-4" />
+      </Button>
     </form>
   )
 }

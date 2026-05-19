@@ -1,10 +1,19 @@
 'use client'
 
-import { useState, useActionState, useEffect } from 'react'
+import { useState, useActionState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import { FRONT_QUESTIONS, REAR_QUESTIONS, type ChecklistQuestion } from '@/lib/checklist'
 import { createInspectionAction, type InspectionFormState } from '@/lib/actions/inspection'
 import { PhotoUpload } from '@/components/inspections/photo-upload'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, Truck, ClipboardCheck, Camera } from 'lucide-react'
 
 interface VehicleOption {
   id: string
@@ -22,10 +31,16 @@ interface AnswerState {
   observations: string
 }
 
-const STEPS = ['Vehículo', 'Frente', 'Parte Trasera', 'Fotos']
+const STEPS = [
+  { label: 'Vehículo', icon: Truck },
+  { label: 'Frente', icon: ClipboardCheck },
+  { label: 'Trasera', icon: ClipboardCheck },
+  { label: 'Fotos', icon: Camera },
+]
 
 export function InspectionForm({ vehicles }: InspectionFormProps) {
   const router = useRouter()
+
   const [state, formAction, pending] = useActionState<InspectionFormState | null, FormData>(
     createInspectionAction,
     null,
@@ -34,13 +49,10 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [stepError, setStepError] = useState<string | null>(null)
 
-  // Vehicle step state
   const [vehicleId, setVehicleId] = useState('')
   const [kmCurrent, setKmCurrent] = useState('')
   const [observations, setObservations] = useState('')
 
-  // Checklist answers: Map<questionKey, AnswerState>
-  // answer is undefined = not yet answered, null = pendiente, true = sí, false = no
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() => {
     const map = new Map<string, AnswerState>()
     for (const q of [...FRONT_QUESTIONS, ...REAR_QUESTIONS]) {
@@ -49,48 +61,51 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
     return map
   })
 
-  // Photo files
-  const [photos, setPhotos] = useState<File[]>([])
-
-  // ─── Step Navigation ──────────────────────────────────────────
-
-  const validateStep = (step: number): boolean => {
-    setStepError(null)
-
-    if (step === 1) {
-      if (!vehicleId) {
-        setStepError('Seleccione un vehículo')
-        return false
-      }
-      const km = Number(kmCurrent)
-      if (!kmCurrent || km <= 0) {
-        setStepError('Ingrese los kilómetros actuales (mayor a 0)')
-        return false
-      }
-      return true
+  useEffect(() => {
+    if (state?.success) {
+      router.push('/inspections')
     }
+  }, [state?.success, router])
 
-    if (step === 2) {
-      const unanswered = FRONT_QUESTIONS.filter((q) => answers.get(q.key)?.answer === undefined)
-      if (unanswered.length > 0) {
-        setStepError(`Faltan responder ${unanswered.length} pregunta(s) en esta sección`)
-        return false
+  const validateStep = useCallback(
+    (step: number): boolean => {
+      setStepError(null)
+
+      if (step === 1) {
+        if (!vehicleId) {
+          setStepError('Seleccione un vehículo')
+          return false
+        }
+        const km = Number(kmCurrent)
+        if (!kmCurrent || Number.isNaN(km) || km <= 0) {
+          setStepError('Ingrese los kilómetros actuales (mayor a 0)')
+          return false
+        }
+        return true
       }
-      return true
-    }
 
-    if (step === 3) {
-      const unanswered = REAR_QUESTIONS.filter((q) => answers.get(q.key)?.answer === undefined)
-      if (unanswered.length > 0) {
-        setStepError(`Faltan responder ${unanswered.length} pregunta(s) en esta sección`)
-        return false
+      if (step === 2) {
+        const unanswered = FRONT_QUESTIONS.filter((q) => answers.get(q.key)?.answer === undefined)
+        if (unanswered.length > 0) {
+          setStepError(`Faltan responder ${unanswered.length} pregunta(s) en esta sección`)
+          return false
+        }
+        return true
       }
-      return true
-    }
 
-    // Step 4 (photos) — always valid, photos are optional
-    return true
-  }
+      if (step === 3) {
+        const unanswered = REAR_QUESTIONS.filter((q) => answers.get(q.key)?.answer === undefined)
+        if (unanswered.length > 0) {
+          setStepError(`Faltan responder ${unanswered.length} pregunta(s) en esta sección`)
+          return false
+        }
+        return true
+      }
+
+      return true
+    },
+    [vehicleId, kmCurrent, answers],
+  )
 
   const nextStep = () => {
     if (validateStep(currentStep)) {
@@ -103,12 +118,10 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
     setCurrentStep((s) => Math.max(s - 1, 1))
   }
 
-  // ─── Answer Helpers ───────────────────────────────────────────
-
   const setAnswer = (key: string, answer: boolean | null) => {
     setAnswers((prev) => {
       const next = new Map(prev)
-      const existing = next.get(key) ?? { observations: '' }
+      const existing = next.get(key) ?? { answer: undefined, observations: '' }
       next.set(key, { ...existing, answer })
       return next
     })
@@ -117,31 +130,27 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const setObservation = (key: string, obs: string) => {
     setAnswers((prev) => {
       const next = new Map(prev)
-      const existing = next.get(key) ?? { answer: null }
+      const existing = next.get(key) ?? { answer: undefined, observations: '' }
       next.set(key, { ...existing, observations: obs })
       return next
     })
   }
 
-  // ─── Form Submission ──────────────────────────────────────────
-
   const handleSubmit = async (formData: FormData) => {
-    // Append controlled state values — they're not in the DOM due to conditional rendering
-    formData.append('vehicleId', vehicleId)
-    formData.append('kmCurrent', kmCurrent)
-    formData.append('observations', observations)
-
-    // Collect photos — from native FormData (name="photos") + state fallback
-    const nativePhotos = formData.getAll('photos') as File[]
-    if (nativePhotos.length === 0) {
-      // PhotoUpload stores files via onFilesChange → photos state;
-      // add them if they weren't in the native FormData
-      for (const file of photos) {
-        formData.append('photos', file)
-      }
+    if (currentStep !== 4) {
+      setStepError('Debe completar todos los pasos antes de enviar la inspección')
+      return
     }
 
-    // Build answers array
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+      return
+    }
+
+    formData.set('vehicleId', vehicleId)
+    formData.set('kmCurrent', kmCurrent)
+    formData.set('observations', observations)
+    formData.set('category', 'initial')
+
     const allQuestions = [...FRONT_QUESTIONS, ...REAR_QUESTIONS]
     const answersArray = allQuestions.map((q) => ({
       section: q.section,
@@ -150,18 +159,9 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
       observations: answers.get(q.key)?.observations || undefined,
     }))
 
-    formData.append('answers', JSON.stringify(answersArray))
-    formData.append('category', 'initial')
-
+    formData.set('answers', JSON.stringify(answersArray))
     return formAction(formData)
   }
-
-  // Handle success redirect
-  useEffect(() => {
-    if (state?.success) {
-      router.push('/inspections')
-    }
-  }, [state?.success, router])
 
   if (state?.success) {
     return null
@@ -169,240 +169,277 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
 
   return (
     <form action={handleSubmit} className="space-y-6" noValidate>
-      {/* Step Indicator */}
-      <nav aria-label="Pasos del formulario">
-        <ol className="flex items-center justify-between">
-          {STEPS.map((label, i) => {
-            const stepNum = i + 1
-            const isActive = stepNum === currentStep
-            const isComplete = stepNum < currentStep
-            return (
-              <li key={label} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold border-2 transition-colors
-                      ${isActive ? 'bg-blue-600 border-blue-600 text-white' : ''}
-                      ${isComplete ? 'bg-green-600 border-green-600 text-white' : ''}
-                      ${!isActive && !isComplete ? 'bg-gray-100 border-gray-300 text-gray-500' : ''}`}
-                  >
-                    {isComplete ? '✓' : stepNum}
-                  </div>
-                  <span
-                    className={`mt-1 text-xs hidden sm:block
-                      ${isActive ? 'text-blue-600 font-medium' : ''}
-                      ${isComplete ? 'text-green-600' : 'text-gray-500'}`}
-                  >
-                    {label}
-                  </span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className={`flex-1 h-0.5 mx-2 transition-colors
-                      ${isComplete ? 'bg-green-600' : 'bg-gray-200'}`}
-                  />
-                )}
-              </li>
-            )
-          })}
-        </ol>
-      </nav>
+      {/* Stepper */}
+      <Card>
+        <CardContent className="p-4">
+          <nav aria-label="Pasos del formulario">
+            <ol className="flex items-center justify-between">
+              {STEPS.map((step, i) => {
+                const stepNum = i + 1
+                const isActive = stepNum === currentStep
+                const isComplete = stepNum < currentStep
+                const Icon = step.icon
 
-      {/* Global error */}
-      {(state?.error || stepError) && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-          <p className="text-sm text-red-700">{state?.error ?? stepError}</p>
-        </div>
-      )}
+                return (
+                  <li key={step.label} className="flex items-center flex-1 last:flex-none">
+                    <div className="flex flex-col items-center">
+                      <motion.div
+                        whileHover={{ scale: 1.1 }}
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-semibold border-2 transition-all duration-300 ${
+                          isActive
+                            ? 'bg-primary border-primary text-primary-foreground shadow-sm'
+                            : isComplete
+                              ? 'bg-green-500 border-green-500 text-white'
+                              : 'bg-muted/50 border-border text-muted-foreground'
+                        }`}
+                      >
+                        {isComplete ? <CheckCircle className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                      </motion.div>
+                      <span
+                        className={`mt-1.5 text-xs hidden sm:block transition-colors ${
+                          isActive ? 'text-primary font-medium' : isComplete ? 'text-green-600' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {step.label}
+                      </span>
+                    </div>
 
-      {/* Photo error (inspection created but photos failed) */}
-      {state?.photoError && (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
-          <p className="text-sm text-amber-700">{state.photoError}</p>
-        </div>
-      )}
+                    {i < STEPS.length - 1 && (
+                      <div
+                        className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${
+                          isComplete ? 'bg-green-500' : 'bg-muted'
+                        }`}
+                      />
+                    )}
+                  </li>
+                )
+              })}
+            </ol>
+          </nav>
+        </CardContent>
+      </Card>
 
-      {/* Card wrapper */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        {/* Step 1: Vehicle Selection */}
-        {currentStep === 1 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Datos del Vehículo</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Seleccione el vehículo a inspeccionar
-              </p>
-            </div>
+      {/* Errors */}
+      <AnimatePresence>
+        {(state?.error || stepError) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{state?.error ?? stepError}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            {/* Vehicle dropdown */}
-            <div>
-              <label htmlFor="vehicleId" className="block text-sm font-medium text-gray-700">
-                Vehículo <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="vehicleId"
-                name="vehicleId"
-                value={vehicleId}
-                onChange={(e) => setVehicleId(e.target.value)}
-                required
-                disabled={pending}
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                           focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                           disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+      <AnimatePresence mode="wait">
+        {state?.photoError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="warning">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{state.photoError}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Form Content */}
+      <motion.div
+        key={currentStep}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        transition={{ duration: 0.2 }}
+      >
+        <Card>
+          <AnimatePresence mode="wait">
+            {currentStep === 1 && (
+              <motion.div
+                key="step1"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
               >
-                <option value="">— Seleccionar vehículo —</option>
-                {vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.licensePlate}
-                    {v.brand ? ` — ${v.brand} ${v.model ?? ''}` : ''}
-                  </option>
-                ))}
-              </select>
-              {vehicles.length === 0 && (
-                <p className="mt-1 text-xs text-amber-600">
-                  No hay vehículos registrados.{' '}
-                  <a href="/vehicles/new" className="underline hover:text-amber-700">
-                    Crear uno primero
-                  </a>
-                </p>
-              )}
-            </div>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
+                      <Truck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <CardTitle>Datos del Vehículo</CardTitle>
+                      <CardDescription>Seleccione el vehículo a inspeccionar</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="space-y-2">
+                    <Label htmlFor="vehicleId" required>Vehículo</Label>
+                    <select
+                      id="vehicleId"
+                      name="vehicleId"
+                      value={vehicleId}
+                      onChange={(e) => setVehicleId(e.target.value)}
+                      required
+                      disabled={pending}
+                      className="flex h-12 w-full rounded-xl border border-input bg-background px-4 py-3 text-base transition-all duration-200 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 bg-white dark:bg-card"
+                    >
+                      <option value="">— Seleccionar vehículo —</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.licensePlate}
+                          {v.brand ? ` — ${v.brand} ${v.model ?? ''}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {vehicles.length === 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        No hay vehículos registrados.{' '}
+                        <a href="/vehicles/new" className="underline hover:text-amber-700">
+                          Crear uno primero
+                        </a>
+                      </p>
+                    )}
+                  </div>
 
-            {/* KM */}
-            <div>
-              <label htmlFor="kmCurrent" className="block text-sm font-medium text-gray-700">
-                Kilómetros actuales <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="kmCurrent"
-                name="kmCurrent"
-                type="number"
-                min={1}
-                value={kmCurrent}
-                onChange={(e) => setKmCurrent(e.target.value)}
-                required
-                disabled={pending}
-                placeholder="Ej: 45000"
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                           placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                           disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-            </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="kmCurrent" required>Kilómetros actuales</Label>
+                    <Input
+                      id="kmCurrent"
+                      name="kmCurrent"
+                      type="number"
+                      min={1}
+                      value={kmCurrent}
+                      onChange={(e) => setKmCurrent(e.target.value)}
+                      required
+                      disabled={pending}
+                      placeholder="Ej: 45000"
+                      className="h-12 text-base"
+                    />
+                  </div>
 
-            {/* Observations */}
-            <div>
-              <label htmlFor="observations" className="block text-sm font-medium text-gray-700">
-                Observaciones generales
-              </label>
-              <textarea
-                id="observations"
-                name="observations"
-                rows={3}
-                value={observations}
-                onChange={(e) => setObservations(e.target.value)}
-                disabled={pending}
-                placeholder="Notas adicionales sobre el estado del vehículo..."
-                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm
-                           placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                           disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-              />
-            </div>
-          </div>
-        )}
+                  <div className="space-y-2">
+                    <Label htmlFor="observations">Observaciones generales</Label>
+                    <Textarea
+                      id="observations"
+                      name="observations"
+                      rows={3}
+                      value={observations}
+                      onChange={(e) => setObservations(e.target.value)}
+                      disabled={pending}
+                      placeholder="Notas adicionales sobre el estado del vehículo..."
+                    />
+                  </div>
+                </CardContent>
+              </motion.div>
+            )}
 
-        {/* Step 2: Front Checklist */}
-        {currentStep === 2 && (
-          <ChecklistSection
-            title="Inspección — Frente del Vehículo"
-            questions={FRONT_QUESTIONS}
-            answers={answers}
-            setAnswer={setAnswer}
-            setObservation={setObservation}
-            disabled={pending}
-          />
-        )}
+            {currentStep === 2 && (
+              <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <ChecklistSection
+                  title="Inspección — Frente del Vehículo"
+                  questions={FRONT_QUESTIONS}
+                  answers={answers}
+                  setAnswer={setAnswer}
+                  setObservation={setObservation}
+                  disabled={pending}
+                />
+              </motion.div>
+            )}
 
-        {/* Step 3: Rear Checklist */}
-        {currentStep === 3 && (
-          <ChecklistSection
-            title="Inspección — Parte Trasera"
-            questions={REAR_QUESTIONS}
-            answers={answers}
-            setAnswer={setAnswer}
-            setObservation={setObservation}
-            disabled={pending}
-          />
-        )}
+            {currentStep === 3 && (
+              <motion.div key="step3" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <ChecklistSection
+                  title="Inspección — Parte Trasera"
+                  questions={REAR_QUESTIONS}
+                  answers={answers}
+                  setAnswer={setAnswer}
+                  setObservation={setObservation}
+                  disabled={pending}
+                />
+              </motion.div>
+            )}
 
-        {/* Step 4: Photo Upload */}
-        {currentStep === 4 && (
-          <div className="space-y-5">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Fotografías</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Capture fotos del estado actual del vehículo
-              </p>
-            </div>
-
-            <PhotoUpload
-              category="initial"
-              label="Fotos de inspección inicial"
-              onFilesChange={setPhotos}
-            />
-          </div>
-        )}
-      </div>
+            {currentStep === 4 && (
+              <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
+                      <Camera className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div>
+                      <CardTitle>Fotografías</CardTitle>
+                      <CardDescription>Capture fotos del estado actual del vehículo</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <PhotoUpload category="initial" label="Fotos de inspección inicial" />
+                </CardContent>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Card>
+      </motion.div>
 
       {/* Navigation Buttons */}
       <div className="flex items-center justify-between">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="lg"
           onClick={prevStep}
           disabled={currentStep === 1 || pending}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold
-                     text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500
-                     focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="h-12"
         >
+          <ChevronLeft className="w-4 h-4 mr-2" />
           Anterior
-        </button>
+        </Button>
 
         {currentStep < 4 ? (
-          <button
+          <Button
             type="button"
+            size="lg"
             onClick={nextStep}
             disabled={pending}
-            className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold
-                       text-white shadow-sm hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500
-                       focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="h-12"
           >
             Siguiente
-          </button>
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
         ) : (
-          <button
+          <Button
             type="submit"
+            size="lg"
             disabled={pending}
-            className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold
-                       text-white shadow-sm hover:bg-green-500 focus:outline-none focus:ring-2 focus:ring-green-500
-                       focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="h-12 bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25"
           >
             {pending ? (
-              <>
-                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+              <div className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
                 Creando...
-              </>
+              </div>
             ) : (
-              'Crear Inspección'
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5" />
+                Crear Inspección
+              </div>
             )}
-          </button>
+          </Button>
         )}
       </div>
     </form>
   )
 }
-
-// ─── Checklist Section Sub-Component ─────────────────────────────
 
 interface ChecklistSectionProps {
   title: string
@@ -423,109 +460,87 @@ function ChecklistSection({
 }: ChecklistSectionProps) {
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          Marque cada ítem según corresponda
-        </p>
-      </div>
-
-      <div className="space-y-4">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>Marque cada ítem según corresponda</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
         {questions.map((q, idx) => {
-          const current = answers.get(q.key) ?? { answer: null, observations: '' }
+          const current = answers.get(q.key) ?? { answer: undefined, observations: '' }
+
           return (
-            <div
+            <motion.div
               key={q.key}
-              className="rounded-lg border border-gray-200 bg-gray-50 p-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.03 }}
+              className="rounded-xl border border-border bg-secondary/30 p-4"
             >
               <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-200 text-gray-600 text-xs font-semibold flex items-center justify-center mt-0.5">
+                <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
                   {idx + 1}
                 </span>
+
                 <div className="flex-1 space-y-3">
-                  <p className="text-sm font-medium text-gray-800">{q.label}</p>
+                  <p className="text-sm font-medium text-foreground">{q.label}</p>
 
-                  {/* Radio group: Sí / No / Pendiente */}
                   <div className="flex gap-2">
-                    {/* Sí */}
-                    <label
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors
-                        ${current.answer === true
-                          ? 'bg-green-50 border-green-300 text-green-700'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-green-200'}`}
+                    <button
+                      type="button"
+                      onClick={() => setAnswer(q.key, true)}
+                      disabled={disabled}
+                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
+                        current.answer === true
+                          ? 'bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400 shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:border-green-200 hover:text-green-600'
+                      }`}
                     >
-                      <input
-                        type="radio"
-                        name={`answer_${q.key}`}
-                        value="yes"
-                        checked={current.answer === true}
-                        onChange={() => setAnswer(q.key, true)}
-                        disabled={disabled}
-                        className="sr-only"
-                      />
-                      <span className={`w-2 h-2 rounded-full ${current.answer === true ? 'bg-green-500' : 'bg-gray-300'}`} />
+                      <span className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === true ? 'bg-green-500' : 'bg-muted'}`} />
                       Sí
-                    </label>
+                    </button>
 
-                    {/* No */}
-                    <label
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors
-                        ${current.answer === false
-                          ? 'bg-red-50 border-red-300 text-red-700'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-red-200'}`}
+                    <button
+                      type="button"
+                      onClick={() => setAnswer(q.key, false)}
+                      disabled={disabled}
+                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
+                        current.answer === false
+                          ? 'bg-red-50 border-red-300 text-red-700 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400 shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:border-red-200 hover:text-red-600'
+                      }`}
                     >
-                      <input
-                        type="radio"
-                        name={`answer_${q.key}`}
-                        value="no"
-                        checked={current.answer === false}
-                        onChange={() => setAnswer(q.key, false)}
-                        disabled={disabled}
-                        className="sr-only"
-                      />
-                      <span className={`w-2 h-2 rounded-full ${current.answer === false ? 'bg-red-500' : 'bg-gray-300'}`} />
+                      <span className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === false ? 'bg-red-500' : 'bg-muted'}`} />
                       No
-                    </label>
+                    </button>
 
-                    {/* Pendiente */}
-                    <label
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium cursor-pointer transition-colors
-                        ${current.answer === null
-                          ? 'bg-yellow-50 border-yellow-300 text-yellow-700'
-                          : 'bg-white border-gray-200 text-gray-600 hover:border-yellow-200'}`}
+                    <button
+                      type="button"
+                      onClick={() => setAnswer(q.key, null)}
+                      disabled={disabled}
+                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
+                        current.answer === null
+                          ? 'bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400 shadow-sm'
+                          : 'bg-background border-border text-muted-foreground hover:border-amber-200 hover:text-amber-600'
+                      }`}
                     >
-                      <input
-                        type="radio"
-                        name={`answer_${q.key}`}
-                        value="pending"
-                        checked={current.answer === null}
-                        onChange={() => setAnswer(q.key, null)}
-                        disabled={disabled}
-                        className="sr-only"
-                      />
-                      <span className={`w-2 h-2 rounded-full ${current.answer === null ? 'bg-yellow-500' : 'bg-gray-300'}`} />
+                      <span className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === null ? 'bg-amber-500' : 'bg-muted'}`} />
                       Pendiente
-                    </label>
+                    </button>
                   </div>
 
-                  {/* Observations textarea */}
-                  <textarea
-                    name={`obs_${q.key}`}
-                    rows={1}
+                  <Input
                     value={current.observations}
                     onChange={(e) => setObservation(q.key, e.target.value)}
                     disabled={disabled}
                     placeholder="Observaciones (opcional)..."
-                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-xs shadow-sm
-                               placeholder:text-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500
-                               disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                    className="h-10 text-sm"
                   />
                 </div>
               </div>
-            </div>
+            </motion.div>
           )
         })}
-      </div>
+      </CardContent>
     </div>
   )
 }

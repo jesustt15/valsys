@@ -2,8 +2,10 @@
 
 import { ReactNode } from 'react'
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { Bell, User, Settings, LogOut, ChevronDown } from 'lucide-react'
 
 interface TopbarProps {
   fullName: string
@@ -29,58 +31,85 @@ export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
         : 'Operador'
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-card border-b border-border h-16 flex items-center px-6">
+    <motion.header
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.3 }}
+      className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border h-16 flex items-center px-6"
+    >
       <div className="flex-1" />
 
       {/* Right side */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Theme Toggle */}
         <ThemeToggle />
 
         {/* Notifications */}
-        <button className="relative p-2 text-foreground hover:bg-secondary rounded-lg transition-colors">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
-          <span className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full" />
-        </button>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="relative p-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors"
+        >
+          <Bell className="w-5 h-5" />
+          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+        </motion.button>
 
         {/* User Profile Dropdown */}
         <div className="relative">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => setIsOpen(!isOpen)}
-            className="flex items-center gap-3 p-2 rounded-lg hover:bg-secondary transition-colors"
+            className="flex items-center gap-3 p-2 rounded-xl hover:bg-secondary transition-colors"
           >
-            <div className="flex flex-col items-end">
+            <div className="flex flex-col items-end hidden sm:flex">
               <span className="text-sm font-medium text-foreground">{fullName}</span>
               <span className="text-xs text-muted-foreground">{roleLabel}</span>
             </div>
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-bold text-sm">
+            <div className="w-9 h-9 bg-gradient-to-br from-primary to-primary/80 rounded-xl flex items-center justify-center text-primary-foreground font-bold text-sm shadow-sm">
               {initials}
             </div>
-          </button>
+            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 hidden sm:block ${isOpen ? 'rotate-180' : ''}`} />
+          </motion.button>
 
           {/* Dropdown Menu */}
-          {isOpen && (
-            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-card border border-border rounded-lg shadow-lg py-2 z-50">
-              <a
-                href="#"
-                className="block px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-              >
-                Mi Perfil
-              </a>
-              <a
-                href="#"
-                className="block px-4 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-              >
-                Configuración
-              </a>
-              <div className="border-t border-border my-1" />
-              {logoutButton}
-            </div>
-          )}
+          <AnimatePresence>
+            {isOpen && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsOpen(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-0 mt-2 w-56 bg-popover border border-border rounded-xl shadow-xl py-2 z-50"
+                >
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="text-sm font-medium text-foreground">{fullName}</p>
+                    <p className="text-xs text-muted-foreground">{roleLabel}</p>
+                  </div>
+                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors">
+                    <User className="w-4 h-4" />
+                    Mi Perfil
+                  </button>
+                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors">
+                    <Settings className="w-4 h-4" />
+                    Configuración
+                  </button>
+                  <div className="border-t border-border my-1" />
+                  <div className="px-2 py-1">
+                    {logoutButton}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
       </div>
-    </header>
+    </motion.header>
   )
 }
