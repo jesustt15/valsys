@@ -20,7 +20,7 @@ export default async function DashboardLayout({
       <Sidebar role={session.role} />
       <div className="flex flex-col flex-1 ml-2">
         <Topbar fullName={session.fullName} role={session.role} logoutButton={<LogoutButton />} />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>

@@ -1,0 +1,32 @@
+project: valsys
+description: "GNC Vehicle & Cylinder Lifecycle Management — Next.js 16 + Drizzle ORM + PostgreSQL + MinIO"
+
+context:
+  stack: Next.js 16.2.6, React 19.2.4, Tailwind CSS 4, Drizzle ORM, PostgreSQL 15, Meilisearch, MinIO
+  app_dir: front/
+  db: PostgreSQL localhost:5433 (docker-compose)
+  storage: MinIO localhost:9000 (docker-compose)
+  search: Meilisearch localhost:7700 (docker-compose)
+  package_manager: pnpm workspaces
+  mutations: Server Actions only — NO API routes for mutations
+
+strict_tdd: false
+testing:
+  runner: none
+  unit: unavailable
+  integration: unavailable
+  e2e: unavailable
+  coverage: unavailable
+  quality:
+    linter: eslint (eslint-config-next)
+    type_checker: tsc --noEmit (via Next.js)
+    formatter: none
+
+phases:
+  proposal: "Define intent, scope, and approach"
+  spec: "Write delta specs with requirements and scenarios"
+  design: "Create technical design and architecture"
+  tasks: "Break change into implementation tasks"
+  apply: "Implement tasks from specs and design"
+  verify: "Execute tests and prove implementation matches"
+  archive: "Archive completed change by syncing delta specs"
