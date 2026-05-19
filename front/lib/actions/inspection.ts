@@ -2,10 +2,11 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { inspections, inspectionAnswers, inspectionAttachments } from '@/db/schema'
+import { inspections, inspectionAnswers, inspectionAttachments, signatures } from '@/db/schema'
 import { createInspectionSchema, checklistAnswersSchema } from '@/lib/validations/inspection'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 import { putObject } from '@/lib/minio'
+import { getSession } from '@/lib/auth/get-session'
 
 export type InspectionFormState = {
   success?: boolean
@@ -18,12 +19,19 @@ export async function createInspectionAction(
   _prev: InspectionFormState | null,
   formData: FormData,
 ): Promise<InspectionFormState> {
+  // Get current user from session
+  const session = await getSession()
+  if (!session) {
+    return { error: 'No hay sesión activa. Inicie sesión nuevamente.' }
+  }
+
   // Extract fields
   const vehicleId = formData.get('vehicleId') as string
   const kmCurrent = formData.get('kmCurrent') as string
   const observations = (formData.get('observations') as string) || undefined
   const answersJson = formData.get('answers') as string
   const category = (formData.get('category') as string) || 'initial'
+  const signatureData = formData.get('signature') as string // base64 PNG
 
   // Parse and validate answers
   let answers: unknown
@@ -50,13 +58,39 @@ export async function createInspectionAction(
 
   const { vehicleId: vid, kmCurrent: km, observations: obs } = inspectionResult.data
 
+  // Signature is required for initial inspection
+  if (!signatureData || !signatureData.startsWith('data:image')) {
+    return { error: 'La firma del propietario es obligatoria para completar la inspección.' }
+  }
+
   // Create inspection + answers in transaction
   let inspectionId: string
+  let signatureId: string | undefined
+
   try {
+    // Upload signature first if provided
+    if (signatureData && signatureData.startsWith('data:image')) {
+      const base64Data = signatureData.split(',')[1]
+      const buffer = Buffer.from(base64Data, 'base64')
+      const timestamp = Date.now()
+      const minioKey = `signatures/${timestamp}.png`
+
+      await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+
+      const [sig] = await db
+        .insert(signatures)
+        .values({ minioKey })
+        .returning({ id: signatures.id })
+
+      signatureId = sig.id
+    }
+
     const [inspection] = await db
       .insert(inspections)
       .values({
         vehicleId: vid,
+        operatorId: session.sub,
+        ownerSignatureId: signatureId,
         kmCurrent: km,
         observations: obs,
         status: 'inspeccion_inicial',

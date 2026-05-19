@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { FRONT_QUESTIONS, REAR_QUESTIONS, type ChecklistQuestion } from '@/lib/checklist'
 import { createInspectionAction, type InspectionFormState } from '@/lib/actions/inspection'
 import { PhotoUpload } from '@/components/inspections/photo-upload'
+import { SignaturePad } from '@/components/inspections/signature-pad'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, Truck, ClipboardCheck, Camera } from 'lucide-react'
+import { CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, Truck, ClipboardCheck, Camera, PenLine } from 'lucide-react'
 
 interface VehicleOption {
   id: string
@@ -36,6 +37,7 @@ const STEPS = [
   { label: 'Frente', icon: ClipboardCheck },
   { label: 'Trasera', icon: ClipboardCheck },
   { label: 'Fotos', icon: Camera },
+  { label: 'Firma', icon: PenLine },
 ]
 
 export function InspectionForm({ vehicles }: InspectionFormProps) {
@@ -53,7 +55,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const [canSubmit, setCanSubmit] = useState(false)
 
   useEffect(() => {
-    if (currentStep === 4) {
+    if (currentStep === 5) {
       const timer = setTimeout(() => setCanSubmit(true), 500)
       return () => clearTimeout(timer)
     } else {
@@ -64,6 +66,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const [vehicleId, setVehicleId] = useState('')
   const [kmCurrent, setKmCurrent] = useState('')
   const [observations, setObservations] = useState('')
+  const [signature, setSignature] = useState('')
 
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() => {
     const map = new Map<string, AnswerState>()
@@ -122,7 +125,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const nextStep = (e?: React.MouseEvent) => {
     if (e) e.preventDefault()
     if (validateStep(currentStep)) {
-      setCurrentStep((s) => Math.min(s + 1, 4))
+      setCurrentStep((s) => Math.min(s + 1, STEPS.length))
     }
   }
 
@@ -151,7 +154,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   }
 
   const handleSubmit = async (formData: FormData) => {
-    if (currentStep !== 4) {
+    if (currentStep !== 5) {
       setStepError('Debe completar todos los pasos antes de enviar la inspección')
       return
     }
@@ -160,10 +163,16 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
       return
     }
 
+    if (!signature) {
+      setStepError('La firma del propietario es obligatoria')
+      return
+    }
+
     formData.set('vehicleId', vehicleId)
     formData.set('kmCurrent', kmCurrent)
     formData.set('observations', observations)
     formData.set('category', 'initial')
+    formData.set('signature', signature)
 
     const allQuestions = [...FRONT_QUESTIONS, ...REAR_QUESTIONS]
     const answersArray = allQuestions.map((q) => ({
@@ -401,6 +410,31 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                 </CardContent>
               </motion.div>
             )}
+
+            {currentStep === 5 && (
+              <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-center justify-center">
+                      <PenLine className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <CardTitle>Firma del Propietario</CardTitle>
+                      <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <SignaturePad
+                    onChange={setSignature}
+                    disabled={pending}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Esta firma quedará registrada como constancia de la inspección inicial.
+                  </p>
+                </CardContent>
+              </motion.div>
+            )}
           </AnimatePresence>
         </Card>
       </motion.div>
@@ -419,7 +453,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
           Anterior
         </Button>
 
-        {currentStep < 4 ? (
+        {currentStep < 5 ? (
           <Button
             type="button"
             size="lg"
