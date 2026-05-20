@@ -1,6 +1,20 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures } from '@/db/schema'
-import { eq, inArray } from 'drizzle-orm'
+import { eq, inArray, count, sql } from 'drizzle-orm'
+
+export interface StatusCounts {
+  inspeccion_inicial: number
+  en_planta: number
+  finalizado: number
+}
+
+export interface RecentInspectionRow {
+  id: string
+  licensePlate: string | null
+  ownerName: string | null
+  status: string
+  createdAt: Date | null
+}
 
 export interface InspectionSummary {
   id: string
@@ -121,4 +135,82 @@ export async function getInspectionsByVehicleId(vehicleId: string) {
     .orderBy(inspections.inspectionDate)
 
   return records
+}
+
+export async function countInspectionsByStatus(): Promise<StatusCounts> {
+  const rows = await db
+    .select({
+      status: inspections.status,
+      count: count(inspections.id),
+    })
+    .from(inspections)
+    .groupBy(inspections.status)
+
+  const result: StatusCounts = {
+    inspeccion_inicial: 0,
+    en_planta: 0,
+    finalizado: 0,
+  }
+
+  for (const row of rows) {
+    if (row.status) {
+      result[row.status as keyof StatusCounts] = Number(row.count)
+    }
+  }
+
+  return result
+}
+
+export async function countInspectionsToday(): Promise<number> {
+  const [row] = await db
+    .select({ count: count(inspections.id) })
+    .from(inspections)
+    .where(sql`DATE(${inspections.inspectionDate}) = CURRENT_DATE`)
+
+  return Number(row?.count ?? 0)
+}
+
+export async function getRecentInspectionsWithOwner(limit = 5): Promise<RecentInspectionRow[]> {
+  const rows = await db
+    .select({
+      id: inspections.id,
+      licensePlate: vehicles.licensePlate,
+      ownerName: owners.fullName,
+      status: sql<string>`COALESCE(${inspections.status}, 'inspeccion_inicial')`,
+      createdAt: inspections.createdAt,
+    })
+    .from(inspections)
+    .leftJoin(vehicles, eq(inspections.vehicleId, vehicles.id))
+    .leftJoin(owners, eq(vehicles.ownerId, owners.id))
+    .orderBy(sql`${inspections.createdAt} DESC`)
+    .limit(limit)
+
+  return rows
+}
+
+export interface NonCompliantAnswer {
+  id: string
+  inspectionId: string
+  section: string
+  questionKey: string
+  answer: boolean | null
+  observations: string | null
+}
+
+export async function getNonCompliantAnswers(inspectionId: string): Promise<NonCompliantAnswer[]> {
+  const answers = await db
+    .select()
+    .from(inspectionAnswers)
+    .where(eq(inspectionAnswers.inspectionId, inspectionId))
+
+  return answers.filter((a) => a.answer === false)
+}
+
+export async function getPostMountAttachments(inspectionId: string) {
+  const attachments = await db
+    .select()
+    .from(inspectionAttachments)
+    .where(eq(inspectionAttachments.inspectionId, inspectionId))
+
+  return attachments.filter((a) => a.category === 'post_mount')
 }

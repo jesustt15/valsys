@@ -2,13 +2,16 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders } from '@/db/schema'
-import { createInspectionSchema, checklistAnswersSchema } from '@/lib/validations/inspection'
+import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders, certificates } from '@/db/schema'
+import { createInspectionSchema, checklistAnswersSchema, closeInspectionSchema } from '@/lib/validations/inspection'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { getNonCompliantAnswers, getPostMountAttachments } from '@/lib/services/inspection'
+import { getCertificateByInspectionId } from '@/lib/services/certificate'
+import { generateCorrelative } from '@/lib/utils/generate-correlative'
 
 export type InspectionFormState = {
   success?: boolean
@@ -191,7 +194,7 @@ export async function updateInspectionStatusAction(
   const id = formData.get('id') as string
   const status = formData.get('status') as string
 
-  const parsed = z.enum(['inspeccion_inicial', 'en_planta', 'finalizado']).safeParse(status)
+  const parsed = z.enum(['inspeccion_inicial', 'en_planta']).safeParse(status)
   if (!id || !parsed.success) {
     return { error: 'Datos inválidos' }
   }
@@ -249,4 +252,102 @@ export async function uploadInspectionFileAction(
     console.error('Error uploading files:', e)
     return { error: 'Error al subir los archivos' }
   }
+}
+
+export async function closeInspectionAction(
+  _prev: InspectionFormState | null,
+  formData: FormData,
+): Promise<InspectionFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+
+  const id = formData.get('id') as string
+  const parsed = closeInspectionSchema.safeParse({ inspectionId: id })
+  if (!parsed.success) {
+    return { error: 'Datos inválidos' }
+  }
+
+  const inspectionId = parsed.data.inspectionId
+
+  // 1. Fetch inspection and verify status
+  const [inspection] = await db
+    .select()
+    .from(inspections)
+    .where(eq(inspections.id, inspectionId))
+
+  if (!inspection) {
+    return { error: 'Inspección no encontrada' }
+  }
+
+  if (inspection.status !== 'en_planta') {
+    return { error: "La inspección debe estar en estado 'en planta'" }
+  }
+
+  // 2. Check no certificate already exists
+  const existingCert = await getCertificateByInspectionId(inspectionId)
+  if (existingCert) {
+    return { error: 'Ya existe un certificado para esta inspección' }
+  }
+
+  // 3. Check non-compliant items
+  const nonCompliant = await getNonCompliantAnswers(inspectionId)
+  if (nonCompliant.length > 0) {
+    return { error: 'Existen ítems no conformes sin resolver' }
+  }
+
+  // 4. Check post-mount photos exist
+  const postMountPhotos = await getPostMountAttachments(inspectionId)
+  if (postMountPhotos.length === 0) {
+    return { error: 'Se requieren fotos de post-montaje' }
+  }
+
+  // 5. Check signature exists
+  if (!inspection.ownerSignatureId) {
+    return { error: 'Se requiere la firma del propietario' }
+  }
+
+  // 6. Generate correlative and close in a single transaction
+  try {
+    await db.transaction(async (tx) => {
+      // Generate correlative inside transaction to prevent race conditions
+      const year = new Date().getFullYear()
+      const maxCorrelative = await tx
+        .select({ maxCorrelative: sql<string>`MAX(${certificates.correlativeNumber})` })
+        .from(certificates)
+        .where(sql`${certificates.correlativeNumber} LIKE ${`CERT-${year}-%`}`)
+
+      let currentMax = 0
+      const raw = maxCorrelative[0]?.maxCorrelative
+      if (raw) {
+        const parts = raw.split('-')
+        const numPart = parts[parts.length - 1]
+        currentMax = parseInt(numPart, 10) || 0
+      }
+
+      const correlative = generateCorrelative(year, currentMax)
+
+      // Create certificate record
+      await tx.insert(certificates).values({
+        inspectionId,
+        correlativeNumber: correlative,
+        plantDocKey: null,
+        finalCertKey: null,
+        issueDate: new Date().toISOString().split('T')[0],
+      })
+
+      // Update inspection status to finalizado
+      await tx
+        .update(inspections)
+        .set({ status: 'finalizado', updatedAt: new Date() })
+        .where(eq(inspections.id, inspectionId))
+    })
+  } catch (e) {
+    console.error('Error closing inspection:', e)
+    return { error: 'Error al cerrar la inspección. Intente de nuevo.' }
+  }
+
+  revalidatePath(`/inspections/${inspectionId}`)
+  revalidatePath('/inspections')
+
+  return { success: true }
 }

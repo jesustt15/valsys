@@ -1,11 +1,16 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getInspectionById } from '@/lib/services/inspection'
-import { getCylindersByVehicleId } from '@/lib/services/cylinder'
+import { getCertificateByInspectionId } from '@/lib/services/certificate'
+import { getCylindersByVehicleId, getCylindersByInspectionId } from '@/lib/services/cylinder'
 import { getObjectUrl } from '@/lib/minio'
 import { InspectionStatusUpdater } from '@/components/inspections/inspection-status-updater'
+import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
+import { CloseInspectionButton } from '@/components/inspections/close-inspection-button'
 import { CylinderManager } from '@/components/cylinders/cylinder-manager'
+import { CylinderRecertificationPanel } from '@/components/cylinders/cylinder-recertification-panel'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
+import { CertificateCard } from '@/components/certificates/certificate-card'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Camera, CheckSquare, Truck, User, Calendar } from 'lucide-react'
@@ -24,7 +29,17 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
     notFound()
   }
 
-  const cylinders = await getCylindersByVehicleId(inspection.vehicleId)
+  const cylinders = await getCylindersByVehicleId(inspection.vehicle.id)
+
+  // Fetch cylinders for recertification panel (ordered with en_planta first)
+  const recertCylinders = await getCylindersByInspectionId(resolvedParams.id)
+
+  // Determine if recertification panel should be shown
+  const inspectionStatusOrder = ['inspeccion_inicial', 'en_planta', 'finalizado']
+  const currentStatusIndex = inspectionStatusOrder.indexOf(inspection.status || 'inspeccion_inicial')
+  const enPlantaStatusIndex = inspectionStatusOrder.indexOf('en_planta')
+  const showRecertPanel = currentStatusIndex >= enPlantaStatusIndex
+    && recertCylinders.some(c => c.status === 'en_planta')
 
   // Resolve presigned URLs for images
   const attachmentsWithUrls = await Promise.all(
@@ -34,9 +49,21 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
     })
   )
 
+  // Filter post-mount photos with resolved URLs
+  const postMountPhotos = attachmentsWithUrls.filter((att) => att.category === 'post_mount')
+
   let signatureUrl = null
   if (inspection.signature) {
     signatureUrl = await getObjectUrl(inspection.signature.minioKey)
+  }
+
+  // Fetch certificate data
+  const certificate = await getCertificateByInspectionId(resolvedParams.id)
+
+  // Resolve presigned URL for plant document
+  let plantDocUrl: string | null = null
+  if (certificate?.plantDocKey) {
+    plantDocUrl = await getObjectUrl(certificate.plantDocKey)
   }
 
   const formatBool = (val: boolean | null) => {
@@ -76,11 +103,23 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Status Updater */}
-          <InspectionStatusUpdater 
-            inspectionId={resolvedParams.id} 
-            currentStatus={inspection.status || 'inspeccion_inicial'} 
-          />
+          {/* Status Updater or Close Button */}
+          {inspection.status === 'en_planta' ? (
+            <CloseInspectionButton inspectionId={resolvedParams.id} />
+          ) : (
+            <InspectionStatusUpdater 
+              inspectionId={resolvedParams.id} 
+              currentStatus={inspection.status || 'inspeccion_inicial'} 
+            />
+          )}
+          
+          {/* Post-Mount Photos (only when en_planta) */}
+          {inspection.status === 'en_planta' && (
+            <PostMountPhotos
+              inspectionId={resolvedParams.id}
+              existingPhotos={postMountPhotos}
+            />
+          )}
           
           {/* General Data */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -145,9 +184,22 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             vehicleId={inspection.vehicle.id}
             cylinders={cylinders.map(c => ({
               ...c,
+              status: c.status ?? 'montado',
               recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null
             }))}
           />
+
+          {/* Cylinder Recertification Panel */}
+          {showRecertPanel && (
+            <CylinderRecertificationPanel
+              inspectionId={resolvedParams.id}
+              cylinders={recertCylinders.map(c => ({
+                ...c,
+                status: c.status ?? 'montado',
+                recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null
+              }))}
+            />
+          )}
           
           {/* Checklist Summary */}
           <Card>
@@ -266,6 +318,14 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Certificate Card */}
+          <CertificateCard
+            certificate={certificate}
+            inspectionId={resolvedParams.id}
+            inspectionStatus={inspection.status || 'inspeccion_inicial'}
+            plantDocUrl={plantDocUrl}
+          />
         </div>
       </div>
     </div>

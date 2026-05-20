@@ -15,11 +15,15 @@ interface Props {
 const STATUS_OPTIONS = [
   { value: 'inspeccion_inicial', label: 'Inspección Inicial' },
   { value: 'en_planta', label: 'En Planta' },
-  { value: 'finalizado', label: 'Finalizado' },
 ]
 
 export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) {
   const [state, action, pending] = useActionState(updateInspectionStatusAction, null)
+
+  // Hide status updater when inspection is en_planta — use CloseInspectionButton instead
+  if (currentStatus === 'en_planta') {
+    return null
+  }
 
   return (
     <Card>

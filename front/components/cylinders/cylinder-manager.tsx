@@ -161,16 +161,25 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="status">Nuevo Estado</Label>
-                      <select
-                        name="status"
-                        defaultValue={cylinders.find(c => c.id === editingId)?.status}
-                        className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
-                      >
-                        <option value="montado">Montado</option>
-                        <option value="en_planta">En Planta (Desmontado)</option>
-                        <option value="pendiente_reinstalacion">Pendiente Reinstalación</option>
-                        <option value="de_baja">De Baja (Scrap)</option>
-                      </select>
+                      {cylinders.find(c => c.id === editingId)?.status === 'en_planta' ? (
+                        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                          <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                          <span className="text-sm text-amber-700 dark:text-amber-400">
+                            Use el panel de <strong>Recertificación de Cilindros</strong> para gestionar cilindros en planta.
+                          </span>
+                        </div>
+                      ) : (
+                        <select
+                          name="status"
+                          defaultValue={cylinders.find(c => c.id === editingId)?.status}
+                          className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
+                        >
+                          <option value="montado">Montado</option>
+                          <option value="en_planta">En Planta (Desmontado)</option>
+                          <option value="pendiente_reinstalacion">Pendiente Reinstalación</option>
+                          <option value="de_baja">De Baja (Scrap)</option>
+                        </select>
+                      )}
                     </div>
 
                     <div className="space-y-2">

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { vehicles } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, count } from 'drizzle-orm'
 
 export type VehicleRecord = typeof vehicles.$inferSelect
 
@@ -14,4 +14,9 @@ export async function getVehiclesByOwnerId(ownerId: string): Promise<VehicleReco
     .from(vehicles)
     .where(eq(vehicles.ownerId, ownerId))
     .orderBy(vehicles.createdAt)
+}
+
+export async function countVehicles(): Promise<number> {
+  const [row] = await db.select({ count: count(vehicles.id) }).from(vehicles)
+  return Number(row?.count ?? 0)
 }

@@ -27,3 +27,10 @@ export const photoUploadSchema = z.object({
 
 export type ChecklistAnswer = z.infer<typeof checklistAnswerSchema>
 export type PhotoUploadInput = z.infer<typeof photoUploadSchema>
+
+// ─── Close Inspection ─────────────────────────────────────────
+export const closeInspectionSchema = z.object({
+  inspectionId: z.string().uuid('ID de inspección inválido'),
+})
+
+export type CloseInspectionInput = z.infer<typeof closeInspectionSchema>
