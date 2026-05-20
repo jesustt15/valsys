@@ -1,12 +1,13 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useState } from 'react'
 import { motion } from 'framer-motion'
 import { createVehicle, type VehicleFormState } from '@/lib/actions/vehicle'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, AlertCircle, Truck } from 'lucide-react'
 
@@ -21,6 +22,7 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
     createVehicle,
     null
   )
+  const [ownerId, setOwnerId] = useState('')
 
   const currentYear = new Date().getFullYear()
 
@@ -49,20 +51,19 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
           {/* Dueño */}
           <div className="space-y-2">
             <Label htmlFor="ownerId" required>Dueño</Label>
-            <select
+            <SearchableSelect
               id="ownerId"
               name="ownerId"
+              value={ownerId}
+              onChange={setOwnerId}
               required
-              className="flex h-12 w-full rounded-xl border border-input bg-background px-4 py-3 text-base transition-all duration-200 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 bg-white dark:bg-card"
               disabled={pending}
-            >
-              <option value="">— Seleccionar dueño —</option>
-              {owners.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {owner.fullName} ({owner.documentId})
-                </option>
-              ))}
-            </select>
+              placeholder="— Seleccionar dueño —"
+              options={owners.map(owner => ({
+                value: owner.id,
+                label: `${owner.fullName} (${owner.documentId})`
+              }))}
+            />
             {owners.length === 0 && (
               <p className="text-xs text-amber-600 dark:text-amber-400">
                 No hay dueños registrados.{' '}

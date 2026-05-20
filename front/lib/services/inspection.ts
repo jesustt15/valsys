@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { inspections, vehicles, users } from '@/db/schema'
+import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures } from '@/db/schema'
 import { eq, inArray } from 'drizzle-orm'
 
 export interface InspectionSummary {
@@ -65,4 +65,60 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
     kmCurrent: r.kmCurrent,
     operatorName: r.operatorId ? operatorMap.get(r.operatorId)?.fullName ?? null : null,
   }))
+}
+
+export async function getInspectionById(id: string) {
+  const [inspection] = await db
+    .select()
+    .from(inspections)
+    .where(eq(inspections.id, id))
+
+  if (!inspection) return null
+
+  const [vehicle] = inspection.vehicleId 
+    ? await db.select().from(vehicles).where(eq(vehicles.id, inspection.vehicleId))
+    : [null]
+
+  const [owner] = vehicle?.ownerId 
+    ? await db.select().from(owners).where(eq(owners.id, vehicle.ownerId))
+    : [null]
+
+  const answers = await db
+    .select()
+    .from(inspectionAnswers)
+    .where(eq(inspectionAnswers.inspectionId, id))
+
+  const attachments = await db
+    .select()
+    .from(inspectionAttachments)
+    .where(eq(inspectionAttachments.inspectionId, id))
+
+  const [signature] = inspection.ownerSignatureId
+    ? await db.select().from(signatures).where(eq(signatures.id, inspection.ownerSignatureId))
+    : [null]
+
+  return {
+    ...inspection,
+    vehicle,
+    owner,
+    answers,
+    attachments,
+    signature,
+  }
+}
+
+export async function getInspectionsByVehicleId(vehicleId: string) {
+  const records = await db
+    .select({
+      id: inspections.id,
+      inspectionDate: inspections.inspectionDate,
+      status: inspections.status,
+      kmCurrent: inspections.kmCurrent,
+      operatorId: inspections.operatorId,
+    })
+    .from(inspections)
+    .where(eq(inspections.vehicleId, vehicleId))
+    .orderBy(inspections.inspectionDate)
+
+  return records
 }

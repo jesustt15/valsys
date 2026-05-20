@@ -12,9 +12,10 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, Truck, ClipboardCheck, Camera, PenLine } from 'lucide-react'
+import { CheckCircle, AlertCircle, X, ChevronLeft, ChevronRight, Truck, ClipboardCheck, Camera, PenLine, Database, Plus, Trash2 } from 'lucide-react'
 
 interface VehicleOption {
   id: string
@@ -37,6 +38,7 @@ const STEPS = [
   { label: 'Frente', icon: ClipboardCheck },
   { label: 'Trasera', icon: ClipboardCheck },
   { label: 'Fotos', icon: Camera },
+  { label: 'Cilindros', icon: Database },
   { label: 'Firma', icon: PenLine },
 ]
 
@@ -55,7 +57,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const [canSubmit, setCanSubmit] = useState(false)
 
   useEffect(() => {
-    if (currentStep === 5) {
+    if (currentStep === 6) {
       const timer = setTimeout(() => setCanSubmit(true), 500)
       return () => clearTimeout(timer)
     } else {
@@ -67,6 +69,8 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   const [kmCurrent, setKmCurrent] = useState('')
   const [observations, setObservations] = useState('')
   const [signature, setSignature] = useState('')
+
+  const [newCylinders, setNewCylinders] = useState<Array<{brand: string, capacity: string, initialSerial: string, location: string}>>([])
 
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() => {
     const map = new Map<string, AnswerState>()
@@ -117,9 +121,19 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
         return true
       }
 
+      if (step === 5) {
+        // Cylinders are optional, but if any exist they must be fully filled
+        const incompleteCylinder = newCylinders.some(c => !c.brand || !c.capacity || !c.initialSerial || !c.location)
+        if (incompleteCylinder) {
+          setStepError('Complete todos los campos de los cilindros agregados o elimínelos.')
+          return false
+        }
+        return true
+      }
+
       return true
     },
-    [vehicleId, kmCurrent, answers],
+    [vehicleId, kmCurrent, answers, newCylinders],
   )
 
   const nextStep = (e?: React.MouseEvent) => {
@@ -154,12 +168,12 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
   }
 
   const handleSubmit = async (formData: FormData) => {
-    if (currentStep !== 5) {
+    if (currentStep !== 6) {
       setStepError('Debe completar todos los pasos antes de enviar la inspección')
       return
     }
 
-    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(5)) {
       return
     }
 
@@ -173,6 +187,10 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
     formData.set('observations', observations)
     formData.set('category', 'initial')
     formData.set('signature', signature)
+    
+    if (newCylinders.length > 0) {
+      formData.set('newCylinders', JSON.stringify(newCylinders))
+    }
 
     const allQuestions = [...FRONT_QUESTIONS, ...REAR_QUESTIONS]
     const answersArray = allQuestions.map((q) => ({
@@ -304,23 +322,19 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                 <CardContent className="space-y-5">
                   <div className="space-y-2">
                     <Label htmlFor="vehicleId" required>Vehículo</Label>
-                    <select
+                    <SearchableSelect
                       id="vehicleId"
                       name="vehicleId"
                       value={vehicleId}
-                      onChange={(e) => setVehicleId(e.target.value)}
+                      onChange={setVehicleId}
                       required
                       disabled={pending}
-                      className="flex h-12 w-full rounded-xl border border-input bg-background px-4 py-3 text-base transition-all duration-200 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 bg-white dark:bg-card"
-                    >
-                      <option value="">— Seleccionar vehículo —</option>
-                      {vehicles.map((v) => (
-                        <option key={v.id} value={v.id}>
-                          {v.licensePlate}
-                          {v.brand ? ` — ${v.brand} ${v.model ?? ''}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="— Seleccionar vehículo —"
+                      options={vehicles.map(v => ({
+                        value: v.id,
+                        label: `${v.licensePlate}${v.brand ? ` — ${v.brand} ${v.model ?? ''}` : ''}`
+                      }))}
+                    />
                     {vehicles.length === 0 && (
                       <p className="text-xs text-amber-600 dark:text-amber-400">
                         No hay vehículos registrados.{' '}
@@ -414,6 +428,107 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
             {currentStep === 5 && (
               <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center">
+                        <Database className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <CardTitle>Cilindros GNC</CardTitle>
+                        <CardDescription>Opcional: Registre los cilindros actuales del vehículo antes de firmar.</CardDescription>
+                      </div>
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setNewCylinders([...newCylinders, { brand: '', capacity: '', initialSerial: '', location: '' }])}
+                      disabled={pending}
+                    >
+                      <Plus className="w-4 h-4 mr-2" /> Añadir Cilindro
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {newCylinders.length === 0 ? (
+                    <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-xl">
+                      No hay cilindros a registrar. Pulse Siguiente para omitir.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {newCylinders.map((cyl, idx) => (
+                        <div key={idx} className="p-4 bg-muted/30 border border-border rounded-xl space-y-4 relative">
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => setNewCylinders(newCylinders.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                          <h4 className="font-medium text-sm">Cilindro #{idx + 1}</h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                              <Label required>Marca</Label>
+                              <Input 
+                                value={cyl.brand} 
+                                onChange={e => {
+                                  const c = [...newCylinders]
+                                  c[idx].brand = e.target.value
+                                  setNewCylinders(c)
+                                }}
+                                disabled={pending}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label required>Capacidad (L)</Label>
+                              <Input 
+                                value={cyl.capacity} 
+                                onChange={e => {
+                                  const c = [...newCylinders]
+                                  c[idx].capacity = e.target.value
+                                  setNewCylinders(c)
+                                }}
+                                disabled={pending}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label required>Nº Serie</Label>
+                              <Input 
+                                value={cyl.initialSerial} 
+                                onChange={e => {
+                                  const c = [...newCylinders]
+                                  c[idx].initialSerial = e.target.value
+                                  setNewCylinders(c)
+                                }}
+                                disabled={pending}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label required>Ubicación</Label>
+                              <Input 
+                                value={cyl.location} 
+                                placeholder="Ej: Baúl"
+                                onChange={e => {
+                                  const c = [...newCylinders]
+                                  c[idx].location = e.target.value
+                                  setNewCylinders(c)
+                                }}
+                                disabled={pending}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </motion.div>
+            )}
+
+            {currentStep === 6 && (
+              <motion.div key="step6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-center justify-center">
                       <PenLine className="w-5 h-5 text-amber-600 dark:text-amber-400" />
@@ -453,7 +568,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
           Anterior
         </Button>
 
-        {currentStep < 5 ? (
+        {currentStep < 6 ? (
           <Button
             type="button"
             size="lg"

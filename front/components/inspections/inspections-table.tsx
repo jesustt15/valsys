@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -123,6 +123,9 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
                   Operador
                 </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -157,6 +160,14 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
                     {insp.operatorName ?? '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
+                    <Button asChild variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Link href={`/inspections/${insp.id}`} title="Ver Expediente">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                        <span className="sr-only">Ver Expediente</span>
+                      </Link>
+                    </Button>
                   </td>
                 </motion.tr>
               ))}

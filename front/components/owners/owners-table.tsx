@@ -89,6 +89,9 @@ export function OwnersTable({ owners }: OwnersTableProps) {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
                   Creado
                 </th>
+                <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -116,6 +119,15 @@ export function OwnersTable({ owners }: OwnersTableProps) {
                     {owner.createdAt
                       ? new Date(owner.createdAt).toLocaleDateString('es-AR')
                       : '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-right">
+                    <Link
+                      href={`/owners/${owner.id}`}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50 transition-colors"
+                      title="Ver Perfil"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </Link>
                   </td>
                 </motion.tr>
               ))}
