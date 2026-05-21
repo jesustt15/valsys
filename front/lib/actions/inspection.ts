@@ -222,7 +222,12 @@ export async function uploadInspectionFileAction(
 
   const inspectionId = formData.get('inspectionId') as string
   const category = formData.get('category') as string
-  const files = formData.getAll('files') as File[]
+  // Support both 'photos' (PostMountPhotos / PhotoUpload component) and
+  // 'files' (ExpedienteUploader) since both share this action
+  const files = [
+    ...formData.getAll('photos') as File[],
+    ...formData.getAll('files') as File[],
+  ].filter((f) => f instanceof File && f.size > 0)
 
   if (!inspectionId || !category || files.length === 0) {
     return { error: 'Faltan datos o archivos' }
@@ -283,11 +288,8 @@ export async function closeInspectionAction(
     return { error: "La inspección debe estar en estado 'en planta'" }
   }
 
-  // 2. Check no certificate already exists
+  // 2. Check if certificate already exists (created via CertificateCard before closing)
   const existingCert = await getCertificateByInspectionId(inspectionId)
-  if (existingCert) {
-    return { error: 'Ya existe un certificado para esta inspección' }
-  }
 
   // 3. Check non-compliant items
   const nonCompliant = await getNonCompliantAnswers(inspectionId)
@@ -306,34 +308,37 @@ export async function closeInspectionAction(
     return { error: 'Se requiere la firma del propietario' }
   }
 
-  // 6. Generate correlative and close in a single transaction
+  // 6. Generate correlative (if needed) and close in a single transaction
   try {
     await db.transaction(async (tx) => {
-      // Generate correlative inside transaction to prevent race conditions
-      const year = new Date().getFullYear()
-      const maxCorrelative = await tx
-        .select({ maxCorrelative: sql<string>`MAX(${certificates.correlativeNumber})` })
-        .from(certificates)
-        .where(sql`${certificates.correlativeNumber} LIKE ${`CERT-${year}-%`}`)
+      // Only create a certificate if one doesn't already exist
+      if (!existingCert) {
+        // Generate correlative inside transaction to prevent race conditions
+        const year = new Date().getFullYear()
+        const maxCorrelative = await tx
+          .select({ maxCorrelative: sql<string>`MAX(${certificates.correlativeNumber})` })
+          .from(certificates)
+          .where(sql`${certificates.correlativeNumber} LIKE ${`CERT-${year}-%`}`)
 
-      let currentMax = 0
-      const raw = maxCorrelative[0]?.maxCorrelative
-      if (raw) {
-        const parts = raw.split('-')
-        const numPart = parts[parts.length - 1]
-        currentMax = parseInt(numPart, 10) || 0
+        let currentMax = 0
+        const raw = maxCorrelative[0]?.maxCorrelative
+        if (raw) {
+          const parts = raw.split('-')
+          const numPart = parts[parts.length - 1]
+          currentMax = parseInt(numPart, 10) || 0
+        }
+
+        const correlative = generateCorrelative(year, currentMax)
+
+        // Create certificate record
+        await tx.insert(certificates).values({
+          inspectionId,
+          correlativeNumber: correlative,
+          plantDocKey: null,
+          finalCertKey: null,
+          issueDate: new Date().toISOString().split('T')[0],
+        })
       }
-
-      const correlative = generateCorrelative(year, currentMax)
-
-      // Create certificate record
-      await tx.insert(certificates).values({
-        inspectionId,
-        correlativeNumber: correlative,
-        plantDocKey: null,
-        finalCertKey: null,
-        issueDate: new Date().toISOString().split('T')[0],
-      })
 
       // Update inspection status to finalizado
       await tx

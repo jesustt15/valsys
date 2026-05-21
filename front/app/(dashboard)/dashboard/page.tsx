@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { RecentInspectionsList } from '@/components/dashboard/recent-inspections-list'
@@ -10,15 +9,10 @@ import {
 } from '@/lib/services/inspection'
 import { countVehicles } from '@/lib/services/vehicle'
 
-const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } },
-}
-
 const quickActions = [
-  { href: '/owners/new', title: 'Nuevo Due\xf1o', desc: 'Registrar titular de veh\xedculo', icon: 'user-plus', color: 'from-blue-500 to-blue-600' },
-  { href: '/vehicles/new', title: 'Nuevo Veh\xedculo', desc: 'Registrar veh\xedculo para inspecci\xf3n', icon: 'truck', color: 'from-emerald-500 to-emerald-600' },
-  { href: '/inspections/new', title: 'Nueva Inspecci\xf3n', desc: 'Iniciar proceso de inspecci\xf3n', icon: 'clipboard-check', color: 'from-violet-500 to-violet-600' },
+  { href: '/owners/new', title: 'Nuevo Dueño', desc: 'Registrar titular de vehículo', icon: 'user-plus', color: 'from-blue-500 to-blue-600' },
+  { href: '/vehicles/new', title: 'Nuevo Vehículo', desc: 'Registrar vehículo para inspección', icon: 'truck', color: 'from-emerald-500 to-emerald-600' },
+  { href: '/inspections/new', title: 'Nueva Inspección', desc: 'Iniciar proceso de inspección', icon: 'clipboard-check', color: 'from-violet-500 to-violet-600' },
 ]
 
 function Icon({ name, className = 'w-5 h-5' }: { name: string; className?: string }) {
@@ -70,23 +64,12 @@ export default async function DashboardPage() {
   }
 
   return (
-    <motion.div
-      variants={{
-        hidden: { opacity: 0 },
-        show: {
-          opacity: 1,
-          transition: { staggerChildren: 0.08, delayChildren: 0.1 },
-        },
-      }}
-      initial="hidden"
-      animate="show"
-      className="space-y-8"
-    >
+    <div className="space-y-8">
       {/* Header */}
-      <motion.div variants={item}>
+      <div>
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 text-base">Resumen general del sistema de inspecci\xf3n GNC</p>
-      </motion.div>
+        <p className="text-muted-foreground mt-1 text-base">Resumen general del sistema de inspección GNC</p>
+      </div>
 
       {/* Stats Grid */}
       <DashboardStats
@@ -96,8 +79,8 @@ export default async function DashboardPage() {
       />
 
       {/* Quick Actions */}
-      <motion.div variants={item}>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Acciones R\xe1pidas</h2>
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Acciones Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {quickActions.map((action) => (
             <Link key={action.href} href={action.href} className="group block">
@@ -120,12 +103,12 @@ export default async function DashboardPage() {
             </Link>
           ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Recent Inspections */}
-      <motion.div variants={item}>
+      <div>
         <RecentInspectionsList inspections={recentInspections} />
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>
   )
 }
