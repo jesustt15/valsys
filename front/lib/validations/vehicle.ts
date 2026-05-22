@@ -21,7 +21,7 @@ export const createVehicleSchema = z.object({
     .regex(PLATE_RE, 'Formato: ABC-123 o ABC123'),
 
   vehicleType: z.enum(['camion', 'pickup', 'furgon', 'van', 'acoplado', 'otro'], {
-    errorMap: () => ({ message: 'Seleccioná un tipo de vehículo' }),
+    message: 'Seleccioná un tipo de vehículo',
   }),
 
   brand: z

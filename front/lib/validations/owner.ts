@@ -13,7 +13,7 @@ export const createOwnerSchema = z.object({
     .regex(NAME_RE, 'Nombre solo puede contener letras y espacios'),
 
   documentType: z.enum(['V', 'E', 'J'], {
-    errorMap: () => ({ message: 'Tipo de documento inválido' }),
+    message: 'Tipo de documento inválido',
   }),
 
   documentNumber: z

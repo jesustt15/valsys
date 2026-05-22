@@ -66,10 +66,8 @@ export function ExpedienteUploader({ inspectionId }: Props) {
 
               <form
                 action={(formData) => {
-                  formAction(formData).then((res) => {
-                    // Si el componente todavía está montado y fue exitoso, podríamos cerrarlo o mostrar un success.
-                    // React 19 maneja useActionState, el resultado se refleja en `state`.
-                  })
+                  formAction(formData)
+                  // React 19 maneja useActionState, el resultado se refleja en `state`.
                 }}
                 className="space-y-6"
               >

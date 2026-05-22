@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { getOwnerById } from '@/lib/services/owner'
 import { getVehiclesByOwnerId } from '@/lib/services/vehicle'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { User, Truck, Phone, Mail, Building, FileText, Calendar } from 'lucide-react'
+import { User, Truck, Phone, Mail, FileText, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 interface PageProps {
@@ -43,12 +43,12 @@ export default async function OwnerDetailPage({ params }: PageProps) {
           <CardHeader className="bg-slate-50/50 dark:bg-slate-900/20 border-b border-border pb-4">
             <div className="flex justify-center mb-4">
               <div className="w-20 h-20 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center">
-                {owner.type === 'company' ? <Building className="w-10 h-10" /> : <User className="w-10 h-10" />}
+                <User className="w-10 h-10" />
               </div>
             </div>
             <CardTitle className="text-xl text-center">{owner.fullName}</CardTitle>
             <CardDescription className="text-center mt-1">
-              {owner.type === 'company' ? 'Empresa / Flota' : 'Titular Particular'}
+              Titular
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6 space-y-4 text-sm">
@@ -68,12 +68,7 @@ export default async function OwnerDetailPage({ params }: PageProps) {
                 <span>{owner.email}</span>
               </div>
             )}
-            {owner.address && (
-              <div className="flex items-start gap-3 text-muted-foreground">
-                <div className="mt-0.5">📍</div>
-                <span>{owner.address}</span>
-              </div>
-            )}
+
             <div className="flex items-center gap-3 text-muted-foreground border-t border-border pt-4 mt-2">
               <Calendar className="w-4 h-4" />
               <span>Registrado: {owner.createdAt?.toLocaleDateString('es-AR') ?? '—'}</span>

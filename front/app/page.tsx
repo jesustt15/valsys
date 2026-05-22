@@ -14,10 +14,10 @@ export default function LoginPage() {
   const [state, formAction, isPending] = useActionState(loginAction, null)
 
   useEffect(() => {
-    if (state?.success) {
+    if (state && 'success' in state) {
       router.push('/dashboard')
     }
-  }, [state?.success, router])
+  }, [state, router])
 
   return (
     <div className="min-h-screen bg-background flex">
@@ -140,7 +140,7 @@ export default function LoginPage() {
             action={formAction}
             className="space-y-5"
           >
-            {state?.error && (
+            {state && 'error' in state && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}

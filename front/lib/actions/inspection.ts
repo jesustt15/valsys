@@ -126,13 +126,13 @@ export async function createInspectionAction(
       const cylindersToCreate = JSON.parse(newCylindersJson)
       if (Array.isArray(cylindersToCreate) && cylindersToCreate.length > 0) {
         await db.insert(gncCylinders).values(
-          cylindersToCreate.map(c => ({
+          cylindersToCreate.map((c: Record<string, unknown>) => ({
             vehicleId: vid,
             brand: String(c.brand),
             capacity: String(c.capacity),
             initialSerial: String(c.initialSerial),
             location: String(c.location),
-            status: 'montado',
+            status: 'montado' as const,
             updatedBy: session.sub,
           }))
         )

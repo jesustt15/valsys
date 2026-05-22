@@ -1,8 +1,38 @@
 import { db } from '@/lib/db'
-import { vehicles } from '@/db/schema'
+import { vehicles, owners } from '@/db/schema'
 import { eq, count } from 'drizzle-orm'
 
 export type VehicleRecord = typeof vehicles.$inferSelect
+
+export async function getVehicleById(id: string) {
+  const [vehicle] = await db
+    .select()
+    .from(vehicles)
+    .where(eq(vehicles.id, id))
+
+  if (!vehicle) return null
+
+  const [owner] = vehicle.ownerId
+    ? await db.select().from(owners).where(eq(owners.id, vehicle.ownerId))
+    : [null]
+
+  return { ...vehicle, owner }
+}
+
+export async function getVehicleByPlate(licensePlate: string) {
+  const [vehicle] = await db
+    .select()
+    .from(vehicles)
+    .where(eq(vehicles.licensePlate, licensePlate.toUpperCase()))
+
+  if (!vehicle) return null
+
+  const [owner] = vehicle.ownerId
+    ? await db.select().from(owners).where(eq(owners.id, vehicle.ownerId))
+    : [null]
+
+  return { ...vehicle, owner }
+}
 
 export async function getAllVehicles(): Promise<VehicleRecord[]> {
   return db.select().from(vehicles).orderBy(vehicles.createdAt)

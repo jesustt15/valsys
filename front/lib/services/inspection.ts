@@ -190,7 +190,7 @@ export async function getRecentInspectionsWithOwner(limit = 5): Promise<RecentIn
 
 export interface NonCompliantAnswer {
   id: string
-  inspectionId: string
+  inspectionId: string | null
   section: string
   questionKey: string
   answer: boolean | null

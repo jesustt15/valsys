@@ -4,6 +4,7 @@ import { getInspectionById } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
 import { getCylindersByVehicleId, getCylindersByInspectionId } from '@/lib/services/cylinder'
 import { getObjectUrl } from '@/lib/minio'
+import { InspectionPendingSummary } from '@/components/inspections/inspection-pending-summary'
 import { InspectionStatusUpdater } from '@/components/inspections/inspection-status-updater'
 import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
 import { CloseInspectionButton } from '@/components/inspections/close-inspection-button'
@@ -11,6 +12,7 @@ import { CylinderManager } from '@/components/cylinders/cylinder-manager'
 import { CylinderRecertificationPanel } from '@/components/cylinders/cylinder-recertification-panel'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
 import { CertificateCard } from '@/components/certificates/certificate-card'
+import { getPendingSummary } from '@/lib/services/inspection-pending'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Camera, CheckSquare, Truck, User, Calendar } from 'lucide-react'
@@ -51,6 +53,9 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
 
   // Filter post-mount photos with resolved URLs
   const postMountPhotos = attachmentsWithUrls.filter((att) => att.category === 'post_mount')
+
+  // Fetch pending summary
+  const pendingSummary = await getPendingSummary(resolvedParams.id)
 
   let signatureUrl = null
   if (inspection.signature) {
@@ -100,6 +105,14 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
         <h1 className="text-3xl font-bold text-foreground">Expediente de Inspección</h1>
         <p className="text-muted-foreground mt-1 font-mono text-sm">ID: {resolvedParams.id}</p>
       </div>
+
+      {/* Pending Summary Alert */}
+      {pendingSummary && (
+        <InspectionPendingSummary
+          pending={pendingSummary}
+          status={inspection.status || 'inspeccion_inicial'}
+        />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

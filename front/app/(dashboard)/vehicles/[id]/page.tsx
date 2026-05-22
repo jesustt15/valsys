@@ -142,7 +142,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                             insp.status === 'finalizado' ? 'success' : 
                             insp.status === 'en_planta' ? 'warning' : 'secondary'
                           }>
-                            {insp.status.replace('_', ' ').toUpperCase()}
+                            {(insp.status ?? 'inspeccion_inicial').replace('_', ' ').toUpperCase()}
                           </Badge>
                           <ArrowRight className="w-4 h-4 text-muted-foreground opacity-50 group-hover:opacity-100 group-hover:text-blue-600" />
                         </div>

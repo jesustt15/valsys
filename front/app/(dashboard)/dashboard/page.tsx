@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { RecentInspectionsList } from '@/components/dashboard/recent-inspections-list'
+import { PendingAlerts } from '@/components/dashboard/pending-alerts'
 import {
   countInspectionsByStatus,
   countInspectionsToday,
   getRecentInspectionsWithOwner,
 } from '@/lib/services/inspection'
+import { getPendingAlerts } from '@/lib/services/inspection-pending'
 import { countVehicles } from '@/lib/services/vehicle'
 
 const quickActions = [
@@ -46,19 +48,22 @@ export default async function DashboardPage() {
   let todayCount = 0
   let vehicleCount = 0
   let recentInspections: Awaited<ReturnType<typeof getRecentInspectionsWithOwner>> = []
+  let pendingAlerts: Awaited<ReturnType<typeof getPendingAlerts>> = []
 
   try {
-    const [sc, tc, vc, ri] = await Promise.allSettled([
+    const [sc, tc, vc, ri, pa] = await Promise.allSettled([
       countInspectionsByStatus(),
       countInspectionsToday(),
       countVehicles(),
       getRecentInspectionsWithOwner(5),
+      getPendingAlerts(10),
     ])
 
     if (sc.status === 'fulfilled') statusCounts = sc.value
     if (tc.status === 'fulfilled') todayCount = tc.value
     if (vc.status === 'fulfilled') vehicleCount = vc.value
     if (ri.status === 'fulfilled') recentInspections = ri.value
+    if (pa.status === 'fulfilled') pendingAlerts = pa.value
   } catch {
     // All sections fall back to zeros/empty — page stays alive
   }
@@ -103,6 +108,11 @@ export default async function DashboardPage() {
             </Link>
           ))}
         </div>
+      </div>
+
+      {/* Pending Alerts */}
+      <div>
+        <PendingAlerts alerts={pendingAlerts} />
       </div>
 
       {/* Recent Inspections */}

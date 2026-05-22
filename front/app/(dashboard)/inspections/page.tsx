@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import { InspectionsTable } from '@/components/inspections/inspections-table'
 import { getAllInspections } from '@/lib/services/inspection'
+import { getPendingSummaries } from '@/lib/services/inspection-pending'
 
 export default async function InspectionsPage() {
   const inspections = await getAllInspections()
+  const pendingSummaries = await getPendingSummaries(inspections.map((i) => i.id))
 
   return (
     <div className="space-y-6">
@@ -40,7 +42,10 @@ export default async function InspectionsPage() {
             </Link>
           </div>
         ) : (
-          <InspectionsTable inspections={inspections} />
+          <InspectionsTable
+            inspections={inspections}
+            pendingSummaries={Object.fromEntries(pendingSummaries)}
+          />
         )}
       </div>
     </div>

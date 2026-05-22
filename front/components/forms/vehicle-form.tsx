@@ -18,7 +18,7 @@ interface OwnerOption {
 }
 
 export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
-  const [state, action, pending] = useActionState<VehicleFormState | null>(
+  const [state, action, pending] = useActionState<VehicleFormState | null, FormData>(
     createVehicle,
     null
   )

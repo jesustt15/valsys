@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, AlertCircle, UserPlus } from 'lucide-react'
 
 export function OwnerForm() {
-  const [state, action, pending] = useActionState<OwnerFormState | null>(
+  const [state, action, pending] = useActionState<OwnerFormState | null, FormData>(
     createOwner,
     null
   )

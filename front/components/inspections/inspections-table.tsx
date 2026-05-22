@@ -3,11 +3,11 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Plus, Search, FileText } from 'lucide-react'
+import { Plus, Search, FileText, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import type { PendingItems } from '@/lib/services/inspection-pending'
 
 interface InspectionsTableProps {
   inspections: Array<{
@@ -20,6 +20,7 @@ interface InspectionsTableProps {
     kmCurrent: number
     operatorName: string | null
   }>
+  pendingSummaries?: Record<string, PendingItems>
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,7 +35,7 @@ const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success'> = {
   finalizado: 'success',
 }
 
-export function InspectionsTable({ inspections }: InspectionsTableProps) {
+export function InspectionsTable({ inspections, pendingSummaries = {} }: InspectionsTableProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
@@ -84,12 +85,13 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
           <option value="finalizado">Finalizado</option>
         </select>
 
-        <Button asChild className="h-11">
-          <Link href="/inspections/new">
-            <Plus className="w-4 h-4 mr-2" />
-            Nueva Inspección
-          </Link>
-        </Button>
+        <Link
+          href="/inspections/new"
+          className="inline-flex items-center justify-center gap-2 h-11 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]"
+        >
+          <Plus className="w-4 h-4" />
+          Nueva Inspección
+        </Link>
       </div>
 
       {/* Results count */}
@@ -116,6 +118,9 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Estado
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">
+                  Pendientes
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
                   Km
@@ -155,6 +160,9 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
                       {STATUS_LABELS[insp.status] ?? insp.status}
                     </Badge>
                   </td>
+                  <td className="px-4 py-3.5 text-sm hidden md:table-cell">
+                    <PendingBadge pending={pendingSummaries[insp.id]} status={insp.status} />
+                  </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
                     {insp.kmCurrent.toLocaleString('es-AR')}
                   </td>
@@ -162,12 +170,14 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
                     {insp.operatorName ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-right">
-                    <Button asChild variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Link href={`/inspections/${insp.id}`} title="Ver Expediente">
-                        <FileText className="h-4 w-4 text-blue-600" />
-                        <span className="sr-only">Ver Expediente</span>
-                      </Link>
-                    </Button>
+                    <Link
+                      href={`/inspections/${insp.id}`}
+                      title="Ver Expediente"
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-secondary hover:text-secondary-foreground transition-all"
+                    >
+                      <FileText className="h-4 w-4 text-blue-600" />
+                      <span className="sr-only">Ver Expediente</span>
+                    </Link>
                   </td>
                 </motion.tr>
               ))}
@@ -187,4 +197,65 @@ export function InspectionsTable({ inspections }: InspectionsTableProps) {
       </Card>
     </motion.div>
   )
+}
+
+// ─── Pending Badge Component ────────────────────────────────────
+
+function PendingBadge({
+  pending,
+  status,
+}: {
+  pending?: PendingItems
+  status: string
+}) {
+  if (!pending) return <span className="text-xs text-muted-foreground">—</span>
+
+  // Finalizado con todo ok
+  if (status === 'finalizado' && pending.totalPending === 0 && pending.hasFinalCert) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        Completo
+      </span>
+    )
+  }
+
+  // Blocking issues
+  if (pending.totalBlocking > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium" title={getPendingTitle(pending)}>
+        <AlertCircle className="w-3.5 h-3.5" />
+        {pending.totalBlocking} bloqueo{pending.totalBlocking > 1 ? 's' : ''}
+      </span>
+    )
+  }
+
+  // Warnings
+  if (pending.totalWarnings > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" title={getPendingTitle(pending)}>
+        <AlertTriangle className="w-3.5 h-3.5" />
+        {pending.totalWarnings} pendiente{pending.totalWarnings > 1 ? 's' : ''}
+      </span>
+    )
+  }
+
+  // No issues
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+      <CheckCircle2 className="w-3.5 h-3.5" />
+      Sin novedad
+    </span>
+  )
+}
+
+function getPendingTitle(pending: PendingItems): string {
+  const parts: string[] = []
+  if (pending.nonCompliantCount > 0) parts.push(`${pending.nonCompliantCount} ítem(s) no conforme(s)`)
+  if (pending.cylindersInPlant > 0) parts.push(`${pending.cylindersInPlant} cilindro(s) en planta`)
+  if (!pending.hasSignature) parts.push('Sin firma del titular')
+  if (!pending.hasPostMountPhotos) parts.push('Sin fotos post-montaje')
+  if (!pending.hasCertificate) parts.push('Sin certificado')
+  if (!pending.hasFinalCert) parts.push('Sin certificado final')
+  return parts.join(' · ') || 'Sin novedad'
 }

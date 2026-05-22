@@ -14,13 +14,14 @@ const SelectContext = React.createContext<{
   onValueChange?: (value: string) => void
   open: boolean
   setOpen: (open: boolean) => void
-}>({ value: undefined, onValueChange: undefined, open: false, setOpen: () => {} })
+  placeholder?: string
+}>({ value: undefined, onValueChange: undefined, open: false, setOpen: () => {}, placeholder: 'Seleccionar...' })
 
 function Select({ value, onValueChange, children, placeholder = 'Seleccionar...', className = '' }: SelectProps) {
   const [open, setOpen] = React.useState(false)
 
   return (
-    <SelectContext.Provider value={{ value, onValueChange, open, setOpen }}>
+    <SelectContext.Provider value={{ value, onValueChange, open, setOpen, placeholder }}>
       <div className={cn('relative', className)}>
         {children}
       </div>
