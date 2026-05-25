@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders, certificates } from '@/db/schema'
-import { createInspectionSchema, checklistAnswersSchema, closeInspectionSchema } from '@/lib/validations/inspection'
+import { createInspectionSchema, checklistAnswersSchema, closeInspectionSchema, toggleAnswerSchema } from '@/lib/validations/inspection'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { getNonCompliantAnswers, getPostMountAttachments } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
 import { generateCorrelative } from '@/lib/utils/generate-correlative'
+import { cycleInspectionAnswer } from '@/lib/services/inspection'
 
 export type InspectionFormState = {
   success?: boolean
@@ -257,6 +258,40 @@ export async function uploadInspectionFileAction(
     console.error('Error uploading files:', e)
     return { error: 'Error al subir los archivos' }
   }
+}
+
+export type ToggleAnswerState = {
+  success?: boolean
+  error?: string
+  data?: { answer: boolean | null }
+}
+
+export async function toggleInspectionAnswerAction(
+  _prev: ToggleAnswerState | null,
+  formData: FormData,
+): Promise<ToggleAnswerState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+
+  const parsed = toggleAnswerSchema.safeParse({
+    answerId: formData.get('answerId'),
+    expectedAnswer: formData.get('expectedAnswer') === 'true' ? true : formData.get('expectedAnswer') === 'false' ? false : null,
+  })
+
+  if (!parsed.success) {
+    return { error: 'Datos inválidos' }
+  }
+
+  const result = await cycleInspectionAnswer(parsed.data.answerId, parsed.data.expectedAnswer)
+
+  if (!result.success) {
+    return { error: result.error }
+  }
+
+  revalidatePath(`/inspections/${formData.get('inspectionId')}`)
+  revalidatePath('/inspections')
+
+  return { success: true, data: { answer: result.answer } }
 }
 
 export async function closeInspectionAction(

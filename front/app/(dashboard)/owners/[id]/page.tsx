@@ -5,6 +5,7 @@ import { getVehiclesByOwnerId } from '@/lib/services/vehicle'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { User, Truck, Phone, Mail, FileText, Calendar } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { EditOwnerModal } from '@/components/owners/edit-owner-modal'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -50,6 +51,9 @@ export default async function OwnerDetailPage({ params }: PageProps) {
             <CardDescription className="text-center mt-1">
               Titular
             </CardDescription>
+            <div className="flex justify-center mt-3">
+              <EditOwnerModal owner={owner} />
+            </div>
           </CardHeader>
           <CardContent className="pt-6 space-y-4 text-sm">
             <div className="flex items-center gap-3 text-muted-foreground">

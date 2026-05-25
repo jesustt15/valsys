@@ -34,3 +34,11 @@ export const closeInspectionSchema = z.object({
 })
 
 export type CloseInspectionInput = z.infer<typeof closeInspectionSchema>
+
+// ─── Toggle Answer ────────────────────────────────────────────
+export const toggleAnswerSchema = z.object({
+  answerId: z.string().uuid('ID de respuesta inválido'),
+  expectedAnswer: z.boolean().nullable(),
+})
+
+export type ToggleAnswerInput = z.infer<typeof toggleAnswerSchema>

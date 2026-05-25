@@ -7,6 +7,7 @@ import { getCylindersByVehicleId } from '@/lib/services/cylinder'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Truck, User, Calendar, ClipboardCheck, Database, ArrowRight } from 'lucide-react'
+import { EditVehicleModal } from '@/components/vehicles/edit-vehicle-modal'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -64,6 +65,9 @@ export default async function VehicleDetailPage({ params }: PageProps) {
               <CardDescription className="text-center mt-1 font-medium text-foreground">
                 {vehicle.brand} {vehicle.model}
               </CardDescription>
+              <div className="flex justify-center mt-3">
+                <EditVehicleModal vehicle={vehicle} />
+              </div>
             </CardHeader>
             <CardContent className="pt-6 space-y-4 text-sm">
               <div className="flex justify-between border-b pb-2">

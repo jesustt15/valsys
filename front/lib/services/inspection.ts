@@ -206,6 +206,34 @@ export async function getNonCompliantAnswers(inspectionId: string): Promise<NonC
   return answers.filter((a) => a.answer === false)
 }
 
+// ─── Answer Toggle (atomic compare-and-swap) ───────────────
+function cycleAnswer(current: boolean | null): boolean | null {
+  if (current === null) return true
+  if (current === true) return false
+  return null
+}
+
+export async function cycleInspectionAnswer(
+  answerId: string,
+  expectedAnswer: boolean | null,
+): Promise<{ success: true; answer: boolean | null } | { success: false; error: string }> {
+  const nextAnswer = cycleAnswer(expectedAnswer)
+
+  const [updated] = await db
+    .update(inspectionAnswers)
+    .set({ answer: nextAnswer, updatedAt: new Date() })
+    .where(
+      sql`${inspectionAnswers.id} = ${answerId} AND ${inspectionAnswers.answer} IS NOT DISTINCT FROM ${expectedAnswer}`,
+    )
+    .returning({ id: inspectionAnswers.id, answer: inspectionAnswers.answer })
+
+  if (!updated) {
+    return { success: false, error: 'La respuesta fue modificada por otro usuario. Recargue la página.' }
+  }
+
+  return { success: true, answer: updated.answer }
+}
+
 export async function getPostMountAttachments(inspectionId: string) {
   const attachments = await db
     .select()

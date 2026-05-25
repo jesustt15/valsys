@@ -41,6 +41,19 @@ export const createOwnerSchema = z.object({
 
 export type CreateOwnerInput = z.infer<typeof createOwnerSchema>
 
+// ─── Update Owner (combined documentId) ───────────────────────
+export const updateOwnerSchema = z.object({
+  fullName: createOwnerSchema.shape.fullName.optional(),
+  documentId: z
+    .string()
+    .regex(DOCUMENT_RE, 'Formato inválido. Ej: V-123456789')
+    .optional(),
+  phone: createOwnerSchema.shape.phone,
+  email: createOwnerSchema.shape.email,
+})
+
+export type UpdateOwnerInput = z.infer<typeof updateOwnerSchema>
+
 // Helper para construir el documentId completo
 export function buildDocumentId(
   type: 'V' | 'E' | 'J',

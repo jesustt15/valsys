@@ -2,7 +2,8 @@
 
 import { db } from '@/lib/db'
 import { owners } from '@/db/schema'
-import { createOwnerSchema, buildDocumentId } from '@/lib/validations/owner'
+import { createOwnerSchema, updateOwnerSchema, buildDocumentId } from '@/lib/validations/owner'
+import { updateOwner } from '@/lib/services/owner'
 import { eq } from 'drizzle-orm'
 
 export type OwnerFormState = {
@@ -55,4 +56,34 @@ export async function createOwner(
     console.error('Error creating owner:', e)
     return { error: 'Error al guardar el dueño. Intente de nuevo.' }
   }
+}
+
+export async function updateOwnerAction(
+  _prev: OwnerFormState | null,
+  formData: FormData,
+): Promise<OwnerFormState> {
+  const parsed = updateOwnerSchema.safeParse({
+    fullName: formData.get('fullName') || undefined,
+    documentId: formData.get('documentId') || undefined,
+    phone: formData.get('phone') || undefined,
+    email: formData.get('email') || undefined,
+  })
+
+  if (!parsed.success) {
+    const firstError = parsed.error.issues?.[0]?.message ?? 'Error de validación'
+    return { error: firstError }
+  }
+
+  const ownerId = formData.get('id') as string
+  if (!ownerId) {
+    return { error: 'ID de propietario no proporcionado' }
+  }
+
+  const result = await updateOwner(ownerId, parsed.data)
+
+  if (!result.success) {
+    return { error: result.error }
+  }
+
+  return { success: true, data: { id: result.owner.id, fullName: result.owner.fullName } }
 }

@@ -16,6 +16,7 @@ import { getPendingSummary } from '@/lib/services/inspection-pending'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Camera, CheckSquare, Truck, User, Calendar } from 'lucide-react'
+import { ChecklistToggle } from '@/components/inspections/checklist-toggle'
 
 // Types based on the expected params in Next.js 15+
 interface PageProps {
@@ -69,12 +70,6 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   let plantDocUrl: string | null = null
   if (certificate?.plantDocKey) {
     plantDocUrl = await getObjectUrl(certificate.plantDocKey)
-  }
-
-  const formatBool = (val: boolean | null) => {
-    if (val === true) return <Badge variant="success">Sí</Badge>
-    if (val === false) return <Badge variant="destructive">No</Badge>
-    return <Badge variant="warning">Pendiente</Badge>
   }
 
   return (
@@ -233,7 +228,12 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                           <span className="font-mono text-xs text-muted-foreground">{a.questionKey}</span>
                           <span className="text-xs mt-1 text-muted-foreground">{a.observations || 'Sin observaciones'}</span>
                         </div>
-                        {formatBool(a.answer)}
+                        <ChecklistToggle
+                          answerId={a.id}
+                          inspectionId={resolvedParams.id}
+                          currentAnswer={a.answer}
+                          questionKey={a.questionKey}
+                        />
                       </div>
                     ))}
                   </div>
@@ -247,7 +247,12 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                           <span className="font-mono text-xs text-muted-foreground">{a.questionKey}</span>
                           <span className="text-xs mt-1 text-muted-foreground">{a.observations || 'Sin observaciones'}</span>
                         </div>
-                        {formatBool(a.answer)}
+                        <ChecklistToggle
+                          answerId={a.id}
+                          inspectionId={resolvedParams.id}
+                          currentAnswer={a.answer}
+                          questionKey={a.questionKey}
+                        />
                       </div>
                     ))}
                   </div>

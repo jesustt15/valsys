@@ -41,3 +41,8 @@ export const createVehicleSchema = z.object({
 })
 
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>
+
+// ─── Update Vehicle (partial, no ownerId) ─────────────────────
+export const updateVehicleSchema = createVehicleSchema.omit({ ownerId: true }).partial()
+
+export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>

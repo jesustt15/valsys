@@ -38,6 +38,14 @@ const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success'> = {
 export function InspectionsTable({ inspections, pendingSummaries = {} }: InspectionsTableProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [pendingFilter, setPendingFilter] = useState<string>('all')
+  const [operatorFilter, setOperatorFilter] = useState<string>('all')
+
+  // Extract unique operator names for the filter
+  const operators = useMemo(() => {
+    const names = new Set(inspections.map((i) => i.operatorName).filter(Boolean))
+    return Array.from(names).sort()
+  }, [inspections])
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
@@ -48,9 +56,19 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
       const matchesStatus =
         statusFilter === 'all' || i.status === statusFilter
 
-      return matchesQuery && matchesStatus
+      const pending = pendingSummaries[i.id]
+      const matchesPending =
+        pendingFilter === 'all' ||
+        (pendingFilter === 'blocking' && (pending?.totalBlocking ?? 0) > 0) ||
+        (pendingFilter === 'warnings' && (pending?.totalBlocking ?? 0) === 0 && (pending?.totalWarnings ?? 0) > 0) ||
+        (pendingFilter === 'clean' && (pending?.totalBlocking ?? 0) === 0 && (pending?.totalWarnings ?? 0) === 0)
+
+      const matchesOperator =
+        operatorFilter === 'all' || i.operatorName === operatorFilter
+
+      return matchesQuery && matchesStatus && matchesPending && matchesOperator
     })
-  }, [inspections, query, statusFilter])
+  }, [inspections, query, statusFilter, pendingFilter, operatorFilter, pendingSummaries])
 
   return (
     <motion.div
@@ -85,6 +103,30 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
           <option value="finalizado">Finalizado</option>
         </select>
 
+        <select
+          id="inspections-pending-filter"
+          value={pendingFilter}
+          onChange={(e) => setPendingFilter(e.target.value)}
+          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+        >
+          <option value="all">Todas las pendientes</option>
+          <option value="blocking">Con bloqueos</option>
+          <option value="warnings">Con advertencias</option>
+          <option value="clean">Sin novedad</option>
+        </select>
+
+        <select
+          id="inspections-operator-filter"
+          value={operatorFilter}
+          onChange={(e) => setOperatorFilter(e.target.value)}
+          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+        >
+          <option value="all">Todos los operadores</option>
+          {operators.map((name) => (
+            <option key={name} value={name!}>{name}</option>
+          ))}
+        </select>
+
         <Link
           href="/inspections/new"
           className="inline-flex items-center justify-center gap-2 h-11 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]"
@@ -95,7 +137,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
       </div>
 
       {/* Results count */}
-      {query || statusFilter !== 'all' ? (
+      {query || statusFilter !== 'all' || pendingFilter !== 'all' || operatorFilter !== 'all' ? (
         <p className="text-xs text-muted-foreground">
           {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} de {inspections.length}
         </p>
@@ -187,8 +229,8 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            {query || statusFilter !== 'all'
-              ? 'No se encontraron inspecciones con ese criterio'
+            {query || statusFilter !== 'all' || pendingFilter !== 'all' || operatorFilter !== 'all'
+              ? 'No se encontraron inspecciones con esos filtros'
               : inspections.length === 0
                 ? 'No hay inspecciones registradas. Cree la primera para comenzar.'
                 : 'No hay inspecciones registradas'}

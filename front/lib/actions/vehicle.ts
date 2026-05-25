@@ -2,7 +2,8 @@
 
 import { db } from '@/lib/db'
 import { vehicles, owners } from '@/db/schema'
-import { createVehicleSchema } from '@/lib/validations/vehicle'
+import { createVehicleSchema, updateVehicleSchema } from '@/lib/validations/vehicle'
+import { updateVehicle } from '@/lib/services/vehicle'
 import { eq } from 'drizzle-orm'
 
 export type VehicleFormState = {
@@ -92,4 +93,36 @@ export async function getOwnersList() {
     })
     .from(owners)
     .orderBy(owners.fullName)
+}
+
+export async function updateVehicleAction(
+  _prev: VehicleFormState | null,
+  formData: FormData,
+): Promise<VehicleFormState> {
+  const parsed = updateVehicleSchema.safeParse({
+    vin: formData.get('vin') || undefined,
+    licensePlate: formData.get('licensePlate') || undefined,
+    vehicleType: formData.get('vehicleType') || undefined,
+    brand: formData.get('brand') || undefined,
+    model: formData.get('model') || undefined,
+    year: formData.get('year') || undefined,
+  })
+
+  if (!parsed.success) {
+    const firstError = parsed.error.issues?.[0]?.message ?? 'Error de validación'
+    return { error: firstError }
+  }
+
+  const vehicleId = formData.get('id') as string
+  if (!vehicleId) {
+    return { error: 'ID de vehículo no proporcionado' }
+  }
+
+  const result = await updateVehicle(vehicleId, parsed.data)
+
+  if (!result.success) {
+    return { error: result.error }
+  }
+
+  return { success: true, data: { id: result.vehicle.id, licensePlate: result.vehicle.licensePlate ?? '' } }
 }
