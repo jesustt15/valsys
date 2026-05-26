@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm'
 import { createCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema } from '@/lib/validations/cylinder'
 import { getSession } from '@/lib/auth/get-session'
 import { putObject } from '@/lib/minio'
+import { createNotification } from '@/lib/services/notification'
 
 export type CylinderFormState = {
   success?: boolean
@@ -32,7 +33,20 @@ export async function createCylinderAction(
       ...parsed.data,
       updatedBy: session.sub,
     })
-    
+
+    // Notification: cylinder sent to plant
+    try {
+      await createNotification(session.sub, {
+        type: 'cylinder_sent_to_plant',
+        title: 'Cilindro enviado a planta',
+        message: `El cilindro ${parsed.data.brand} ${parsed.data.initialSerial} fue enviado a planta`,
+        relatedEntityType: 'cylinder',
+        relatedEntityId: parsed.data.vehicleId,
+      })
+    } catch (e) {
+      console.error('Failed to create notification:', e)
+    }
+
     const inspectionId = formData.get('inspectionId') as string
     if (inspectionId) {
       revalidatePath(`/inspections/${inspectionId}`)
@@ -112,6 +126,21 @@ export async function updateCylinderStatusAction(
       revalidatePath(`/inspections/${inspectionId}`)
     }
 
+    // Notification: cylinder scrapped (only when status === 'de_baja')
+    if (parsed.data.status === 'de_baja') {
+      try {
+        await createNotification(session.sub, {
+          type: 'cylinder_scrapped',
+          title: 'Cilindro dado de baja',
+          message: 'El cilindro fue marcado como de baja',
+          relatedEntityType: 'cylinder',
+          relatedEntityId: parsed.data.id,
+        })
+      } catch (e) {
+        console.error('Failed to create notification:', e)
+      }
+    }
+
     return { success: true }
   } catch (error) {
     console.error('Error updating cylinder status:', error)
@@ -178,6 +207,29 @@ export async function recertifyCylinderAction(
         fileSize: plantDoc.size,
         category: 'plant',
       })
+    }
+
+    // Notification: recertified or scrapped
+    try {
+      if (parsed.data.status === 'pendiente_reinstalacion') {
+        await createNotification(session.sub, {
+          type: 'cylinder_recertified',
+          title: 'Cilindro recertificado',
+          message: `El cilindro ${parsed.data.actualSerial ?? 's/n'} fue recertificado exitosamente`,
+          relatedEntityType: 'cylinder',
+          relatedEntityId: parsed.data.id,
+        })
+      } else if (parsed.data.status === 'de_baja') {
+        await createNotification(session.sub, {
+          type: 'cylinder_scrapped',
+          title: 'Cilindro dado de baja',
+          message: `El cilindro ${parsed.data.actualSerial ?? 's/n'} fue marcado como de baja`,
+          relatedEntityType: 'cylinder',
+          relatedEntityId: parsed.data.id,
+        })
+      }
+    } catch (e) {
+      console.error('Failed to create notification:', e)
     }
 
     revalidatePath(`/inspections/${parsed.data.inspectionId}`)

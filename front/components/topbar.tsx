@@ -3,17 +3,19 @@
 import { ReactNode } from 'react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
-import { Bell, User, Settings, LogOut, ChevronDown } from 'lucide-react'
+import { NotificationPanel } from '@/components/notification-panel'
+import { User, Settings, LogOut, ChevronDown } from 'lucide-react'
 
 interface TopbarProps {
   fullName: string
   role: string
   logoutButton: ReactNode
+  initialUnreadCount?: number
 }
 
-export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
+export function Topbar({ fullName, role, logoutButton, initialUnreadCount }: TopbarProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const initials = fullName
@@ -45,14 +47,7 @@ export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
         <ThemeToggle />
 
         {/* Notifications */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="relative p-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors"
-        >
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
-        </motion.button>
+        <NotificationPanel initialUnreadCount={initialUnreadCount ?? 0} />
 
         {/* User Profile Dropdown */}
         <div className="relative">
@@ -96,10 +91,16 @@ export function Topbar({ fullName, role, logoutButton }: TopbarProps) {
                     <User className="w-4 h-4" />
                     Mi Perfil
                   </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors">
-                    <Settings className="w-4 h-4" />
-                    Configuración
-                  </button>
+                  {(role === 'operator' || role === 'admin') && (
+                    <Link
+                      href="/settings"
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-secondary transition-colors"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <Settings className="w-4 h-4" />
+                      Configuración
+                    </Link>
+                  )}
                   <div className="border-t border-border my-1" />
                   <div className="px-2 py-1">
                     {logoutButton}

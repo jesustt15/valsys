@@ -7,6 +7,7 @@ import { createInspectionSchema, checklistAnswersSchema, closeInspectionSchema, 
 import { ALL_QUESTIONS } from '@/lib/checklist'
 import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
+import { createNotification } from '@/lib/services/notification'
 import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { getNonCompliantAnswers, getPostMountAttachments } from '@/lib/services/inspection'
@@ -118,6 +119,24 @@ export async function createInspectionAction(
   } catch (e) {
     console.error('Error creating inspection:', e)
     return { error: 'Error al crear la inspección. Intente de nuevo.' }
+  }
+
+  // Notification: inspection has pending or non-compliant answers
+  try {
+    const pendingCount = answersResult.data.filter(
+      (a) => a.answer === null || a.answer === false,
+    ).length
+    if (pendingCount > 0) {
+      await createNotification(session.sub, {
+        type: 'inspection_pending_items',
+        title: 'Inspección con pendientes',
+        message: `La inspección tiene ${pendingCount} respuestas sin contestar o no conformes`,
+        relatedEntityType: 'inspection',
+        relatedEntityId: inspectionId,
+      })
+    }
+  } catch (e) {
+    console.error('Failed to create notification:', e)
   }
 
   // Insert cylinders if any
@@ -329,6 +348,18 @@ export async function closeInspectionAction(
   // 3. Check non-compliant items
   const nonCompliant = await getNonCompliantAnswers(inspectionId)
   if (nonCompliant.length > 0) {
+    // Notification: close attempt blocked by non-compliant items
+    try {
+      await createNotification(session.sub, {
+        type: 'inspection_non_compliant',
+        title: 'Intento de cierre bloqueado',
+        message: `La inspección ${inspectionId} tiene ${nonCompliant.length} ítems no conformes sin resolver`,
+        relatedEntityType: 'inspection',
+        relatedEntityId: inspectionId,
+      })
+    } catch (e) {
+      console.error('Failed to create notification:', e)
+    }
     return { error: 'Existen ítems no conformes sin resolver' }
   }
 

@@ -10,7 +10,8 @@ import {
   date, 
   decimal,
   index,
-  pgEnum
+  pgEnum,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 // ─── Enums ───────────────────────────────────────────────────────
@@ -169,4 +170,29 @@ export const certificates = pgTable('certificates', {
 }, (table) => ({
   correlativeIdx: index('idx_certificates_correlative').on(table.correlativeNumber),
   inspectionIdx: index('idx_certificates_inspection').on(table.inspectionId),
+}));
+
+// ─── 9. Notifications ──────────────────────────────────────────
+export const notificationType = [
+  'cylinder_recertified',
+  'cylinder_scrapped',
+  'cylinder_sent_to_plant',
+  'inspection_pending_items',
+  'inspection_non_compliant',
+] as const
+
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  type: varchar('type', { enum: notificationType }).notNull(),
+  title: varchar('title').notNull(),
+  message: text('message').notNull(),
+  relatedEntityType: varchar('related_entity_type', { enum: ['inspection', 'cylinder'] }).notNull(),
+  relatedEntityId: uuid('related_entity_id').notNull(),
+  readAt: timestamp('read_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  userIdx: index('idx_notifications_user').on(table.userId),
+  unreadIdx: index('idx_notifications_unread').on(table.userId, table.readAt),
 }));
