@@ -11,14 +11,14 @@ export default async function InspectionsPage() {
     <div className="space-y-6">
       {/* Breadcrumb */}
       <nav>
-        <ol className="flex items-center gap-2 text-sm text-gray-500">
+        <ol className="flex items-center gap-2 text-sm">
           <li>
-            <Link href="/dashboard" className="hover:text-gray-700 transition-colors">
+            <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
               Inicio
             </Link>
           </li>
-          <li>/</li>
-          <li className="text-gray-900 font-medium">Inspecciones</li>
+          <li className="text-muted-foreground">/</li>
+          <li className="font-medium text-foreground">Inspecciones</li>
         </ol>
       </nav>
 
@@ -29,7 +29,7 @@ export default async function InspectionsPage() {
       </div>
 
       {/* Card wrapper */}
-      <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         {inspections.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-muted-foreground mb-4">No hay inspecciones registradas</p>

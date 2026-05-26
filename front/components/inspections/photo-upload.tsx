@@ -55,7 +55,7 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
 
   return (
     <div className="space-y-3">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      <label className="block text-sm font-medium text-foreground">{label}</label>
 
       <input
         name="photos"
@@ -63,7 +63,7 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
         accept="image/*"
         multiple
         onChange={handleInputChange}
-        className="block w-full text-sm text-gray-500
+        className="block w-full text-sm text-muted-foreground
                    file:mr-4 file:py-2 file:px-4
                    file:rounded-lg file:border-0
                    file:text-sm file:font-semibold
@@ -72,13 +72,13 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
                    cursor-pointer"
       />
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-muted-foreground">
         Máximo {MAX_PHOTOS} fotos, 5MB cada una. Formatos: JPG, PNG, WEBP
       </p>
 
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2">
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
 
@@ -89,7 +89,7 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
               <img
                 src={preview.url}
                 alt={`Foto ${index + 1}`}
-                className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                className="w-full h-24 object-cover rounded-lg border border-border"
               />
             </div>
           ))}

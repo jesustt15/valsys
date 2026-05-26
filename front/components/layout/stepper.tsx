@@ -40,14 +40,14 @@ export function WorkflowStepper({
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors
                   ${isActive ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200' : ''}
                   ${isCompleted ? 'text-green-600 hover:bg-green-50' : ''}
-                  ${!isActive && !isCompleted ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-50' : ''}
+                  ${!isActive && !isCompleted ? 'text-muted-foreground hover:text-foreground hover:bg-secondary/50' : ''}
                 `}
               >
                 <span
                   className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-semibold
                     ${isActive ? 'bg-blue-600 text-white' : ''}
                     ${isCompleted ? 'bg-green-500 text-white' : ''}
-                    ${!isActive && !isCompleted ? 'bg-gray-200 text-gray-500' : ''}
+                    ${!isActive && !isCompleted ? 'bg-secondary/50 text-muted-foreground' : ''}
                   `}
                 >
                   {isCompleted ? (
@@ -65,7 +65,7 @@ export function WorkflowStepper({
               {i < steps.length - 1 && (
                 <div
                   className={`w-8 h-0.5 mx-1 flex-shrink-0
-                    ${isCompleted ? 'bg-green-400' : 'bg-gray-200'}
+                    ${isCompleted ? 'bg-green-400' : 'bg-border'}
                   `}
                 />
               )}

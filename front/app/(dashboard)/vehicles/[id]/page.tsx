@@ -36,12 +36,12 @@ export default async function VehicleDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       <nav>
-        <ol className="flex items-center gap-2 text-sm text-gray-500">
-          <li><Link href="/dashboard" className="hover:text-gray-700 transition-colors">Inicio</Link></li>
-          <li>/</li>
-          <li><Link href="/vehicles" className="hover:text-gray-700 transition-colors">Vehículos</Link></li>
-          <li>/</li>
-          <li className="text-gray-900 font-medium font-mono truncate max-w-[200px]">{vehicle.licensePlate}</li>
+        <ol className="flex items-center gap-2 text-sm">
+          <li><Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Inicio</Link></li>
+          <li className="text-muted-foreground">/</li>
+          <li><Link href="/vehicles" className="text-muted-foreground hover:text-foreground transition-colors">Vehículos</Link></li>
+          <li className="text-muted-foreground">/</li>
+          <li className="font-medium text-foreground font-mono truncate max-w-[200px]">{vehicle.licensePlate}</li>
         </ol>
       </nav>
 

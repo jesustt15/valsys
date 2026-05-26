@@ -76,20 +76,20 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* Breadcrumb */}
       <nav>
-        <ol className="flex items-center gap-2 text-sm text-gray-500">
+        <ol className="flex items-center gap-2 text-sm">
           <li>
-            <Link href="/dashboard" className="hover:text-gray-700 transition-colors">
+            <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">
               Inicio
             </Link>
           </li>
-          <li>/</li>
+          <li className="text-muted-foreground">/</li>
           <li>
-            <Link href="/inspections" className="hover:text-gray-700 transition-colors">
+            <Link href="/inspections" className="text-muted-foreground hover:text-foreground transition-colors">
               Inspecciones
             </Link>
           </li>
-          <li>/</li>
-          <li className="text-gray-900 font-medium font-mono truncate max-w-[200px]">
+          <li className="text-muted-foreground">/</li>
+          <li className="font-medium text-foreground font-mono truncate max-w-[200px]">
             {resolvedParams.id}
           </li>
         </ol>
@@ -273,7 +273,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             </CardHeader>
             <CardContent>
               {signatureUrl ? (
-                <div className="border-2 border-dashed rounded-xl overflow-hidden bg-white p-2">
+                <div className="border-2 border-dashed rounded-xl overflow-hidden bg-card p-2">
                   <img src={signatureUrl} alt="Firma del titular" className="w-full h-auto object-contain" />
                 </div>
               ) : (

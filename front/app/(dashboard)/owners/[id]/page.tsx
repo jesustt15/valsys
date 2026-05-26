@@ -24,12 +24,12 @@ export default async function OwnerDetailPage({ params }: PageProps) {
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       <nav>
-        <ol className="flex items-center gap-2 text-sm text-gray-500">
-          <li><Link href="/dashboard" className="hover:text-gray-700 transition-colors">Inicio</Link></li>
-          <li>/</li>
-          <li><Link href="/owners" className="hover:text-gray-700 transition-colors">Propietarios</Link></li>
-          <li>/</li>
-          <li className="text-gray-900 font-medium truncate max-w-[200px]">{owner.fullName}</li>
+        <ol className="flex items-center gap-2 text-sm">
+          <li><Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Inicio</Link></li>
+          <li className="text-muted-foreground">/</li>
+          <li><Link href="/owners" className="text-muted-foreground hover:text-foreground transition-colors">Propietarios</Link></li>
+          <li className="text-muted-foreground">/</li>
+          <li className="font-medium text-foreground truncate max-w-[200px]">{owner.fullName}</li>
         </ol>
       </nav>
 
