@@ -77,15 +77,25 @@ export async function updateCylinderStatusAction(
   }
 
   try {
-    // Status guard: if current status is en_planta, only allow pendiente_reinstalacion or de_baja
+    // Status guard: validate allowed transitions based on current status
     const current = await db.select({ status: gncCylinders.status })
       .from(gncCylinders)
       .where(eq(gncCylinders.id, parsed.data.id))
       .limit(1)
 
-    if (current.length && current[0].status === 'en_planta') {
-      if (parsed.data.status !== 'pendiente_reinstalacion' && parsed.data.status !== 'de_baja') {
-        return { error: 'Los cilindros en planta solo pueden pasar a "pendiente reinstalación" o "de baja"' }
+    if (current.length) {
+      if (current[0].status === 'en_planta') {
+        if (parsed.data.status !== 'pendiente_reinstalacion' && parsed.data.status !== 'de_baja') {
+          return { error: 'Los cilindros en planta solo pueden pasar a "pendiente reinstalación" o "de baja"' }
+        }
+      } else if (current[0].status === 'pendiente_reinstalacion') {
+        if (parsed.data.status !== 'montado') {
+          return { error: 'Los cilindros pendientes de reinstalación solo pueden marcarse como "montado"' }
+        }
+      } else if (current[0].status === 'montado') {
+        if (parsed.data.status !== 'en_planta' && parsed.data.status !== 'de_baja') {
+          return { error: 'Los cilindros montados solo pueden pasarse a "en planta" o "de baja"' }
+        }
       }
     }
 
@@ -126,13 +136,25 @@ export async function updateCylinderStatusAction(
       revalidatePath(`/inspections/${inspectionId}`)
     }
 
-    // Notification: cylinder scrapped (only when status === 'de_baja')
+    // Notifications
     if (parsed.data.status === 'de_baja') {
       try {
         await createNotification(session.sub, {
           type: 'cylinder_scrapped',
           title: 'Cilindro dado de baja',
           message: 'El cilindro fue marcado como de baja',
+          relatedEntityType: 'cylinder',
+          relatedEntityId: parsed.data.id,
+        })
+      } catch (e) {
+        console.error('Failed to create notification:', e)
+      }
+    } else if (parsed.data.status === 'montado') {
+      try {
+        await createNotification(session.sub, {
+          type: 'cylinder_sent_to_plant',
+          title: 'Cilindro reinstalado',
+          message: 'El cilindro fue reinstalado en el vehículo',
           relatedEntityType: 'cylinder',
           relatedEntityId: parsed.data.id,
         })

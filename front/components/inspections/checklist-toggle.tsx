@@ -36,7 +36,7 @@ export function ChecklistToggle({ answerId, inspectionId, currentAnswer, questio
       <input
         type="hidden"
         name="expectedAnswer"
-        value={currentAnswer === true ? 'true' : currentAnswer === false ? 'false' : ''}
+        value={displayAnswer === true ? 'true' : displayAnswer === false ? 'false' : ''}
       />
       <button
         type="submit"

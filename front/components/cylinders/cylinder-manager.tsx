@@ -2,7 +2,7 @@
 
 import { useState, useActionState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CheckCircle, AlertCircle, Edit2, Camera } from 'lucide-react'
+import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -142,77 +142,152 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
 
         {/* Edit Form Modal/Inline */}
         <AnimatePresence>
-          {editingId && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden mt-4"
-            >
-              <form action={updateFormAction} className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 space-y-4">
-                <h4 className="font-medium text-sm flex items-center gap-2">
-                  <Edit2 className="w-4 h-4 text-blue-500" />
-                  Actualizar Estado de Cilindro
-                </h4>
-                <input type="hidden" name="id" value={editingId} />
-                <input type="hidden" name="inspectionId" value={inspectionId} />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="status">Nuevo Estado</Label>
-                      {cylinders.find(c => c.id === editingId)?.status === 'en_planta' ? (
-                        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-                          <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                          <span className="text-sm text-amber-700 dark:text-amber-400">
-                            Use el panel de <strong>Recertificación de Cilindros</strong> para gestionar cilindros en planta.
-                          </span>
-                        </div>
-                      ) : (
+          {editingId && (() => {
+            const cyl = cylinders.find(c => c.id === editingId)
+            const currentStatus = cyl?.status
+
+            if (currentStatus === 'en_planta') {
+              return (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mt-4"
+                >
+                  <div className="bg-amber-50/50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-200 dark:border-amber-800 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-sm text-amber-800 dark:text-amber-300">
+                          Cilindro en Planta
+                        </h4>
+                        <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                          Usá el panel de <strong>Recertificación de Cilindros</strong> (más arriba) para recertificar o dar de baja este cilindro.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                        Cerrar
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            }
+
+            if (currentStatus === 'pendiente_reinstalacion') {
+              return (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mt-4"
+                >
+                  <form action={updateFormAction} className="bg-green-50/50 dark:bg-green-900/10 p-4 rounded-xl border border-green-200 dark:border-green-800 space-y-4">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4 text-green-600" />
+                      Reinstalación de Cilindro
+                    </h4>
+                    <input type="hidden" name="id" value={editingId} />
+                    <input type="hidden" name="inspectionId" value={inspectionId} />
+                    <input type="hidden" name="status" value="montado" />
+
+                    <div className="flex items-start gap-3 p-3 bg-green-100 dark:bg-green-900/20 rounded-xl">
+                      <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                      <div className="text-sm text-green-800 dark:text-green-300">
+                        <p className="font-medium">{cyl?.brand} — {cyl?.capacity}L</p>
+                        <p className="text-green-700 dark:text-green-400 mt-1">
+                          Serial: <code className="font-mono">{cyl?.actualSerial || cyl?.initialSerial}</code>
+                        </p>
+                        <p className="text-green-700 dark:text-green-400 mt-1">
+                          Confirmá que el cilindro fue reinstalado en el vehículo.
+                        </p>
+                      </div>
+                    </div>
+
+                    {updateState?.error && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{updateState.error}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" disabled={updatePending} className="bg-green-600 hover:bg-green-700 text-white">
+                        {updatePending ? 'Guardando...' : '✓ Marcar como Reinstalado'}
+                      </Button>
+                    </div>
+                  </form>
+                </motion.div>
+              )
+            }
+
+            // Default: montado / de_baja — show full status editor
+            return (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden mt-4"
+              >
+                <form action={updateFormAction} className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 space-y-4">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Edit2 className="w-4 h-4 text-blue-500" />
+                    Actualizar Estado de Cilindro
+                  </h4>
+                  <input type="hidden" name="id" value={editingId} />
+                  <input type="hidden" name="inspectionId" value={inspectionId} />
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="status">Nuevo Estado</Label>
                         <select
                           name="status"
-                          defaultValue={cylinders.find(c => c.id === editingId)?.status}
+                          defaultValue={currentStatus}
                           className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
                         >
-                          <option value="montado">Montado</option>
-                          <option value="en_planta">En Planta (Desmontado)</option>
-                          <option value="pendiente_reinstalacion">Pendiente Reinstalación</option>
-                          <option value="de_baja">De Baja (Scrap)</option>
+                          {currentStatus === 'montado' && (
+                            <>
+                              <option value="en_planta">En Planta (Desmontado)</option>
+                              <option value="de_baja">De Baja (Scrap)</option>
+                            </>
+                          )}
+                          {currentStatus === 'de_baja' && <option value="de_baja" disabled>De Baja (Scrap)</option>}
                         </select>
-                      )}
+                      </div>
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="actualSerial">Nuevo Nº Serie (Si aplica recertificación)</Label>
-                      <Input name="actualSerial" defaultValue={cylinders.find(c => c.id === editingId)?.actualSerial || ''} placeholder="Ej: Nueva serie post-planta" />
+                      <Label>Fotos de Evidencia</Label>
+                      <input type="hidden" name="category" value="removal" />
+                      <PhotoUpload category="removal" label="Fotos del cilindro/desmontaje" />
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Fotos de Evidencia</Label>
-                    <input type="hidden" name="category" value="removal" />
-                    <PhotoUpload category="removal" label="Fotos del cilindro/desmontaje" />
+                  {updateState?.error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{updateState.error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex justify-end gap-2 pt-2">
+                    <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={updatePending}>
+                      {updatePending ? 'Guardando...' : 'Guardar Cambios'}
+                    </Button>
                   </div>
-                </div>
-
-                {updateState?.error && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{updateState.error}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={updatePending}>
-                    {updatePending ? 'Guardando...' : 'Guardar Cambios'}
-                  </Button>
-                </div>
-              </form>
-            </motion.div>
-          )}
+                </form>
+              </motion.div>
+            )
+          })()}
         </AnimatePresence>
 
       </CardContent>

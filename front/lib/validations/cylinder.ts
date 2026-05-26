@@ -12,15 +12,6 @@ export const updateCylinderStatusSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(['montado', 'en_planta', 'pendiente_reinstalacion', 'de_baja']),
   actualSerial: z.string().optional(),
-}).superRefine((data, ctx) => {
-  // Prevent en_planta → montado transition at schema level
-  if (data.status === 'montado') {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'No se puede cambiar directamente a "montado". Use el panel de recertificación.',
-      path: ['status'],
-    })
-  }
 })
 
 export const recertifyCylinderSchema = z.object({
