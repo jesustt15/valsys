@@ -1,0 +1,11 @@
+# Cloudflare Tunnel — Configuración
+# Next.js corre en el host (localhost:3000), cloudflared en Docker
+tunnel: <REEMPLAZAR-CON-ID-DEL-TUNNEL>
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  # App principal
+  - hostname: <REEMPLAZAR-CON-TU-DOMINIO>
+    service: http://host.docker.internal:3000
+  # Bloquear todo lo demás
+  - service: http_status:404
