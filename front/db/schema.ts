@@ -32,8 +32,9 @@ export const cylinderStatus = pgEnum('cylinder_status', [
 
 export const inspectionStatus = pgEnum('inspection_status', [
   'inspeccion_inicial',
-  'en_planta',
-  'finalizado',
+  'recalificacion',
+  'por_programar',
+  'certificado',
 ]);
 
 export const userRole = pgEnum('user_role', ['admin', 'operator', 'viewer']);
@@ -172,7 +173,24 @@ export const certificates = pgTable('certificates', {
   inspectionIdx: index('idx_certificates_inspection').on(table.inspectionId),
 }));
 
-// ─── 9. Notifications ──────────────────────────────────────────
+// ─── 9. Vehicle Documents (cédula + carnet, per-vehicle) ──────
+export const documentType = pgEnum('document_type', ['cedula', 'carnet']);
+
+export const vehicleDocuments = pgTable('vehicle_documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  vehicleId: uuid('vehicle_id').notNull().references(() => vehicles.id, { onDelete: 'cascade' }),
+  type: documentType('type').notNull(),
+  minioKey: varchar('minio_key').notNull(),
+  originalName: varchar('original_name'),
+  uploadedAt: timestamp('uploaded_at').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  vehicleTypeIdx: index('idx_vehicle_docs_vehicle_type').on(table.vehicleId, table.type),
+  minioKeyIdx: uniqueIndex('idx_vehicle_docs_minio_key').on(table.minioKey),
+}));
+
+// ─── 10. Notifications ──────────────────────────────────────────
 export const notificationType = [
   'cylinder_recertified',
   'cylinder_scrapped',

@@ -28,13 +28,6 @@ export const photoUploadSchema = z.object({
 export type ChecklistAnswer = z.infer<typeof checklistAnswerSchema>
 export type PhotoUploadInput = z.infer<typeof photoUploadSchema>
 
-// ─── Close Inspection ─────────────────────────────────────────
-export const closeInspectionSchema = z.object({
-  inspectionId: z.string().uuid('ID de inspección inválido'),
-})
-
-export type CloseInspectionInput = z.infer<typeof closeInspectionSchema>
-
 // ─── Toggle Answer ────────────────────────────────────────────
 export const toggleAnswerSchema = z.object({
   answerId: z.string().uuid('ID de respuesta inválido'),
@@ -42,3 +35,63 @@ export const toggleAnswerSchema = z.object({
 })
 
 export type ToggleAnswerInput = z.infer<typeof toggleAnswerSchema>
+
+// ─── Unified Inspection (branch-aware) ──────────────────────
+// Shared field groups used across both branches
+const ownerFieldsShape = {
+  documentType: z.enum(['V', 'E', 'J']),
+  documentNumber: z.string().min(6).max(10).regex(/^\d+$/),
+  fullName: z.string().min(3).max(50),
+  phone: z.string().optional(),
+  email: z.string().optional(),
+} as const
+
+const vehicleFieldsShape = {
+  vin: z.string().toUpperCase().length(17),
+  licensePlate: z.string().toUpperCase().min(6).max(8),
+  vehicleType: z.enum(['camion', 'pickup', 'furgon', 'van', 'acoplado', 'otro']),
+  brand: z.string().min(2).max(50),
+  model: z.string().min(1).max(50),
+  year: z.coerce.number().min(1990).max(new Date().getFullYear() + 1),
+  specificAttributes: z.record(z.string(), z.unknown()).optional(),
+} as const
+
+export const cylinderInputSchema = z.object({
+  brand: z.string().min(1, 'Marca del cilindro es requerida'),
+  capacity: z.string().min(1, 'Capacidad es requerida'),
+  initialSerial: z.string().min(1, 'Número de serie es requerido'),
+  location: z.string().min(1, 'Ubicación es requerida'),
+  status: z.enum(['en_planta', 'de_baja']).optional(),
+})
+
+const montadosSchema = z.object({
+  branch: z.literal('montados'),
+  existingOwnerDocumentId: z.string().optional(),
+  existingLicensePlate: z.string().optional(),
+  ...ownerFieldsShape,
+  ...vehicleFieldsShape,
+  kmCurrent: z.coerce.number().min(1, 'Kilómetros deben ser mayor a 0'),
+  observations: z.string().optional(),
+  answers: z.array(checklistAnswerSchema).min(20, 'Todas las preguntas del checklist son requeridas'),
+  signature: z.string().min(1, 'La firma del propietario es obligatoria'),
+  cylinders: z.array(cylinderInputSchema).optional(),
+})
+
+const desmontadosSchema = z.object({
+  branch: z.literal('desmontados'),
+  existingOwnerDocumentId: z.string().optional(),
+  existingLicensePlate: z.string().optional(),
+  ...ownerFieldsShape,
+  ...vehicleFieldsShape,
+  kmCurrent: z.coerce.number().min(1, 'Kilómetros deben ser mayor a 0'),
+  observations: z.string().optional(),
+  answers: z.array(checklistAnswerSchema).max(0, 'No se permiten respuestas de checklist en desmontados'),
+  signature: z.string().optional(),
+  cylinders: z.array(cylinderInputSchema).min(1, 'Al menos un cilindro es requerido'),
+})
+
+export const unifiedInspectionSchema = z.discriminatedUnion('branch', [montadosSchema, desmontadosSchema])
+
+export type UnifiedMontadosInput = z.infer<typeof montadosSchema>
+export type UnifiedDesmontadosInput = z.infer<typeof desmontadosSchema>
+export type UnifiedInspectionInput = z.infer<typeof unifiedInspectionSchema>

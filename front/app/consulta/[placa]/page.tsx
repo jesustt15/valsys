@@ -21,7 +21,7 @@ export default async function ConsultaResultPage({ params }: PageProps) {
   // Get all inspections for this vehicle, sorted by date desc
   const inspections = await getInspectionsByVehicleId(vehicle.id)
   const sortedInspections = inspections
-    .filter((i) => i.status === 'finalizado')
+    .filter((i) => i.status === 'certificado')
     .sort((a, b) => {
       return (b.inspectionDate?.getTime() ?? 0) - (a.inspectionDate?.getTime() ?? 0)
     })
@@ -46,8 +46,9 @@ export default async function ConsultaResultPage({ params }: PageProps) {
 
   const statusLabels: Record<string, string> = {
     inspeccion_inicial: 'Inspección Inicial',
-    en_planta: 'En Planta',
-    finalizado: 'Finalizado',
+    recalificacion: 'Recalificación',
+    por_programar: 'Por Programar',
+    certificado: 'Certificado',
   }
 
   return (
@@ -214,10 +215,10 @@ export default async function ConsultaResultPage({ params }: PageProps) {
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                    Sin inspecciones finalizadas
+                    Sin inspecciones certificadas
                   </p>
                   <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
-                    Este vehículo no tiene inspecciones completadas registradas en el sistema.
+                    Este vehículo no tiene inspecciones certificadas registradas en el sistema.
                   </p>
                 </div>
               </div>

@@ -13,6 +13,11 @@ export async function getOwnerById(id: string): Promise<OwnerRecord | null> {
   return owner ?? null
 }
 
+export async function getOwnerByDocumentId(documentId: string): Promise<OwnerRecord | null> {
+  const [owner] = await db.select().from(owners).where(eq(owners.documentId, documentId)).limit(1)
+  return owner ?? null
+}
+
 export type UpdateOwnerData = Partial<{
   fullName: string
   documentId: string

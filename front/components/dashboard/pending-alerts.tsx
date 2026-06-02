@@ -10,8 +10,9 @@ import type { PendingAlert } from '@/lib/services/inspection-pending'
 
 const statusLabels: Record<string, string> = {
   inspeccion_inicial: 'Inspección Inicial',
-  en_planta: 'En Planta',
-  finalizado: 'Finalizado',
+  recalificacion: 'Recalificación',
+  por_programar: 'Por Programar',
+  certificado: 'Certificado',
 }
 
 interface Props {
@@ -107,9 +108,9 @@ export function PendingAlerts({ alerts }: Props) {
                   {/* Status badge */}
                   <Badge
                     variant={
-                      alert.status === 'finalizado'
+                      alert.status === 'certificado'
                         ? 'success'
-                        : alert.status === 'en_planta'
+                        : alert.status === 'recalificacion' || alert.status === 'por_programar'
                           ? 'warning'
                           : 'info'
                     }
@@ -137,11 +138,7 @@ export function PendingAlerts({ alerts }: Props) {
                     )}
                     {alert.pending.totalBlocking === 0 && alert.pending.totalWarnings === 0 && (
                       <p className="text-xs text-green-600 dark:text-green-400">
-                        {!alert.pending.hasCertificate
-                          ? 'Sin certificado'
-                          : !alert.pending.hasFinalCert
-                            ? 'Sin certificado final'
-                            : 'Completo'}
+                        {alert.pending.hasCertificate ? 'Completo' : 'Sin certificado'}
                       </p>
                     )}
                   </div>

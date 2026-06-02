@@ -1,17 +1,7 @@
 import Link from 'next/link'
-import { InspectionForm } from '@/components/forms/inspection-form'
-import { getAllVehicles } from '@/lib/services/vehicle'
+import { UnifiedInspectionForm } from '@/components/forms/unified-inspection-form'
 
 export default async function NewInspectionPage() {
-  const vehicles = await getAllVehicles()
-
-  const vehicleOptions = vehicles.map((v) => ({
-    id: v.id,
-    licensePlate: v.licensePlate,
-    brand: v.brand,
-    model: v.model,
-  }))
-
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Breadcrumb */}
@@ -35,13 +25,13 @@ export default async function NewInspectionPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Nueva Inspección</h1>
+        <h1 className="text-2xl font-bold text-foreground">Nuevo Ingreso</h1>
         <p className="text-muted-foreground mt-1">
-          Complete el formulario para registrar una nueva inspección inicial
+          Ingreso unificado: Cilindros montados (inspección completa) o desmontados (solo registro)
         </p>
       </div>
 
-      <InspectionForm vehicles={vehicleOptions} />
+      <UnifiedInspectionForm />
     </div>
   )
 }

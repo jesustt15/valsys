@@ -26,7 +26,7 @@ const statConfig: Record<string, { color: string; bg: string; icon: React.ReactN
       </svg>
     ),
   },
-  en_planta: {
+  recalificacion: {
     color: 'text-amber-600 dark:text-amber-400',
     bg: 'bg-amber-50 dark:bg-amber-900/20',
     icon: (
@@ -35,7 +35,16 @@ const statConfig: Record<string, { color: string; bg: string; icon: React.ReactN
       </svg>
     ),
   },
-  finalizado: {
+  por_programar: {
+    color: 'text-orange-600 dark:text-orange-400',
+    bg: 'bg-orange-50 dark:bg-orange-900/20',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  certificado: {
     color: 'text-green-600 dark:text-green-400',
     bg: 'bg-green-50 dark:bg-green-900/20',
     icon: (
@@ -48,15 +57,17 @@ const statConfig: Record<string, { color: string; bg: string; icon: React.ReactN
 
 const statLabels: Record<string, string> = {
   inspeccion_inicial: 'Inspecci\xf3n Inicial',
-  en_planta: 'En Planta',
-  finalizado: 'Finalizadas',
+  recalificacion: 'Recalificación',
+  por_programar: 'Por Programar',
+  certificado: 'Certificadas',
 }
 
 interface DashboardStatsProps {
   statusCounts: {
     inspeccion_inicial: number
-    en_planta: number
-    finalizado: number
+    recalificacion: number
+    por_programar: number
+    certificado: number
   }
   todayCount: number
   vehicleCount: number
@@ -65,8 +76,9 @@ interface DashboardStatsProps {
 export function DashboardStats({ statusCounts, todayCount, vehicleCount }: DashboardStatsProps) {
   const stats = [
     { label: 'Inspecciones Hoy', value: todayCount, ...statConfig.inspeccion_inicial },
-    { label: statLabels.en_planta, value: statusCounts.en_planta, ...statConfig.en_planta },
-    { label: statLabels.finalizado, value: statusCounts.finalizado, ...statConfig.finalizado },
+    { label: statLabels.recalificacion, value: statusCounts.recalificacion, ...statConfig.recalificacion },
+    { label: statLabels.por_programar, value: statusCounts.por_programar, ...statConfig.por_programar },
+    { label: statLabels.certificado, value: statusCounts.certificado, ...statConfig.certificado },
     {
       label: 'Veh\xedculos',
       value: vehicleCount,

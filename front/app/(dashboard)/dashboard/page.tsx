@@ -12,9 +12,10 @@ import { getPendingAlerts } from '@/lib/services/inspection-pending'
 import { countVehicles } from '@/lib/services/vehicle'
 
 const quickActions = [
+  { href: '/inspections/new', title: 'Nuevo Ingreso Rápido', desc: 'Ingreso unificado (montados/desmontados)', icon: 'zap', color: 'from-amber-500 to-orange-600', featured: true },
   { href: '/owners/new', title: 'Nuevo Dueño', desc: 'Registrar titular de vehículo', icon: 'user-plus', color: 'from-blue-500 to-blue-600' },
   { href: '/vehicles/new', title: 'Nuevo Vehículo', desc: 'Registrar vehículo para inspección', icon: 'truck', color: 'from-emerald-500 to-emerald-600' },
-  { href: '/inspections/new', title: 'Nueva Inspección', desc: 'Iniciar proceso de inspección', icon: 'clipboard-check', color: 'from-violet-500 to-violet-600' },
+  { href: '/inspections', title: 'Ver Inspecciones', desc: 'Listado completo de inspecciones', icon: 'clipboard-check', color: 'from-violet-500 to-violet-600' },
 ]
 
 function Icon({ name, className = 'w-5 h-5' }: { name: string; className?: string }) {
@@ -34,6 +35,11 @@ function Icon({ name, className = 'w-5 h-5' }: { name: string; className?: strin
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
       </svg>
     ),
+    zap: (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
     arrow: (
       <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
@@ -44,7 +50,7 @@ function Icon({ name, className = 'w-5 h-5' }: { name: string; className?: strin
 }
 
 export default async function DashboardPage() {
-  let statusCounts = { inspeccion_inicial: 0, en_planta: 0, finalizado: 0 }
+  let statusCounts = { inspeccion_inicial: 0, recalificacion: 0, por_programar: 0, certificado: 0 }
   let todayCount = 0
   let vehicleCount = 0
   let recentInspections: Awaited<ReturnType<typeof getRecentInspectionsWithOwner>> = []
@@ -88,19 +94,29 @@ export default async function DashboardPage() {
         <h2 className="text-lg font-semibold text-foreground mb-4">Acciones Rápidas</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {quickActions.map((action) => (
-            <Link key={action.href} href={action.href} className="group block">
-              <Card className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 bg-gradient-to-br from-secondary/50 to-secondary group-hover:from-primary/5 group-hover:to-primary/10">
-                <CardContent className="p-5">
+            <Link key={action.href} href={action.href}
+              className={`group block ${action.featured ? 'md:col-span-3' : ''}`}>
+              <Card className={`hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 bg-gradient-to-br from-secondary/50 to-secondary group-hover:from-primary/5 group-hover:to-primary/10 ${
+                action.featured ? 'ring-2 ring-amber-400 dark:ring-amber-600' : ''
+              }`}>
+                <CardContent className={`${action.featured ? 'p-6' : 'p-5'}`}>
                   <div className="flex items-start justify-between">
-                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white shadow-sm`}>
-                      <Icon name={action.icon} className="w-6 h-6" />
+                    <div className={`${action.featured ? 'w-14 h-14' : 'w-12 h-12'} rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white shadow-sm`}>
+                      <Icon name={action.icon} className={action.featured ? 'w-7 h-7' : 'w-6 h-6'} />
                     </div>
                     <div className="text-muted-foreground group-hover:text-primary transition-colors">
                       <Icon name="arrow" className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                     </div>
                   </div>
                   <div className="mt-4">
-                    <div className="text-lg font-semibold text-foreground">{action.title}</div>
+                    <div className={`${action.featured ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+                      {action.title}
+                      {action.featured && (
+                        <span className="ml-2 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-normal">
+                          NUEVO
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-muted-foreground mt-1">{action.desc}</p>
                   </div>
                 </CardContent>

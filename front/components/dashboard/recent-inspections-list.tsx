@@ -7,8 +7,9 @@ import { formatRelativeTime } from '@/lib/utils/format-relative-time'
 import type { RecentInspectionRow } from '@/lib/services/inspection'
 
 const statusConfig: Record<string, { variant: 'success' | 'warning' | 'info'; label: string }> = {
-  finalizado: { variant: 'success', label: 'Finalizado' },
-  en_planta: { variant: 'warning', label: 'En Planta' },
+  certificado: { variant: 'success', label: 'Certificado' },
+  recalificacion: { variant: 'warning', label: 'Recalificación' },
+  por_programar: { variant: 'warning', label: 'Por Programar' },
   inspeccion_inicial: { variant: 'info', label: 'Inspecci\xf3n Inicial' },
 }
 

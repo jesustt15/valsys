@@ -3,11 +3,11 @@ import Link from 'next/link'
 import { getInspectionById } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
 import { getCylindersByVehicleId, getCylindersByInspectionId } from '@/lib/services/cylinder'
+import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { getObjectUrl } from '@/lib/minio'
 import { InspectionPendingSummary } from '@/components/inspections/inspection-pending-summary'
 import { InspectionStatusUpdater } from '@/components/inspections/inspection-status-updater'
 import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
-import { CloseInspectionButton } from '@/components/inspections/close-inspection-button'
 import { CylinderManager } from '@/components/cylinders/cylinder-manager'
 import { CylinderRecertificationPanel } from '@/components/cylinders/cylinder-recertification-panel'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
@@ -38,10 +38,10 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   const recertCylinders = await getCylindersByInspectionId(resolvedParams.id)
 
   // Determine if recertification panel should be shown
-  const inspectionStatusOrder = ['inspeccion_inicial', 'en_planta', 'finalizado']
+  const inspectionStatusOrder = ['inspeccion_inicial', 'recalificacion', 'por_programar', 'certificado']
   const currentStatusIndex = inspectionStatusOrder.indexOf(inspection.status || 'inspeccion_inicial')
-  const enPlantaStatusIndex = inspectionStatusOrder.indexOf('en_planta')
-  const showRecertPanel = currentStatusIndex >= enPlantaStatusIndex
+  const recalificacionStatusIndex = inspectionStatusOrder.indexOf('recalificacion')
+  const showRecertPanel = currentStatusIndex >= recalificacionStatusIndex
     && recertCylinders.some(c => c.status === 'en_planta')
 
   // Resolve presigned URLs for images
@@ -65,6 +65,15 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
 
   // Fetch certificate data
   const certificate = await getCertificateByInspectionId(resolvedParams.id)
+
+  // Fetch vehicle documents
+  const vehicleDocs = await getDocsByVehicle(inspection.vehicle.id)
+  const vehicleDocsWithUrls = await Promise.all(
+    vehicleDocs.map(async (doc) => {
+      const url = await getObjectUrl(doc.minioKey)
+      return { ...doc, url }
+    })
+  )
 
   // Resolve presigned URL for plant document
   let plantDocUrl: string | null = null
@@ -111,18 +120,14 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Status Updater or Close Button */}
-          {inspection.status === 'en_planta' ? (
-            <CloseInspectionButton inspectionId={resolvedParams.id} />
-          ) : (
-            <InspectionStatusUpdater 
-              inspectionId={resolvedParams.id} 
-              currentStatus={inspection.status || 'inspeccion_inicial'} 
-            />
-          )}
+          {/* Status Updater (show for inspeccion_inicial / recalificacion) */}
+          <InspectionStatusUpdater 
+            inspectionId={resolvedParams.id} 
+            currentStatus={inspection.status || 'inspeccion_inicial'} 
+          />
           
-          {/* Post-Mount Photos (only when en_planta) */}
-          {inspection.status === 'en_planta' && (
+          {/* Post-Mount Photos (only when recalificacion or por_programar) */}
+          {(inspection.status === 'recalificacion' || inspection.status === 'por_programar') && (
             <PostMountPhotos
               inspectionId={resolvedParams.id}
               existingPhotos={postMountPhotos}
@@ -328,6 +333,49 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                       <div className="absolute top-2 left-2">
                         <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
                           {att.category}
+                        </Badge>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Vehicle Documents Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5 text-teal-500" />
+                Documentos del Vehículo
+              </CardTitle>
+              <CardDescription>
+                Cédula y carnet de circulación
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {vehicleDocsWithUrls.length === 0 ? (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  No hay documentos registrados para este vehículo.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {vehicleDocsWithUrls.map((doc) => (
+                    <a
+                      key={doc.id}
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm hover:ring-2 hover:ring-primary transition-all"
+                    >
+                      <img
+                        src={doc.url}
+                        alt={doc.originalName || doc.type}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute top-2 left-2">
+                        <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
+                          {doc.type === 'cedula' ? 'Cédula' : 'Carnet'}
                         </Badge>
                       </div>
                     </a>

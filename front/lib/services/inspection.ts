@@ -4,8 +4,9 @@ import { eq, inArray, count, sql } from 'drizzle-orm'
 
 export interface StatusCounts {
   inspeccion_inicial: number
-  en_planta: number
-  finalizado: number
+  recalificacion: number
+  por_programar: number
+  certificado: number
 }
 
 export interface RecentInspectionRow {
@@ -148,8 +149,9 @@ export async function countInspectionsByStatus(): Promise<StatusCounts> {
 
   const result: StatusCounts = {
     inspeccion_inicial: 0,
-    en_planta: 0,
-    finalizado: 0,
+    recalificacion: 0,
+    por_programar: 0,
+    certificado: 0,
   }
 
   for (const row of rows) {

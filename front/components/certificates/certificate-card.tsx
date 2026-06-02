@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { createCertificateAction, type CertificateFormState } from '@/lib/actions/certificate'
 import { type CertificateRecord } from '@/lib/services/certificate'
-import { FileText, Upload, CheckCircle, AlertCircle } from 'lucide-react'
+import { CorrelativeInputDialog } from '@/components/inspections/correlative-input-dialog'
+import { FileText, Upload, CheckCircle, AlertCircle, Clock } from 'lucide-react'
 
 interface CertificateCardProps {
   certificate: CertificateRecord | null
@@ -75,7 +76,37 @@ export function CertificateCard({
     )
   }
 
-  // Show creation form
+  // por_programar: show blocking notice with correlative input dialog
+  if (inspectionStatus === 'por_programar') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Clock className="w-5 h-5 text-amber-500" />
+            Certificado — Pendiente
+          </CardTitle>
+          <CardDescription>
+            La inspección está lista para ser certificada. Ingrese el correlativo para finalizar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-sm space-y-2">
+            <p className="text-amber-700 dark:text-amber-400 font-medium flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" />
+              Pendiente de certificación
+            </p>
+            <p className="text-amber-600 dark:text-amber-500 text-xs">
+              Antes de certificar, asegúrese de que todos los ítems no conformes estén resueltos,
+              las fotos de post-montaje estén cargadas y la firma del titular esté presente.
+            </p>
+          </div>
+          <CorrelativeInputDialog inspectionId={inspectionId} />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Show creation form for recalificacion and certificado
   const hasError = state?.error
   const isSuccess = state?.success
 

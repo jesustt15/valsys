@@ -15,6 +15,20 @@
       "when": 1779799646666,
       "tag": "0001_shocking_havok",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780417617726,
+      "tag": "0002_dry_the_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780421729168,
+      "tag": "0003_daily_iron_monger",
+      "breakpoints": true
     }
   ]
 }

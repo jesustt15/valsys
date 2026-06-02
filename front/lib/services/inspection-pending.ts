@@ -17,9 +17,6 @@ export interface PendingItems {
   hasPostMountPhotos: boolean
   /** Whether a certificate exists */
   hasCertificate: boolean
-  /** Whether the final certificate PDF has been uploaded (finalCertKey) */
-  hasFinalCert: boolean
-
   /** Derived: issues that BLOCK closing the inspection */
   totalBlocking: number
   /** Derived: things that need attention but don't block */
@@ -151,14 +148,11 @@ export async function getPendingSummaries(
   const certRows = await db
     .select({
       inspectionId: certificates.inspectionId,
-      hasFinalCert: sql<boolean>`${certificates.finalCertKey} IS NOT NULL`,
     })
     .from(certificates)
     .where(inArray(certificates.inspectionId, inspectionIds))
 
-  const certMap = new Map(
-    certRows.map((r) => [r.inspectionId, r.hasFinalCert])
-  )
+  const certSet = new Set(certRows.map((r) => r.inspectionId))
 
   // 8. Build result
   const vehicleToInsp = new Map(
@@ -174,10 +168,9 @@ export async function getPendingSummaries(
     const hasSig = sigMap.get(id) ?? false
     const vehicleId = vehicleRows.find((r) => r.id === id)?.vehicleId
     const cyls = vehicleId ? cylinderMap.get(vehicleId) ?? 0 : 0
-    const hasCert = certMap.has(id)
-    const hasFinal = certMap.get(id) ?? false
+    const hasCert = certSet.has(id)
 
-    // Blocking issues: non-compliant items + missing signature (when en_planta)
+    // Blocking issues: non-compliant items
     // Warnings: cylinders in plant + missing post-mount photos
     const blocking = nc
     const warnings = cyls + (photos === 0 ? 1 : 0)
@@ -189,7 +182,6 @@ export async function getPendingSummaries(
       hasSignature: hasSig,
       hasPostMountPhotos: photos > 0,
       hasCertificate: hasCert,
-      hasFinalCert: hasFinal,
       totalBlocking: blocking,
       totalWarnings: warnings,
       totalPending: blocking + warnings,
@@ -246,18 +238,18 @@ export async function getPendingAlerts(limit = 10): Promise<PendingAlert[]> {
     const pending = pendingMap.get(row.id)
     if (!pending) continue
 
-    // Skip finalized inspections with everything resolved
+    // Skip certificado inspections with everything resolved
     if (
-      row.status === 'finalizado' &&
+      row.status === 'certificado' &&
       pending.totalBlocking === 0 &&
       pending.totalWarnings === 0 &&
-      pending.hasFinalCert
+      pending.hasCertificate
     ) {
       continue
     }
 
     // Skip inspections with zero pending at all
-    if (pending.totalPending === 0 && pending.hasFinalCert) continue
+    if (pending.totalPending === 0 && pending.hasCertificate) continue
 
     alerts.push({
       inspectionId: row.id,

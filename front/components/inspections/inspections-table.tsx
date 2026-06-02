@@ -25,14 +25,16 @@ interface InspectionsTableProps {
 
 const STATUS_LABELS: Record<string, string> = {
   inspeccion_inicial: 'Inspección Inicial',
-  en_planta: 'En Planta',
-  finalizado: 'Finalizado',
+  recalificacion: 'Recalificación',
+  por_programar: 'Por Programar',
+  certificado: 'Certificado',
 }
 
 const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success'> = {
   inspeccion_inicial: 'info',
-  en_planta: 'warning',
-  finalizado: 'success',
+  recalificacion: 'warning',
+  por_programar: 'warning',
+  certificado: 'success',
 }
 
 export function InspectionsTable({ inspections, pendingSummaries = {} }: InspectionsTableProps) {
@@ -99,8 +101,9 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
         >
           <option value="all">Todos los estados</option>
           <option value="inspeccion_inicial">Inspección Inicial</option>
-          <option value="en_planta">En Planta</option>
-          <option value="finalizado">Finalizado</option>
+          <option value="recalificacion">Recalificación</option>
+          <option value="por_programar">Por Programar</option>
+          <option value="certificado">Certificado</option>
         </select>
 
         <select
@@ -252,8 +255,8 @@ function PendingBadge({
 }) {
   if (!pending) return <span className="text-xs text-muted-foreground">—</span>
 
-  // Finalizado con todo ok
-  if (status === 'finalizado' && pending.totalPending === 0 && pending.hasFinalCert) {
+  // Certificado con todo ok
+  if (status === 'certificado' && pending.totalPending === 0 && pending.hasCertificate) {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -298,6 +301,5 @@ function getPendingTitle(pending: PendingItems): string {
   if (!pending.hasSignature) parts.push('Sin firma del titular')
   if (!pending.hasPostMountPhotos) parts.push('Sin fotos post-montaje')
   if (!pending.hasCertificate) parts.push('Sin certificado')
-  if (!pending.hasFinalCert) parts.push('Sin certificado final')
   return parts.join(' · ') || 'Sin novedad'
 }

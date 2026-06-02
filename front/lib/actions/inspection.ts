@@ -2,18 +2,17 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders, certificates } from '@/db/schema'
-import { createInspectionSchema, checklistAnswersSchema, closeInspectionSchema, toggleAnswerSchema } from '@/lib/validations/inspection'
+import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders, certificates, owners, vehicles } from '@/db/schema'
+import { createInspectionSchema, checklistAnswersSchema, toggleAnswerSchema, unifiedInspectionSchema } from '@/lib/validations/inspection'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
+import { upsertDoc } from '@/lib/services/vehicle-document'
 import { createNotification } from '@/lib/services/notification'
 import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { getNonCompliantAnswers, getPostMountAttachments } from '@/lib/services/inspection'
+import { getNonCompliantAnswers, getPostMountAttachments, cycleInspectionAnswer } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
-import { generateCorrelative } from '@/lib/utils/generate-correlative'
-import { cycleInspectionAnswer } from '@/lib/services/inspection'
 
 export type InspectionFormState = {
   success?: boolean
@@ -214,7 +213,7 @@ export async function updateInspectionStatusAction(
   const id = formData.get('id') as string
   const status = formData.get('status') as string
 
-  const parsed = z.enum(['inspeccion_inicial', 'en_planta']).safeParse(status)
+  const parsed = z.enum(['inspeccion_inicial', 'recalificacion', 'por_programar']).safeParse(status)
   if (!id || !parsed.success) {
     return { error: 'Datos inválidos' }
   }
@@ -313,22 +312,372 @@ export async function toggleInspectionAnswerAction(
   return { success: true, data: { answer: result.answer } }
 }
 
-export async function closeInspectionAction(
+export type MarkScheduledState = {
+  success?: boolean
+  error?: string
+  data?: { correlativeNumber: string }
+}
+
+// ─── Owner / Vehicle Lookup Actions ─────────────────────────────
+export async function lookupOwnerAction(
+  documentId: string,
+): Promise<{ owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null; error?: string }> {
+  try {
+    const { getOwnerByDocumentId } = await import('@/lib/services/owner')
+    const owner = await getOwnerByDocumentId(documentId)
+    if (!owner) return { owner: null, error: `No se encontró propietario con documento ${documentId}` }
+    return { owner: { id: owner.id, documentId: owner.documentId, fullName: owner.fullName, phone: owner.phone, email: owner.email } }
+  } catch (e) {
+    console.error('Error looking up owner:', e)
+    return { owner: null, error: 'Error al buscar propietario' }
+  }
+}
+
+export async function lookupVehicleAction(
+  licensePlate: string,
+): Promise<{ vehicle: { id: string; vin: string; licensePlate: string; vehicleType: string; brand: string | null; model: string | null; year: number | null; owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null } | null; error?: string }> {
+  try {
+    const { getVehicleByPlate } = await import('@/lib/services/vehicle')
+    const vehicle = await getVehicleByPlate(licensePlate.toUpperCase())
+    if (!vehicle) return { vehicle: null, error: `No se encontró vehículo con patente ${licensePlate}` }
+    return {
+      vehicle: {
+        id: vehicle.id,
+        vin: vehicle.vin,
+        licensePlate: vehicle.licensePlate,
+        vehicleType: vehicle.vehicleType,
+        brand: vehicle.brand,
+        model: vehicle.model,
+        year: vehicle.year,
+        owner: vehicle.owner ? {
+          id: vehicle.owner.id,
+          documentId: vehicle.owner.documentId,
+          fullName: vehicle.owner.fullName,
+          phone: vehicle.owner.phone,
+          email: vehicle.owner.email,
+        } : null,
+      },
+    }
+  } catch (e) {
+    console.error('Error looking up vehicle:', e)
+    return { vehicle: null, error: 'Error al buscar vehículo' }
+  }
+}
+
+// ─── Unified Inspection Action (single form, both paths) ──────
+export async function createUnifiedInspectionAction(
   _prev: InspectionFormState | null,
   formData: FormData,
 ): Promise<InspectionFormState> {
   const session = await getSession()
+  if (!session) {
+    return { error: 'No hay sesión activa. Inicie sesión nuevamente.' }
+  }
+
+  // Extract branch
+  const branch = formData.get('branch') as string
+  if (!branch || !['montados', 'desmontados'].includes(branch)) {
+    return { error: 'Debe seleccionar un tipo de ingreso (montados/desmontados)' }
+  }
+
+  // Parse JSON fields
+  let answers: unknown = []
+  let cylinders: unknown = []
+  try {
+    const answersStr = formData.get('answers') as string
+    if (answersStr) answers = JSON.parse(answersStr)
+    const cylindersStr = formData.get('cylinders') as string
+    if (cylindersStr) cylinders = JSON.parse(cylindersStr)
+  } catch {
+    return { error: 'Error al procesar los datos del formulario' }
+  }
+
+  // Build the input object for Zod validation
+  const input = {
+    branch,
+    existingOwnerDocumentId: formData.get('existingOwnerDocumentId') as string || undefined,
+    existingLicensePlate: formData.get('existingLicensePlate') as string || undefined,
+    documentType: formData.get('documentType') as string || undefined,
+    documentNumber: formData.get('documentNumber') as string || undefined,
+    fullName: formData.get('fullName') as string || undefined,
+    phone: formData.get('phone') as string || undefined,
+    email: formData.get('email') as string || undefined,
+    vin: formData.get('vin') as string || undefined,
+    licensePlate: formData.get('licensePlate') as string || undefined,
+    vehicleType: formData.get('vehicleType') as string || undefined,
+    brand: formData.get('brand') as string || undefined,
+    model: formData.get('model') as string || undefined,
+    year: formData.get('year') as string || undefined,
+    specificAttributes: formData.get('specificAttributes') as string || undefined,
+    kmCurrent: formData.get('kmCurrent') as string || undefined,
+    observations: formData.get('observations') as string || undefined,
+    answers,
+    signature: formData.get('signature') as string || undefined,
+    cylinders,
+  }
+
+  // Parse specificAttributes JSON if string
+  if (typeof input.specificAttributes === 'string') {
+    try { input.specificAttributes = JSON.parse(input.specificAttributes) } catch { input.specificAttributes = undefined }
+  }
+
+  // Validate
+  const parsed = unifiedInspectionSchema.safeParse(input)
+  if (!parsed.success) {
+    const firstError = parsed.error.issues?.[0]?.message ?? 'Error de validación'
+    return { error: firstError }
+  }
+
+  const data = parsed.data
+  const buildDocId = (type: string, num: string) => `${type}-${num}`
+
+  try {
+    // Run everything in a single transaction
+    const result = await db.transaction(async (tx) => {
+      // 1. Resolve Owner
+      let ownerId: string | undefined
+
+      if (data.existingOwnerDocumentId) {
+        // Reuse existing owner
+        const [existing] = await tx
+          .select({ id: owners.id })
+          .from(owners)
+          .where(eq(owners.documentId, data.existingOwnerDocumentId))
+          .limit(1)
+        if (existing) {
+          ownerId = existing.id
+        }
+      }
+
+      if (!ownerId && data.documentType && data.documentNumber && data.fullName) {
+        const documentId = buildDocId(data.documentType, data.documentNumber)
+
+        // Check if owner already exists by this document ID
+        const [existing] = await tx
+          .select({ id: owners.id })
+          .from(owners)
+          .where(eq(owners.documentId, documentId))
+          .limit(1)
+
+        if (existing) {
+          ownerId = existing.id
+        } else {
+          const [created] = await tx
+            .insert(owners)
+            .values({
+              documentId,
+              fullName: data.fullName,
+              phone: data.phone || null,
+              email: data.email || null,
+            })
+            .returning({ id: owners.id })
+          ownerId = created.id
+        }
+      }
+
+      if (!ownerId) {
+        throw new Error('Debe proporcionar datos del propietario o un documento existente')
+      }
+
+      // 2. Resolve Vehicle
+      let vehicleId: string | undefined
+
+      if (data.existingLicensePlate) {
+        const [existing] = await tx
+          .select({ id: vehicles.id })
+          .from(vehicles)
+          .where(eq(vehicles.licensePlate, data.existingLicensePlate.toUpperCase()))
+          .limit(1)
+        if (existing) {
+          vehicleId = existing.id
+        }
+      }
+
+      if (!vehicleId && data.vin && data.licensePlate) {
+        const plate = data.licensePlate.toUpperCase()
+
+        // Check if vehicle exists by plate
+        const [existing] = await tx
+          .select({ id: vehicles.id })
+          .from(vehicles)
+          .where(eq(vehicles.licensePlate, plate))
+          .limit(1)
+
+        if (existing) {
+          vehicleId = existing.id
+        } else {
+          // Check VIN duplicate
+          const dupVin = await tx
+            .select({ id: vehicles.id })
+            .from(vehicles)
+            .where(eq(vehicles.vin, data.vin))
+            .limit(1)
+
+          if (dupVin.length > 0) {
+            throw new Error(`Ya existe un vehículo con VIN ${data.vin}`)
+          }
+
+          const [created] = await tx
+            .insert(vehicles)
+            .values({
+              ownerId,
+              vin: data.vin,
+              licensePlate: plate,
+              vehicleType: data.vehicleType || 'otro',
+              brand: data.brand || null,
+              model: data.model || null,
+              year: data.year || null,
+              specificAttributes: data.specificAttributes || null,
+            })
+            .returning({ id: vehicles.id })
+          vehicleId = created.id
+        }
+      }
+
+      if (!vehicleId) {
+        throw new Error('Debe proporcionar datos del vehículo o una patente existente')
+      }
+
+      // 3. Create Inspection
+      let inspectionId: string
+      let signatureId: string | undefined
+
+      if (data.branch === 'montados' && data.signature) {
+        // Upload signature first
+        const base64Data = data.signature.split(',')[1]
+        const buffer = Buffer.from(base64Data, 'base64')
+        const timestamp = Date.now()
+        const minioKey = `signatures/${timestamp}.png`
+        await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+
+        const [sig] = await tx
+          .insert(signatures)
+          .values({ minioKey })
+          .returning({ id: signatures.id })
+        signatureId = sig.id
+      }
+
+      const [inspection] = await tx
+        .insert(inspections)
+        .values({
+          vehicleId,
+          operatorId: session.sub,
+          ownerSignatureId: signatureId,
+          kmCurrent: data.kmCurrent,
+          observations: data.observations || null,
+          status: 'inspeccion_inicial',
+        })
+        .returning({ id: inspections.id })
+
+      inspectionId = inspection.id
+
+      // 4. Insert checklist answers (montados only)
+      if (data.branch === 'montados' && data.answers && data.answers.length > 0) {
+        await tx.insert(inspectionAnswers).values(
+          (data.answers as Array<{ section: string; questionKey: string; answer: boolean | null; observations?: string }>).map((a) => ({
+            inspectionId,
+            section: a.section,
+            questionKey: a.questionKey,
+            answer: a.answer,
+            observations: a.observations || null,
+          }))
+        )
+      }
+
+      // 5. Insert cylinders
+      if (data.cylinders && data.cylinders.length > 0) {
+        await tx.insert(gncCylinders).values(
+          data.cylinders.map((c) => ({
+            vehicleId,
+            brand: c.brand,
+            capacity: c.capacity,
+            initialSerial: c.initialSerial,
+            location: c.location,
+            status: data.branch === 'montados' ? ('montado' as const) : ((c.status || 'en_planta') as 'en_planta' | 'de_baja'),
+            updatedBy: session.sub,
+          }))
+        )
+      }
+
+      return { inspectionId, vehicleId, ownerId }
+    })
+
+    // After transaction: upload vehicle documents (if any)
+    const cedulaFile = formData.get('cedula') as File | null
+    const carnetFile = formData.get('carnet') as File | null
+
+    if (cedulaFile && cedulaFile.size > 0) {
+      try {
+        const timestamp = Date.now()
+        const minioKey = `vehicles/${result.vehicleId}/documents/cedula/${timestamp}-${cedulaFile.name}`
+        await putObject(minioKey, cedulaFile)
+        await upsertDoc(result.vehicleId, 'cedula', minioKey, cedulaFile.name)
+      } catch (e) {
+        console.error('Error uploading cédula:', e)
+        // Non-fatal
+      }
+    }
+
+    if (carnetFile && carnetFile.size > 0) {
+      try {
+        const timestamp = Date.now()
+        const minioKey = `vehicles/${result.vehicleId}/documents/carnet/${timestamp}-${carnetFile.name}`
+        await putObject(minioKey, carnetFile)
+        await upsertDoc(result.vehicleId, 'carnet', minioKey, carnetFile.name)
+      } catch (e) {
+        console.error('Error uploading carnet:', e)
+        // Non-fatal
+      }
+    }
+
+    // Notification for pending items (montados)
+    if (data.branch === 'montados' && data.answers) {
+      try {
+        const pendingCount = data.answers.filter(
+          (a: { answer: boolean | null }) => a.answer === null || a.answer === false,
+        ).length
+        if (pendingCount > 0) {
+          await createNotification(session.sub, {
+            type: 'inspection_pending_items',
+            title: 'Inspección con pendientes',
+            message: `La inspección tiene ${pendingCount} respuestas sin contestar o no conformes`,
+            relatedEntityType: 'inspection',
+            relatedEntityId: result.inspectionId,
+          })
+        }
+      } catch (e) {
+        console.error('Failed to create notification:', e)
+      }
+    }
+
+    revalidatePath('/inspections')
+    return {
+      success: true,
+      data: { inspectionId: result.inspectionId },
+    }
+  } catch (e) {
+    console.error('Error creating unified inspection:', e)
+    const message = e instanceof Error ? e.message : 'Error al crear la inspección. Intente de nuevo.'
+    return { error: message }
+  }
+}
+
+export async function markAsScheduledAction(
+  _prev: MarkScheduledState | null,
+  formData: FormData,
+): Promise<MarkScheduledState> {
+  const session = await getSession()
   if (!session) return { error: 'No hay sesión activa' }
 
   const id = formData.get('id') as string
-  const parsed = closeInspectionSchema.safeParse({ inspectionId: id })
-  if (!parsed.success) {
-    return { error: 'Datos inválidos' }
+  const correlativeNumber = formData.get('correlativeNumber') as string
+  if (!id || !correlativeNumber || correlativeNumber.trim().length === 0) {
+    return { error: 'El número correlativo es requerido' }
   }
 
-  const inspectionId = parsed.data.inspectionId
+  const inspectionId = id
 
-  // 1. Fetch inspection and verify status
+  // 1. Fetch inspection and verify status is por_programar
   const [inspection] = await db
     .select()
     .from(inspections)
@@ -338,28 +687,19 @@ export async function closeInspectionAction(
     return { error: 'Inspección no encontrada' }
   }
 
-  if (inspection.status !== 'en_planta') {
-    return { error: "La inspección debe estar en estado 'en planta'" }
+  if (inspection.status !== 'por_programar') {
+    return { error: "La inspección debe estar en estado 'por programar'" }
   }
 
-  // 2. Check if certificate already exists (created via CertificateCard before closing)
+  // 2. Check existing certificate
   const existingCert = await getCertificateByInspectionId(inspectionId)
+  if (existingCert) {
+    return { error: 'Ya existe un certificado para esta inspección' }
+  }
 
   // 3. Check non-compliant items
   const nonCompliant = await getNonCompliantAnswers(inspectionId)
   if (nonCompliant.length > 0) {
-    // Notification: close attempt blocked by non-compliant items
-    try {
-      await createNotification(session.sub, {
-        type: 'inspection_non_compliant',
-        title: 'Intento de cierre bloqueado',
-        message: `La inspección ${inspectionId} tiene ${nonCompliant.length} ítems no conformes sin resolver`,
-        relatedEntityType: 'inspection',
-        relatedEntityId: inspectionId,
-      })
-    } catch (e) {
-      console.error('Failed to create notification:', e)
-    }
     return { error: 'Existen ítems no conformes sin resolver' }
   }
 
@@ -374,51 +714,42 @@ export async function closeInspectionAction(
     return { error: 'Se requiere la firma del propietario' }
   }
 
-  // 6. Generate correlative (if needed) and close in a single transaction
+  // 6. Check duplicate correlative
+  const [duplicate] = await db
+    .select({ id: certificates.id })
+    .from(certificates)
+    .where(eq(certificates.correlativeNumber, correlativeNumber.trim()))
+
+  if (duplicate) {
+    return { error: 'El número correlativo ya existe' }
+  }
+
+  // 7. Create certificate + transition status in transaction
   try {
     await db.transaction(async (tx) => {
-      // Only create a certificate if one doesn't already exist
-      if (!existingCert) {
-        // Generate correlative inside transaction to prevent race conditions
-        const year = new Date().getFullYear()
-        const maxCorrelative = await tx
-          .select({ maxCorrelative: sql<string>`MAX(${certificates.correlativeNumber})` })
-          .from(certificates)
-          .where(sql`${certificates.correlativeNumber} LIKE ${`CERT-${year}-%`}`)
+      await tx.insert(certificates).values({
+        inspectionId,
+        correlativeNumber: correlativeNumber.trim(),
+        plantDocKey: null,
+        finalCertKey: null,
+        issueDate: new Date().toISOString().split('T')[0],
+      })
 
-        let currentMax = 0
-        const raw = maxCorrelative[0]?.maxCorrelative
-        if (raw) {
-          const parts = raw.split('-')
-          const numPart = parts[parts.length - 1]
-          currentMax = parseInt(numPart, 10) || 0
-        }
-
-        const correlative = generateCorrelative(year, currentMax)
-
-        // Create certificate record
-        await tx.insert(certificates).values({
-          inspectionId,
-          correlativeNumber: correlative,
-          plantDocKey: null,
-          finalCertKey: null,
-          issueDate: new Date().toISOString().split('T')[0],
-        })
-      }
-
-      // Update inspection status to finalizado
       await tx
         .update(inspections)
-        .set({ status: 'finalizado', updatedAt: new Date() })
+        .set({ status: 'certificado', updatedAt: new Date() })
         .where(eq(inspections.id, inspectionId))
     })
   } catch (e) {
-    console.error('Error closing inspection:', e)
-    return { error: 'Error al cerrar la inspección. Intente de nuevo.' }
+    console.error('Error marking inspection as scheduled:', e)
+    return { error: 'Error al marcar como programado. Intente de nuevo.' }
   }
 
   revalidatePath(`/inspections/${inspectionId}`)
   revalidatePath('/inspections')
 
-  return { success: true }
+  return {
+    success: true,
+    data: { correlativeNumber: correlativeNumber.trim() },
+  }
 }

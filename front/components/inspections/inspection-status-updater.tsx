@@ -14,14 +14,15 @@ interface Props {
 
 const STATUS_OPTIONS = [
   { value: 'inspeccion_inicial', label: 'Inspección Inicial' },
-  { value: 'en_planta', label: 'En Planta' },
+  { value: 'recalificacion', label: 'Recalificación' },
+  { value: 'por_programar', label: 'Por Programar' },
 ]
 
 export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) {
   const [state, action, pending] = useActionState(updateInspectionStatusAction, null)
 
-  // Hide status updater when inspection is en_planta — use CloseInspectionButton instead
-  if (currentStatus === 'en_planta') {
+  // Hide status updater for terminal statuses — use CertificateCard actions instead
+  if (currentStatus === 'por_programar' || currentStatus === 'certificado') {
     return null
   }
 

@@ -143,8 +143,8 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                         </div>
                         <div className="flex items-center gap-3">
                           <Badge variant={
-                            insp.status === 'finalizado' ? 'success' : 
-                            insp.status === 'en_planta' ? 'warning' : 'secondary'
+                            insp.status === 'certificado' ? 'success' : 
+                            insp.status === 'recalificacion' || insp.status === 'por_programar' ? 'warning' : 'secondary'
                           }>
                             {(insp.status ?? 'inspeccion_inicial').replace('_', ' ').toUpperCase()}
                           </Badge>

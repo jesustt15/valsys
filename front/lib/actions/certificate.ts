@@ -57,7 +57,7 @@ export async function createCertificateAction(
     }
   }
 
-  if (inspection.status !== 'en_planta' && inspection.status !== 'finalizado') {
+  if (inspection.status !== 'recalificacion' && inspection.status !== 'certificado') {
     return {
       error: 'La inspección no está en estado válido',
       fields: { correlativeNumber: validatedCorrelative },
