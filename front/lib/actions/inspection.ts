@@ -339,7 +339,7 @@ export async function lookupVehicleAction(
   try {
     const { getVehicleByPlate } = await import('@/lib/services/vehicle')
     const vehicle = await getVehicleByPlate(licensePlate.toUpperCase())
-    if (!vehicle) return { vehicle: null, error: `No se encontró vehículo con patente ${licensePlate}` }
+    if (!vehicle) return { vehicle: null, error: `No se encontró vehículo con placa ${licensePlate}` }
     return {
       vehicle: {
         id: vehicle.id,
@@ -535,7 +535,7 @@ export async function createUnifiedInspectionAction(
       }
 
       if (!vehicleId) {
-        throw new Error('Debe proporcionar datos del vehículo o una patente existente')
+        throw new Error('Debe proporcionar datos del vehículo o una placa existente')
       }
 
       // 3. Create Inspection

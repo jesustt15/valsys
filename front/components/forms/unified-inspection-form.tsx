@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FRONT_QUESTIONS, REAR_QUESTIONS, type ChecklistQuestion } from '@/lib/checklist'
 import { createUnifiedInspectionAction, type InspectionFormState } from '@/lib/actions/inspection'
-import { lookupOwnerAction, lookupVehicleAction } from '@/lib/actions/inspection'
 import { PhotoUpload } from '@/components/inspections/photo-upload'
 import { SignaturePad } from '@/components/inspections/signature-pad'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -13,8 +12,16 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, CheckCircle, Plus, Trash2, Search, User, Truck, ClipboardCheck, Camera, PenLine, Database, FileText } from 'lucide-react'
+import { AlertCircle, CheckCircle, Plus, Trash2, User, Truck, ClipboardCheck, Camera, PenLine, Database, FileText } from 'lucide-react'
+import type { OwnerRecord } from '@/lib/services/owner'
+import type { VehicleRecord } from '@/lib/services/vehicle'
+
+interface UnifiedInspectionFormProps {
+  owners: OwnerRecord[]
+  vehicles: VehicleRecord[]
+}
 
 
 // ─── Answer State Type ────────────────────────────────────────────
@@ -33,7 +40,7 @@ interface CylinderEntry {
 }
 
 // ─── Main Component ───────────────────────────────────────────────
-export function UnifiedInspectionForm() {
+export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFormProps) {
   const router = useRouter()
 
   const [state, formAction, pending] = useActionState<InspectionFormState | null, FormData>(
@@ -51,9 +58,8 @@ export function UnifiedInspectionForm() {
   const [ownerFullName, setOwnerFullName] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
-  const [existingOwnerDocId, setExistingOwnerDocId] = useState('')
   const [foundOwner, setFoundOwner] = useState<{ id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null>(null)
-  const [ownerLookupLoading, setOwnerLookupLoading] = useState(false)
+  const [selectedOwnerId, setSelectedOwnerId] = useState('')
 
   // ── Vehicle State ───────────────────────────────────────────
   const [vin, setVin] = useState('')
@@ -62,9 +68,8 @@ export function UnifiedInspectionForm() {
   const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
   const [year, setYear] = useState('')
-  const [existingPlate, setExistingPlate] = useState('')
   const [foundVehicle, setFoundVehicle] = useState<{ id: string; vin: string; licensePlate: string; vehicleType: string; brand: string | null; model: string | null; year: number | null; owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null } | null>(null)
-  const [vehicleLookupLoading, setVehicleLookupLoading] = useState(false)
+  const [selectedVehicleId, setSelectedVehicleId] = useState('')
 
   // ── Inspection ──────────────────────────────────────────────
   const [kmCurrent, setKmCurrent] = useState('')
@@ -89,36 +94,33 @@ export function UnifiedInspectionForm() {
   const [cedulaFile, setCedulaFile] = useState<File | null>(null)
   const [carnetFile, setCarnetFile] = useState<File | null>(null)
 
-  // ── Owner Lookup ────────────────────────────────────────────
-  const handleOwnerLookup = async () => {
-    if (!existingOwnerDocId.trim()) return
-    setOwnerLookupLoading(true)
-    setFormError(null)
-    try {
-      const result = await lookupOwnerAction(existingOwnerDocId.trim())
-      if (result.owner) {
-        setFoundOwner(result.owner)
-        // Split documentId back to type + number
-        const parts = result.owner.documentId.split('-')
-        setOwnerDocumentType(parts[0] || 'V')
-        setOwnerDocumentNumber(parts[1] || '')
-        setOwnerFullName(result.owner.fullName)
-        setOwnerPhone(result.owner.phone || '')
-        setOwnerEmail(result.owner.email || '')
-      } else {
-        setFormError(result.error || `No se encontró propietario con documento ${existingOwnerDocId}`)
-        setFoundOwner(null)
-      }
-    } catch {
-      setFormError('Error al buscar propietario')
-    } finally {
-      setOwnerLookupLoading(false)
+  // ── Owner Selection (SearchableSelect) ──────────────────────
+  const applyOwner = (owner: OwnerRecord) => {
+    setFoundOwner(owner)
+    const parts = owner.documentId.split('-')
+    setOwnerDocumentType(parts[0] || 'V')
+    setOwnerDocumentNumber(parts[1] || '')
+    setOwnerFullName(owner.fullName)
+    setOwnerPhone(owner.phone || '')
+    setOwnerEmail(owner.email || '')
+  }
+
+  const handleOwnerChange = (id: string) => {
+    setSelectedOwnerId(id)
+    if (!id) {
+      clearOwnerLookup()
+      return
+    }
+    const owner = owners.find((o) => o.id === id)
+    if (owner) {
+      setFormError(null)
+      applyOwner(owner)
     }
   }
 
   const clearOwnerLookup = () => {
+    setSelectedOwnerId('')
     setFoundOwner(null)
-    setExistingOwnerDocId('')
     setOwnerDocumentType('V')
     setOwnerDocumentNumber('')
     setOwnerFullName('')
@@ -126,45 +128,51 @@ export function UnifiedInspectionForm() {
     setOwnerEmail('')
   }
 
-  // ── Vehicle Lookup ──────────────────────────────────────────
-  const handleVehicleLookup = async () => {
-    if (!existingPlate.trim()) return
-    setVehicleLookupLoading(true)
-    setFormError(null)
-    try {
-      const result = await lookupVehicleAction(existingPlate.trim())
-      if (result.vehicle) {
-        const vehicle = result.vehicle
-        setFoundVehicle(vehicle)
-        setVin(vehicle.vin)
-        setLicensePlate(vehicle.licensePlate)
-        setVehicleType(vehicle.vehicleType)
-        setBrand(vehicle.brand || '')
-        setModel(vehicle.model || '')
-        setYear(vehicle.year ? String(vehicle.year) : '')
-        if (vehicle.owner) {
-          setFoundOwner(vehicle.owner)
-          const parts = vehicle.owner.documentId.split('-')
-          setOwnerDocumentType(parts[0] || 'V')
-          setOwnerDocumentNumber(parts[1] || '')
-          setOwnerFullName(vehicle.owner.fullName)
-          setOwnerPhone(vehicle.owner.phone || '')
-          setOwnerEmail(vehicle.owner.email || '')
-        }
-      } else {
-        setFormError(result.error || `No se encontró vehículo con patente ${existingPlate}`)
-        setFoundVehicle(null)
+  // ── Vehicle Selection (SearchableSelect) ────────────────────
+  const applyVehicle = (vehicle: VehicleRecord) => {
+    setFoundVehicle({
+      id: vehicle.id,
+      vin: vehicle.vin,
+      licensePlate: vehicle.licensePlate,
+      vehicleType: vehicle.vehicleType,
+      brand: vehicle.brand,
+      model: vehicle.model,
+      year: vehicle.year,
+      owner: null,
+    })
+    setVin(vehicle.vin)
+    setLicensePlate(vehicle.licensePlate)
+    setVehicleType(vehicle.vehicleType)
+    setBrand(vehicle.brand || '')
+    setModel(vehicle.model || '')
+    setYear(vehicle.year ? String(vehicle.year) : '')
+
+    // If the vehicle has an owner, auto-populate the owner section
+    if (vehicle.ownerId) {
+      const owner = owners.find((o) => o.id === vehicle.ownerId)
+      if (owner) {
+        setSelectedOwnerId(owner.id)
+        applyOwner(owner)
       }
-    } catch {
-      setFormError('Error al buscar vehículo')
-    } finally {
-      setVehicleLookupLoading(false)
+    }
+  }
+
+  const handleVehicleChange = (id: string) => {
+    setSelectedVehicleId(id)
+    if (!id) {
+      clearVehicleLookup()
+      return
+    }
+    const vehicle = vehicles.find((v) => v.id === id)
+    if (vehicle) {
+      setFormError(null)
+      applyVehicle(vehicle)
     }
   }
 
   const clearVehicleLookup = () => {
+    setSelectedVehicleId('')
     setFoundVehicle(null)
-    setExistingPlate('')
     setVin('')
     setLicensePlate('')
     setVehicleType('camion')
@@ -442,35 +450,35 @@ export function UnifiedInspectionForm() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Owner Lookup */}
+          {/* Owner SearchableSelect */}
           <div className="flex gap-2 items-end">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="existingOwnerDocId">Buscar por documento</Label>
-              <Input
-                id="existingOwnerDocId"
-                value={existingOwnerDocId}
-                onChange={(e) => setExistingOwnerDocId(e.target.value)}
-                placeholder="Ej: V-12345678"
+              <Label htmlFor="ownerSelect">Propietario existente</Label>
+              <SearchableSelect
+                id="ownerSelect"
+                value={selectedOwnerId}
+                onChange={handleOwnerChange}
                 disabled={pending}
+                placeholder={owners.length === 0 ? 'No hay propietarios registrados' : '— Seleccionar propietario —'}
+                options={owners.map((o) => ({
+                  value: o.id,
+                  label: `${o.documentId} — ${o.fullName}`,
+                }))}
               />
+              {owners.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  No hay propietarios registrados. Complete los datos abajo para crear uno nuevo.
+                </p>
+              )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleOwnerLookup}
-              disabled={ownerLookupLoading || pending || !existingOwnerDocId.trim()}
-              className="mb-0.5"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              {ownerLookupLoading ? 'Buscando...' : 'Buscar'}
-            </Button>
-            {foundOwner && (
+            {selectedOwnerId && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={clearOwnerLookup}
                 className="mb-0.5 text-red-500"
+                title="Crear propietario nuevo"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -562,35 +570,35 @@ export function UnifiedInspectionForm() {
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Vehicle Lookup */}
+          {/* Vehicle SearchableSelect */}
           <div className="flex gap-2 items-end">
             <div className="flex-1 space-y-2">
-              <Label htmlFor="existingPlate">Buscar por patente</Label>
-              <Input
-                id="existingPlate"
-                value={existingPlate}
-                onChange={(e) => setExistingPlate(e.target.value)}
-                placeholder="Ej: ABC123"
+              <Label htmlFor="vehicleSelect">Vehículo existente</Label>
+              <SearchableSelect
+                id="vehicleSelect"
+                value={selectedVehicleId}
+                onChange={handleVehicleChange}
                 disabled={pending}
+                placeholder={vehicles.length === 0 ? 'No hay vehículos registrados' : '— Seleccionar vehículo —'}
+                options={vehicles.map((v) => ({
+                  value: v.id,
+                  label: `${v.licensePlate}${v.vin ? ` — VIN ${v.vin}` : ''}${v.brand ? ` (${v.brand}${v.model ? ` ${v.model}` : ''})` : ''}`,
+                }))}
               />
+              {vehicles.length === 0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  No hay vehículos registrados. Complete los datos abajo para crear uno nuevo.
+                </p>
+              )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleVehicleLookup}
-              disabled={vehicleLookupLoading || pending || !existingPlate.trim()}
-              className="mb-0.5"
-            >
-              <Search className="w-4 h-4 mr-2" />
-              {vehicleLookupLoading ? 'Buscando...' : 'Buscar'}
-            </Button>
-            {foundVehicle && (
+            {selectedVehicleId && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={clearVehicleLookup}
                 className="mb-0.5 text-red-500"
+                title="Crear vehículo nuevo"
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -611,7 +619,7 @@ export function UnifiedInspectionForm() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="licensePlate">Patente</Label>
+              <Label htmlFor="licensePlate">Placa</Label>
               <Input
                 id="licensePlate"
                 name="licensePlate"

@@ -45,7 +45,7 @@ export async function createVehicle(
     return { error: `Ya existe un vehículo con VIN ${vin}` }
   }
 
-  // Check patente duplicada
+  // Check placa duplicada
   const existingPlate = await db
     .select({ id: vehicles.id })
     .from(vehicles)
@@ -53,7 +53,7 @@ export async function createVehicle(
     .limit(1)
 
   if (existingPlate.length > 0) {
-    return { error: `Ya existe un vehículo con patente ${licensePlate}` }
+    return { error: `Ya existe un vehículo con placa ${licensePlate}` }
   }
 
   // Verificar que el dueño existe

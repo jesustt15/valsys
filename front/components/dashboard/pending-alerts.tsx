@@ -110,9 +110,11 @@ export function PendingAlerts({ alerts }: Props) {
                     variant={
                       alert.status === 'certificado'
                         ? 'success'
-                        : alert.status === 'recalificacion' || alert.status === 'por_programar'
-                          ? 'warning'
-                          : 'info'
+                        : alert.status === 'por_programar'
+                          ? 'destructive'
+                          : alert.status === 'recalificacion'
+                            ? 'warning'
+                            : 'info'
                     }
                     className="hidden sm:inline-flex"
                   >

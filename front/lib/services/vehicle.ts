@@ -83,7 +83,7 @@ export async function updateVehicle(id: string, data: UpdateVehicleData): Promis
       .limit(1)
 
     if (dup.length > 0) {
-      return { success: false, error: `Ya existe otro vehículo con patente ${data.licensePlate}` }
+      return { success: false, error: `Ya existe otro vehículo con placa ${data.licensePlate}` }
     }
   }
 

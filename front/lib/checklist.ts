@@ -5,29 +5,28 @@ export interface ChecklistQuestion {
 }
 
 export const FRONT_QUESTIONS: ChecklistQuestion[] = [
-  { section: 'front', key: 'front_chassis', label: 'Chasis — sin fisuras, deformaciones o corrosión' },
-  { section: 'front', key: 'front_suspension', label: 'Suspensión delantera — estado de amortiguadores' },
-  { section: 'front', key: 'front_brakes', label: 'Frenos delanteros — pastillas, discos, líquido' },
-  { section: 'front', key: 'front_steering', label: 'Dirección — juego libre, terminales, caja' },
-  { section: 'front', key: 'front_lights', label: 'Luces delanteras — altas, bajas, giro, niebla' },
-  { section: 'front', key: 'front_windshield', label: 'Parabrisas — sin grietas, buena visibilidad' },
-  { section: 'front', key: 'front_wipers', label: 'Limpiaparabrisas — funcionamiento, estado' },
-  { section: 'front', key: 'front_horn', label: 'Bocina — funcionamiento' },
-  { section: 'front', key: 'front_mirrors', label: 'Espejos retrovisores — presentes y funcionales' },
-  { section: 'front', key: 'front_seatbelts', label: 'Cinturones de seguridad — estado y anclaje' },
+  { section: 'front', key: 'front_fuel_selector', label: 'Selector de Combustible' },
+  { section: 'front', key: 'front_ecu', label: 'ECU (Eje y Funcionamiento)' },
+  { section: 'front', key: 'front_regulator', label: 'Regulador (Fijación y Funcionamiento)' },
+  { section: 'front', key: 'front_injectors', label: 'Inyectores (Fijación y Funcionamiento)' },
+  { section: 'front', key: 'front_fill_valve', label: 'Pico de Carga (Fijación y Funcionamiento)' },
+  { section: 'front', key: 'front_pressure_gauge', label: 'Manómetro (Funcionamiento y Fijación)' },
+  { section: 'front', key: 'front_stainless_pipe', label: 'Tubería en Acero Inoxidable' },
+  { section: 'front', key: 'front_docs', label: 'Cédula y Título del Vehículo' },
+  { section: 'front', key: 'front_valve_thread', label: 'Revisión de Rosca de Cada Válvula' },
+  { section: 'front', key: 'front_connection_thread', label: 'Revisión de Rosca de Cada Conexión' },
 ]
 
 export const REAR_QUESTIONS: ChecklistQuestion[] = [
-  { section: 'rear', key: 'rear_chassis', label: 'Chasis trasero — sin fisuras, deformaciones' },
-  { section: 'rear', key: 'rear_suspension', label: 'Suspensión trasera — ballestas, amortiguadores' },
-  { section: 'rear', key: 'rear_brakes', label: 'Frenos traseros — tambores/discos, líquido' },
-  { section: 'rear', key: 'rear_lights', label: 'Luces traseras — freno, giro, reversa, patente' },
-  { section: 'rear', key: 'rear_tires', label: 'Neumáticos traseros — profundidad, desgaste' },
-  { section: 'rear', key: 'rear_exhaust', label: 'Escape — sin fugas, soportes' },
-  { section: 'rear', key: 'rear_license_plate', label: 'Patente — visible, legible, bien fijada' },
-  { section: 'rear', key: 'rear_cylinder_mounts', label: 'Soportes de cilindros — estado, fijación' },
-  { section: 'rear', key: 'rear_valves_lines', label: 'Válvulas y líneas — sin fugas, correcto estado' },
-  { section: 'rear', key: 'rear_ground_clearance', label: 'Distancia al suelo — dentro de parámetros' },
+  { section: 'rear', key: 'rear_leak', label: 'Fuga' },
+  { section: 'rear', key: 'rear_cradle_movement', label: 'Movimiento Cuna' },
+  { section: 'rear', key: 'rear_grade8_bolts', label: 'Tornillos Grado 8' },
+  { section: 'rear', key: 'rear_cylinder', label: 'Cilindro' },
+  { section: 'rear', key: 'rear_cradle', label: 'Cuna' },
+  { section: 'rear', key: 'rear_corrosion', label: 'Corrosión' },
+  { section: 'rear', key: 'rear_cylinder_valve', label: 'Válvula Cilindro (Abre/Cierra)' },
+  { section: 'rear', key: 'rear_straps', label: 'Flejes sin soldadura y con aislante 360° del cilindro' },
+  { section: 'rear', key: 'rear_piping', label: 'Tubería (rabo de cochino y grapas cada 60 cm)' },
 ]
 
 export const ALL_QUESTIONS: ChecklistQuestion[] = [...FRONT_QUESTIONS, ...REAR_QUESTIONS]

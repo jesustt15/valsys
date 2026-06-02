@@ -1,7 +1,11 @@
 import Link from 'next/link'
 import { UnifiedInspectionForm } from '@/components/forms/unified-inspection-form'
+import { getAllOwners } from '@/lib/services/owner'
+import { getAllVehicles } from '@/lib/services/vehicle'
 
 export default async function NewInspectionPage() {
+  const [owners, vehicles] = await Promise.all([getAllOwners(), getAllVehicles()])
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Breadcrumb */}
@@ -31,7 +35,7 @@ export default async function NewInspectionPage() {
         </p>
       </div>
 
-      <UnifiedInspectionForm />
+      <UnifiedInspectionForm owners={owners} vehicles={vehicles} />
     </div>
   )
 }

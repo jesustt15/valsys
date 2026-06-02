@@ -61,7 +61,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por patente, VIN, marca o modelo..."
+            placeholder="Buscar por placa, VIN, marca o modelo..."
             className="pl-9 h-11"
           />
         </div>

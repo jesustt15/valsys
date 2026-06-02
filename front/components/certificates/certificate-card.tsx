@@ -82,7 +82,7 @@ export function CertificateCard({
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="w-5 h-5 text-amber-500" />
+            <Clock className="w-5 h-5 text-red-500" />
             Certificado — Pendiente
           </CardTitle>
           <CardDescription>
@@ -90,12 +90,12 @@ export function CertificateCard({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-3 text-sm space-y-2">
-            <p className="text-amber-700 dark:text-amber-400 font-medium flex items-center gap-2">
+          <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm space-y-2">
+            <p className="text-red-700 dark:text-red-400 font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               Pendiente de certificación
             </p>
-            <p className="text-amber-600 dark:text-amber-500 text-xs">
+            <p className="text-red-600 dark:text-red-500 text-xs">
               Antes de certificar, asegúrese de que todos los ítems no conformes estén resueltos,
               las fotos de post-montaje estén cargadas y la firma del titular esté presente.
             </p>

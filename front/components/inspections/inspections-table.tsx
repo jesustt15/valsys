@@ -30,10 +30,10 @@ const STATUS_LABELS: Record<string, string> = {
   certificado: 'Certificado',
 }
 
-const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success'> = {
+const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive'> = {
   inspeccion_inicial: 'info',
   recalificacion: 'warning',
-  por_programar: 'warning',
+  por_programar: 'destructive',
   certificado: 'success',
 }
 
@@ -88,7 +88,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por patente..."
+            placeholder="Buscar por placa..."
             className="pl-9 h-11"
           />
         </div>

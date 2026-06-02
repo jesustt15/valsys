@@ -10,7 +10,7 @@ export default function ConsultaNotFound() {
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-2">Vehículo no encontrado</h1>
         <p className="text-muted-foreground mb-6">
-          No se encontró ningún vehículo con esa patente en el sistema.
+          No se encontró ningún vehículo con esa placa en el sistema.
           Verifique el número ingresado e intente nuevamente.
         </p>
         <Link

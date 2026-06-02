@@ -23,17 +23,17 @@ export function InspectionPendingSummary({ pending, status }: Props) {
   // por_programar blocking notice
   if (status === 'por_programar') {
     return (
-      <Card className="border-2 border-amber-200 dark:border-amber-800">
+      <Card className="border-2 border-red-200 dark:border-red-800">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 text-amber-500">
+            <div className="mt-0.5 text-red-500">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+              <p className="text-sm font-semibold text-red-700 dark:text-red-400">
                 Pendiente de programación
               </p>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-1">
+              <p className="text-xs text-red-600 dark:text-red-500 mt-1">
                 La inspección está lista para ser certificada. Complete el número correlativo para finalizar el proceso.
               </p>
             </div>
