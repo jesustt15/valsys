@@ -1,6 +1,5 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   allowedDevOrigins: ['10.32.80.12', '*.trycloudflare.com'],
   experimental: {
     serverActions: {
@@ -8,6 +7,6 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '15mb',
     },
   },
-};
+}
 
-export default nextConfig;
+export default nextConfig

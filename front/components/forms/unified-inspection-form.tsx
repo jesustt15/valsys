@@ -813,27 +813,6 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
         </>
       )}
 
-      {/* ── Signature (both paths) ──────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
-              <PenLine className="w-5 h-5 text-rose-600" />
-            </div>
-            <div>
-              <CardTitle>Firma del Propietario</CardTitle>
-              <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <SignaturePad onChange={setSignature} disabled={pending} />
-          <p className="text-xs text-muted-foreground mt-2">
-            Esta firma quedará registrada como constancia de la inspección.
-          </p>
-        </CardContent>
-      </Card>
-
       {/* ── Cylinders (both paths) ─────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -936,6 +915,27 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* ── Signature (both paths) ──────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
+              <PenLine className="w-5 h-5 text-rose-600" />
+            </div>
+            <div>
+              <CardTitle>Firma del Propietario</CardTitle>
+              <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SignaturePad onChange={setSignature} disabled={pending} />
+          <p className="text-xs text-muted-foreground mt-2">
+            Esta firma quedará registrada como constancia de la inspección.
+          </p>
         </CardContent>
       </Card>
 

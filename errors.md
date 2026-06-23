@@ -1,12 +1,5 @@
-  └─ ƒ createUnifiedInspectionAction({"error":"Too small: expected string to have >=17 characters"}, {}) in 4ms lib/actions/inspection.ts
-[browser] Uncaught Error: An unexpected response was received from the server.
-    at NewInspectionPage (app\(dashboard)\inspections\new\page.tsx:38:7)
-  36 |       </div>
-  37 |
-> 38 |       <UnifiedInspectionForm owners={owners} vehicles={vehicles} />
-     |       ^
-  39 |     </div>
-  40 |   )
-  41 | }
-[browser] NotAllowedError: Failed to execute 'writeText' on 'Clipboard': Document is not focused.
-    at navigator.clipboard.writeText (chrome-extension://deakbjemijlmlcehdgejmdpekkceodmk/data/notify_clipboard_change.js:24:38) (file://C:/Users/Jesus/Documents/valsys/front/.next/dev/static/chunks/0prs_next_dist_compiled_next-devtools_index_10.lqmw.js:2101:1285)
+⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: \\?\C:\Users\Jesus\Documents\valsys\front\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node no es una aplicación Win32 válida.
+\\?\C:\Users\Jesus\Documents\valsys\front\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node
+⨯ Failed to load next.config.ts, see more info here https://nextjs.org/docs/messages/next-config-error
+SyntaxError: Unexpected token 'export'
+    at <unknown> (C:\Users\Jesus\Documents\valsys\front\next.config.compiled.js:16)
