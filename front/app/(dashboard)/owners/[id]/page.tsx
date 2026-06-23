@@ -105,15 +105,15 @@ export default async function OwnerDetailPage({ params }: PageProps) {
                             {v.licensePlate}
                           </span>
                           <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">
-                            {v.year || '—'}
+                            {v.marcaKit || 'Sin Kit'}
                           </span>
                         </div>
                         <div className="text-sm font-medium">
                           {v.brand || 'Marca no registrada'} {v.model ? `— ${v.model}` : ''}
                         </div>
-                        {v.vin && (
+                        {v.codigoUnicoGnc && (
                           <div className="text-xs text-muted-foreground mt-2 font-mono">
-                            VIN: {v.vin}
+                            Código Único: {v.codigoUnicoGnc}
                           </div>
                         )}
                       </div>

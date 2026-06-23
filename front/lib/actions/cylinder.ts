@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { gncCylinders, inspectionAttachments } from '@/db/schema'
+import { gncCylinders, inspectionAttachments, signatures, inspections } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { createCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema } from '@/lib/validations/cylinder'
 import { getSession } from '@/lib/auth/get-session'
@@ -108,11 +108,38 @@ export async function updateCylinderStatusAction(
       })
       .where(eq(gncCylinders.id, parsed.data.id))
 
-    // Handle photo uploads (removal photos etc)
+    // Handle signature when dismounting (en_planta transition)
     const inspectionId = formData.get('inspectionId') as string
+    const signatureData = formData.get('signature') as string
+
+    if (parsed.data.status === 'en_planta' && inspectionId && signatureData?.startsWith('data:image')) {
+      try {
+        const base64Data = signatureData.split(',')[1]
+        const buffer = Buffer.from(base64Data, 'base64')
+        const timestamp = Date.now()
+        const minioKey = `signatures/${timestamp}.png`
+
+        await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+
+        const [sig] = await db
+          .insert(signatures)
+          .values({ minioKey })
+          .returning({ id: signatures.id })
+
+        await db
+          .update(inspections)
+          .set({ ownerSignatureId: sig.id, updatedAt: new Date() })
+          .where(eq(inspections.id, inspectionId))
+      } catch (e) {
+        console.error('Error saving signature during dismount:', e)
+        // Non-fatal: cylinder status already updated
+      }
+    }
+
+    // Handle photo uploads (removal photos etc)
     const photos = formData.getAll('photos') as File[]
     const category = formData.get('category') as string // 'removal' | 'post_mount'
-    
+
     if (photos.length > 0 && inspectionId && category) {
       for (const file of photos) {
         if (!file || file.size === 0) continue

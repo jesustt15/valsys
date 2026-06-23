@@ -7,6 +7,7 @@ import { FRONT_QUESTIONS, REAR_QUESTIONS, type ChecklistQuestion } from '@/lib/c
 import { createUnifiedInspectionAction, type InspectionFormState } from '@/lib/actions/inspection'
 import { PhotoUpload } from '@/components/inspections/photo-upload'
 import { SignaturePad } from '@/components/inspections/signature-pad'
+import { DocumentScanner } from '@/components/ui/document-scanner'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, CheckCircle, Plus, Trash2, User, Truck, ClipboardCheck, Camera, PenLine, Database, FileText } from 'lucide-react'
+import { AlertCircle, CheckCircle, Plus, Trash2, User, Truck, ClipboardCheck, Camera, PenLine, Database, FileText, ScanLine, X } from 'lucide-react'
 import type { OwnerRecord } from '@/lib/services/owner'
 import type { VehicleRecord } from '@/lib/services/vehicle'
 
@@ -62,13 +63,13 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   const [selectedOwnerId, setSelectedOwnerId] = useState('')
 
   // ── Vehicle State ───────────────────────────────────────────
-  const [vin, setVin] = useState('')
+  const [codigoUnicoGnc, setCodigoUnicoGnc] = useState('')
   const [licensePlate, setLicensePlate] = useState('')
-  const [vehicleType, setVehicleType] = useState('camion')
+  const [vehicleType, setVehicleType] = useState('sedan')
   const [brand, setBrand] = useState('')
   const [model, setModel] = useState('')
-  const [year, setYear] = useState('')
-  const [foundVehicle, setFoundVehicle] = useState<{ id: string; vin: string; licensePlate: string; vehicleType: string; brand: string | null; model: string | null; year: number | null; owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null } | null>(null)
+  const [marcaKit, setMarcaKit] = useState('')
+  const [foundVehicle, setFoundVehicle] = useState<{ id: string; codigoUnicoGnc: string | null; licensePlate: string; vehicleType: string; brand: string | null; model: string | null; marcaKit: string | null; owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null } | null>(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState('')
 
   // ── Inspection ──────────────────────────────────────────────
@@ -93,6 +94,8 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   // ── Vehicle Documents (inline) ──────────────────────────────
   const [cedulaFile, setCedulaFile] = useState<File | null>(null)
   const [carnetFile, setCarnetFile] = useState<File | null>(null)
+  // Scanner states
+  const [scannerOpen, setScannerOpen] = useState<'cedula' | 'carnet' | null>(null)
 
   // ── Owner Selection (SearchableSelect) ──────────────────────
   const applyOwner = (owner: OwnerRecord) => {
@@ -129,23 +132,23 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   }
 
   // ── Vehicle Selection (SearchableSelect) ────────────────────
-  const applyVehicle = (vehicle: VehicleRecord) => {
+  const applyVehicle = (vehicle: any) => {
     setFoundVehicle({
       id: vehicle.id,
-      vin: vehicle.vin,
+      codigoUnicoGnc: vehicle.codigoUnicoGnc,
       licensePlate: vehicle.licensePlate,
       vehicleType: vehicle.vehicleType,
       brand: vehicle.brand,
       model: vehicle.model,
-      year: vehicle.year,
+      marcaKit: vehicle.marcaKit,
       owner: null,
     })
-    setVin(vehicle.vin)
+    setCodigoUnicoGnc(vehicle.codigoUnicoGnc || '')
     setLicensePlate(vehicle.licensePlate)
     setVehicleType(vehicle.vehicleType)
     setBrand(vehicle.brand || '')
     setModel(vehicle.model || '')
-    setYear(vehicle.year ? String(vehicle.year) : '')
+    setMarcaKit(vehicle.marcaKit || '')
 
     // If the vehicle has an owner, auto-populate the owner section
     if (vehicle.ownerId) {
@@ -173,12 +176,12 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   const clearVehicleLookup = () => {
     setSelectedVehicleId('')
     setFoundVehicle(null)
-    setVin('')
+    setCodigoUnicoGnc('')
     setLicensePlate('')
-    setVehicleType('camion')
+    setVehicleType('sedan')
     setBrand('')
     setModel('')
-    setYear('')
+    setMarcaKit('')
   }
 
   // ── Checklist Handlers ──────────────────────────────────────
@@ -232,12 +235,27 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
     }
 
     // Vehicle validation
-    if (!foundVehicle && !vin.trim()) {
-      setFormError('Debe proporcionar un vehículo (buscar existente o crear nuevo)')
+    if (!foundVehicle && !licensePlate.trim()) {
+      setFormError('Debe proporcionar la placa del vehículo')
       return false
     }
 
-    if (!kmCurrent || Number(kmCurrent) <= 0) {
+    if (!foundVehicle && licensePlate.trim() && !/^[A-Z][A-Z0-9]{5,6}$/.test(licensePlate.trim())) {
+      setFormError('La placa debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos')
+      return false
+    }
+
+    if (!foundVehicle && brand.trim() && brand.trim().length < 2) {
+      setFormError('La marca debe tener al menos 2 caracteres')
+      return false
+    }
+
+    if (!foundVehicle && model.trim() && model.trim().length < 1) {
+      setFormError('El modelo es requerido')
+      return false
+    }
+
+    if (kmCurrent !== '' && (Number.isNaN(Number(kmCurrent)) || Number(kmCurrent) <= 0)) {
       setFormError('Los kilómetros deben ser mayores a 0')
       return false
     }
@@ -251,11 +269,12 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
         setFormError(`Faltan responder ${unanswered.length} preguntas del checklist`)
         return false
       }
+    }
 
-      if (!signature) {
-        setFormError('La firma del propietario es obligatoria')
-        return false
-      }
+    // Signature required for all inspections (needed for certification)
+    if (!signature) {
+      setFormError('La firma del propietario es obligatoria')
+      return false
     }
 
     // Desmontados: must have at least one cylinder
@@ -280,33 +299,36 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
       return // formError is set by validate()
     }
 
-    // Set all form fields
-    formData.set('branch', branch)
+    // Create a fresh FormData to ensure we control exactly what's sent
+    const submitData = new FormData()
+
+    // Branch
+    submitData.set('branch', branch)
 
     // Owner
     if (foundOwner) {
-      formData.set('existingOwnerDocumentId', foundOwner.documentId)
+      submitData.set('existingOwnerDocumentId', foundOwner.documentId)
     }
-    formData.set('documentType', ownerDocumentType)
-    formData.set('documentNumber', ownerDocumentNumber)
-    formData.set('fullName', ownerFullName)
-    if (ownerPhone) formData.set('phone', ownerPhone)
-    if (ownerEmail) formData.set('email', ownerEmail)
+    submitData.set('documentType', ownerDocumentType)
+    submitData.set('documentNumber', ownerDocumentNumber)
+    submitData.set('fullName', ownerFullName)
+    if (ownerPhone) submitData.set('phone', ownerPhone)
+    if (ownerEmail) submitData.set('email', ownerEmail)
 
     // Vehicle
     if (foundVehicle) {
-      formData.set('existingLicensePlate', foundVehicle.licensePlate)
+      submitData.set('existingLicensePlate', foundVehicle.licensePlate)
     }
-    formData.set('vin', vin)
-    formData.set('licensePlate', licensePlate)
-    formData.set('vehicleType', vehicleType)
-    formData.set('brand', brand)
-    formData.set('model', model)
-    if (year) formData.set('year', year)
+    if (codigoUnicoGnc) submitData.set('codigoUnicoGnc', codigoUnicoGnc)
+    submitData.set('licensePlate', licensePlate)
+    submitData.set('vehicleType', vehicleType)
+    submitData.set('brand', brand)
+    submitData.set('model', model)
+    if (marcaKit) submitData.set('marcaKit', marcaKit)
 
     // Inspection
-    formData.set('kmCurrent', kmCurrent)
-    if (observations) formData.set('observations', observations)
+    submitData.set('kmCurrent', kmCurrent)
+    if (observations) submitData.set('observations', observations)
 
     // Answers (montados)
     if (branch === 'montados') {
@@ -317,26 +339,37 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
         answer: answers.get(q.key)?.answer ?? null,
         observations: answers.get(q.key)?.observations || undefined,
       }))
-      formData.set('answers', JSON.stringify(answersArray))
-      formData.set('signature', signature)
+      submitData.set('answers', JSON.stringify(answersArray))
     } else {
-      formData.set('answers', '[]')
+      submitData.set('answers', '[]')
     }
+
+    // Signature required for all inspections
+    submitData.set('signature', signature)
 
     // Cylinders
     if (cylinders.length > 0) {
-      formData.set('cylinders', JSON.stringify(cylinders))
+      submitData.set('cylinders', JSON.stringify(cylinders))
     }
 
     // Vehicle documents
     if (cedulaFile) {
-      formData.set('cedula', cedulaFile)
+      submitData.set('cedula', cedulaFile)
     }
     if (carnetFile) {
-      formData.set('carnet', carnetFile)
+      submitData.set('carnet', carnetFile)
     }
 
-    return formAction(formData)
+    // Photos - collect from all PhotoUpload inputs in the form
+    // The form contains multiple file inputs with name="photos"
+    const photos = formData.getAll('photos') as File[]
+    for (const photo of photos) {
+      if (photo && photo.size > 0) {
+        submitData.append('photos', photo)
+      }
+    }
+
+    return formAction(submitData)
   }
 
   // ── Success State ───────────────────────────────────────────
@@ -582,7 +615,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                 placeholder={vehicles.length === 0 ? 'No hay vehículos registrados' : '— Seleccionar vehículo —'}
                 options={vehicles.map((v) => ({
                   value: v.id,
-                  label: `${v.licensePlate}${v.vin ? ` — VIN ${v.vin}` : ''}${v.brand ? ` (${v.brand}${v.model ? ` ${v.model}` : ''})` : ''}`,
+                  label: `${v.licensePlate}${v.codigoUnicoGnc ? ` — Código Único ${v.codigoUnicoGnc}` : ''}${v.brand ? ` (${v.brand}${v.model ? ` ${v.model}` : ''})` : ''}`,
                 }))}
               />
               {vehicles.length === 0 && (
@@ -607,15 +640,15 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="vin">VIN (17 caracteres)</Label>
+              <Label htmlFor="codigoUnicoGnc">Código Único GNC</Label>
               <Input
-                id="vin"
-                name="vin"
-                value={vin}
-                onChange={(e) => setVin(e.target.value.toUpperCase())}
-                maxLength={17}
+                id="codigoUnicoGnc"
+                name="codigoUnicoGnc"
+                value={codigoUnicoGnc}
+                onChange={(e) => setCodigoUnicoGnc(e.target.value.toUpperCase())}
+                maxLength={50}
                 disabled={pending || !!foundVehicle}
-                placeholder="1HGBH41JXMN109186"
+                placeholder="Código Único GNC (Opcional)"
               />
             </div>
             <div className="space-y-2">
@@ -626,8 +659,10 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                 value={licensePlate}
                 onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
                 disabled={pending || !!foundVehicle}
-                placeholder="ABC123"
+                maxLength={7}
+                placeholder="Ej: A123BC4 o AB123C"
               />
+              <p className="text-xs text-muted-foreground">6 a 7 caracteres alfanuméricos (comienza con letra)</p>
             </div>
           </div>
 
@@ -642,12 +677,12 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                 disabled={pending || !!foundVehicle}
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
+                <option value="sedan">Sedán</option>
+                <option value="autobus">Autobús</option>
                 <option value="camion">Camión</option>
-                <option value="pickup">Pickup</option>
-                <option value="furgon">Furgón</option>
+                <option value="pickup">Pick Up</option>
+                <option value="camioneta">Camioneta</option>
                 <option value="van">Van</option>
-                <option value="acoplado">Acoplado</option>
-                <option value="otro">Otro</option>
               </select>
             </div>
             <div className="space-y-2">
@@ -675,17 +710,14 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="year">Año</Label>
+            <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
             <Input
-              id="year"
-              name="year"
-              type="number"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
+              id="marcaKit"
+              name="marcaKit"
+              value={marcaKit}
+              onChange={(e) => setMarcaKit(e.target.value)}
               disabled={pending || !!foundVehicle}
-              placeholder="2020"
-              min={1990}
-              max={2027}
+              placeholder="Marca de KIT (Opcional)"
             />
           </div>
         </CardContent>
@@ -715,8 +747,9 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
               value={kmCurrent}
               onChange={(e) => setKmCurrent(e.target.value)}
               disabled={pending}
-              placeholder="Ej: 45000"
+              placeholder="Ej: 45000 (Opcional)"
             />
+            <p className="text-xs text-muted-foreground">Opcional</p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="observations">Observaciones</Label>
@@ -777,29 +810,29 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
               <PhotoUpload category="initial" label="Fotos de inspección inicial" />
             </CardContent>
           </Card>
-
-          {/* Signature */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
-                  <PenLine className="w-5 h-5 text-rose-600" />
-                </div>
-                <div>
-                  <CardTitle>Firma del Propietario</CardTitle>
-                  <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <SignaturePad onChange={setSignature} disabled={pending} />
-              <p className="text-xs text-muted-foreground mt-2">
-                Esta firma quedará registrada como constancia de la inspección.
-              </p>
-            </CardContent>
-          </Card>
         </>
       )}
+
+      {/* ── Signature (both paths) ──────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
+              <PenLine className="w-5 h-5 text-rose-600" />
+            </div>
+            <div>
+              <CardTitle>Firma del Propietario</CardTitle>
+              <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SignaturePad onChange={setSignature} disabled={pending} />
+          <p className="text-xs text-muted-foreground mt-2">
+            Esta firma quedará registrada como constancia de la inspección.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* ── Cylinders (both paths) ─────────────────────────────── */}
       <Card>
@@ -921,43 +954,125 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Cédula */}
             <div className="space-y-2">
-              <Label htmlFor="cedula">Cédula (foto del documento)</Label>
-              <input
-                id="cedula"
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setCedulaFile(e.target.files?.[0] || null)}
-                disabled={pending}
-                className="block w-full text-sm text-muted-foreground
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100
-                  cursor-pointer"
-              />
+              <Label htmlFor="cedula">Cédula del Vehículo</Label>
+              <div className="flex flex-col gap-2">
+                {cedulaFile ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
+                    <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">{cedulaFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCedulaFile(null)}
+                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <label
+                      htmlFor="cedula"
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Seleccionar archivo
+                      <input
+                        id="cedula"
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="sr-only"
+                        onChange={(e) => setCedulaFile(e.target.files?.[0] || null)}
+                        disabled={pending}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setScannerOpen('cedula')}
+                      disabled={pending}
+                      className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
+                      title="Escanear documento con la cámara"
+                    >
+                      <ScanLine className="w-4 h-4" />
+                      Escanear
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Carnet */}
             <div className="space-y-2">
               <Label htmlFor="carnet">Carnet de Circulación</Label>
-              <input
-                id="carnet"
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setCarnetFile(e.target.files?.[0] || null)}
-                disabled={pending}
-                className="block w-full text-sm text-muted-foreground
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-lg file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100
-                  cursor-pointer"
-              />
+              <div className="flex flex-col gap-2">
+                {carnetFile ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
+                    <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">{carnetFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCarnetFile(null)}
+                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <label
+                      htmlFor="carnet"
+                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Seleccionar archivo
+                      <input
+                        id="carnet"
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="sr-only"
+                        onChange={(e) => setCarnetFile(e.target.files?.[0] || null)}
+                        disabled={pending}
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setScannerOpen('carnet')}
+                      disabled={pending}
+                      className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
+                      title="Escanear documento con la cámara"
+                    >
+                      <ScanLine className="w-4 h-4" />
+                      Escanear
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
+
           </div>
         </CardContent>
       </Card>
+
+
+      {/* ── Document Scanner Modal ──────────────────────── */}
+      {scannerOpen && (
+        <DocumentScanner
+          label={scannerOpen === 'cedula' ? 'Escanear Cédula del Vehículo' : 'Escanear Carnet de Circulación'}
+          onCapture={(file) => {
+            if (scannerOpen === 'cedula') setCedulaFile(file)
+            else setCarnetFile(file)
+            setScannerOpen(null)
+          }}
+          onClose={() => setScannerOpen(null)}
+          disabled={pending}
+        />
+      )}
 
       {/* ── Submit ────────────────────────────────────────────── */}
       <div className="flex items-center justify-end gap-4">

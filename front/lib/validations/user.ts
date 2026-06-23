@@ -12,7 +12,11 @@ export const createUserSchema = z.object({
     .max(100, 'El nombre no puede exceder 100 caracteres'),
   email: z
     .string()
-    .email('El email no es válido'),
+    .email('El email no es válido')
+    .optional()
+    .or(z.literal(''))
+    .nullable()
+    .transform((val) => (val === '' || val === null || val === undefined ? null : val)),
   password: z
     .string()
     .min(6, 'La contraseña debe tener al menos 6 caracteres'),

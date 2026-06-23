@@ -14,22 +14,22 @@ import { AlertCircle, CheckCircle } from 'lucide-react'
 interface Props {
   vehicle: {
     id: string
-    vin: string | null
+    codigoUnicoGnc: string | null
     licensePlate: string | null
     vehicleType: string | null
     brand: string | null
     model: string | null
-    year: number | null
+    marcaKit: string | null
   }
 }
 
 const VEHICLE_TYPES = [
+  { value: 'sedan', label: 'Sedán' },
+  { value: 'autobus', label: 'Autobús' },
   { value: 'camion', label: 'Camión' },
-  { value: 'pickup', label: 'Pickup' },
-  { value: 'furgon', label: 'Furgón' },
+  { value: 'pickup', label: 'Pick Up' },
+  { value: 'camioneta', label: 'Camioneta' },
   { value: 'van', label: 'Van' },
-  { value: 'acoplado', label: 'Acoplado' },
-  { value: 'otro', label: 'Otro' },
 ]
 
 export function EditVehicleModal({ vehicle }: Props) {
@@ -78,13 +78,13 @@ export function EditVehicleModal({ vehicle }: Props) {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="vin" required>VIN</Label>
+              <Label htmlFor="codigoUnicoGnc">Código Único GNC</Label>
               <Input
-                id="vin"
-                name="vin"
-                defaultValue={vehicle.vin ?? ''}
-                maxLength={17}
-                placeholder="17 caracteres alfanuméricos"
+                id="codigoUnicoGnc"
+                name="codigoUnicoGnc"
+                defaultValue={vehicle.codigoUnicoGnc ?? ''}
+                maxLength={50}
+                placeholder="Código Único GNC (Opcional)"
                 disabled={pending}
               />
             </div>
@@ -126,15 +126,12 @@ export function EditVehicleModal({ vehicle }: Props) {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="year">Año</Label>
+                <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
                 <Input
-                  id="year"
-                  name="year"
-                  type="number"
-                  defaultValue={vehicle.year?.toString() ?? ''}
-                  min={1990}
-                  max={new Date().getFullYear() + 1}
-                  placeholder="Año"
+                  id="marcaKit"
+                  name="marcaKit"
+                  defaultValue={vehicle.marcaKit ?? ''}
+                  placeholder="Marca de KIT (Opcional)"
                   disabled={pending}
                 />
               </div>

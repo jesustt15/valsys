@@ -19,12 +19,12 @@ export async function createVehicle(
   // Validar
   const parsed = createVehicleSchema.safeParse({
     ownerId: formData.get('ownerId'),
-    vin: formData.get('vin'),
+    codigoUnicoGnc: formData.get('codigoUnicoGnc') || undefined,
     licensePlate: formData.get('licensePlate'),
     vehicleType: formData.get('vehicleType'),
     brand: formData.get('brand'),
     model: formData.get('model'),
-    year: formData.get('year'),
+    marcaKit: formData.get('marcaKit') || undefined,
   })
 
   if (!parsed.success) {
@@ -32,17 +32,19 @@ export async function createVehicle(
     return { error: firstError }
   }
 
-  const { vin, licensePlate } = parsed.data
+  const { codigoUnicoGnc, licensePlate } = parsed.data
 
-  // Check VIN duplicado
-  const existingVin = await db
-    .select({ id: vehicles.id })
-    .from(vehicles)
-    .where(eq(vehicles.vin, vin))
-    .limit(1)
+  // Check codigoUnicoGnc duplicado
+  if (codigoUnicoGnc) {
+    const existingCodigo = await db
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(eq(vehicles.codigoUnicoGnc, codigoUnicoGnc))
+      .limit(1)
 
-  if (existingVin.length > 0) {
-    return { error: `Ya existe un vehículo con VIN ${vin}` }
+    if (existingCodigo.length > 0) {
+      return { error: `Ya existe un vehículo con Código Único GNC ${codigoUnicoGnc}` }
+    }
   }
 
   // Check placa duplicada
@@ -100,12 +102,12 @@ export async function updateVehicleAction(
   formData: FormData,
 ): Promise<VehicleFormState> {
   const parsed = updateVehicleSchema.safeParse({
-    vin: formData.get('vin') || undefined,
+    codigoUnicoGnc: formData.get('codigoUnicoGnc') !== null ? (formData.get('codigoUnicoGnc') as string) : undefined,
     licensePlate: formData.get('licensePlate') || undefined,
     vehicleType: formData.get('vehicleType') || undefined,
     brand: formData.get('brand') || undefined,
     model: formData.get('model') || undefined,
-    year: formData.get('year') || undefined,
+    marcaKit: formData.get('marcaKit') !== null ? (formData.get('marcaKit') as string) : undefined,
   })
 
   if (!parsed.success) {

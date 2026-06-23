@@ -95,10 +95,12 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
           setStepError('Seleccione un vehículo')
           return false
         }
-        const km = Number(kmCurrent)
-        if (!kmCurrent || Number.isNaN(km) || km <= 0) {
-          setStepError('Ingrese los kilómetros actuales (mayor a 0)')
-          return false
+        if (kmCurrent !== '') {
+          const km = Number(kmCurrent)
+          if (Number.isNaN(km) || km <= 0) {
+            setStepError('Ingrese los kilómetros actuales (mayor a 0)')
+            return false
+          }
         }
         return true
       }
@@ -346,7 +348,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="kmCurrent" required>Kilómetros actuales</Label>
+                    <Label htmlFor="kmCurrent">Kilómetros actuales</Label>
                     <Input
                       id="kmCurrent"
                       name="kmCurrent"
@@ -357,11 +359,11 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') e.preventDefault()
                       }}
-                      required
                       disabled={pending}
-                      placeholder="Ej: 45000"
+                      placeholder="Ej: 45000 (Opcional)"
                       className="h-12 text-base"
                     />
+                    <p className="text-xs text-muted-foreground">Opcional</p>
                   </div>
 
                   <div className="space-y-2">

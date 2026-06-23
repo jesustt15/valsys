@@ -31,10 +31,10 @@ export async function createUser(data: CreateUserInput): Promise<UserRecord> {
 }
 
 export async function updateUser(id: string, data: UpdateUserInput): Promise<UserRecord> {
-  const updateData: Record<string, string> = {
+  const updateData: Record<string, string | null> = {
     username: data.username,
     fullName: data.fullName,
-    email: data.email,
+    email: data.email ?? null,
     role: data.role,
   }
 

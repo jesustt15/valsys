@@ -76,7 +76,7 @@ export default async function ConsultaResultPage({ params }: PageProps) {
                   {vehicle.licensePlate}
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  {vehicle.brand} {vehicle.model} {vehicle.year ? `(${vehicle.year})` : ''}
+                  {vehicle.brand} {vehicle.model} {vehicle.marcaKit ? `(Kit: ${vehicle.marcaKit})` : ''}
                 </p>
               </div>
             </div>
@@ -92,8 +92,8 @@ export default async function ConsultaResultPage({ params }: PageProps) {
                 </div>
                 <div className="bg-muted/30 rounded-xl p-3 space-y-1.5 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">VIN:</span>
-                    <span className="font-mono font-medium">{vehicle.vin}</span>
+                    <span className="text-muted-foreground">Código Único GNC:</span>
+                    <span className="font-mono font-medium">{vehicle.codigoUnicoGnc || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tipo:</span>
@@ -153,7 +153,9 @@ export default async function ConsultaResultPage({ params }: PageProps) {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Kilometraje:</span>
                     <span className="text-sm font-medium">
-                      {latestInspection.kmCurrent.toLocaleString('es-AR')} km
+                      {latestInspection.kmCurrent != null
+                        ? latestInspection.kmCurrent.toLocaleString('es-AR') + ' km'
+                        : '—'}
                     </span>
                   </div>
                 </div>

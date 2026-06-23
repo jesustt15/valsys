@@ -11,23 +11,23 @@ import { Badge } from '@/components/ui/badge'
 interface VehiclesTableProps {
   vehicles: Array<{
     id: string
-    vin: string | null
+    codigoUnicoGnc: string | null
     licensePlate: string
     vehicleType: string
     brand: string | null
     model: string | null
-    year: number | null
+    marcaKit: string | null
     createdAt: Date | null
   }>
 }
 
 const TYPE_LABELS: Record<string, string> = {
+  sedan: 'Sedán',
+  autobus: 'Autobús',
   camion: 'Camión',
-  pickup: 'Pickup',
-  furgon: 'Furgón',
+  pickup: 'Pick Up',
+  camioneta: 'Camioneta',
   van: 'Van',
-  acoplado: 'Acoplado',
-  otro: 'Otro',
 }
 
 export function VehiclesTable({ vehicles }: VehiclesTableProps) {
@@ -39,9 +39,10 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
     return vehicles.filter(
       (v) =>
         v.licensePlate.toLowerCase().includes(q) ||
-        (v.vin ?? '').toLowerCase().includes(q) ||
+        (v.codigoUnicoGnc ?? '').toLowerCase().includes(q) ||
         (v.brand ?? '').toLowerCase().includes(q) ||
-        (v.model ?? '').toLowerCase().includes(q),
+        (v.model ?? '').toLowerCase().includes(q) ||
+        (v.marcaKit ?? '').toLowerCase().includes(q),
     )
   }, [vehicles, query])
 
@@ -61,7 +62,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por placa, VIN, marca o modelo..."
+            placeholder="Buscar por placa, Código Único, marca, modelo o kit..."
             className="pl-9 h-11"
           />
         </div>
@@ -92,7 +93,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                   Patente
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                  VIN
+                  Código Único GNC
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Marca / Modelo
@@ -101,7 +102,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                   Tipo
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                  Año
+                  Marca KIT GNC
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Acciones
@@ -121,7 +122,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                     {v.licensePlate}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground font-mono hidden sm:table-cell">
-                    {v.vin ?? '—'}
+                    {v.codigoUnicoGnc ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-foreground">
                     {v.brand && v.model
@@ -132,7 +133,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                     <Badge variant="secondary">{TYPE_LABELS[v.vehicleType] ?? v.vehicleType}</Badge>
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
-                    {v.year ?? '—'}
+                    {v.marcaKit ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <Link

@@ -149,8 +149,8 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                   <span className="font-mono font-medium">{inspection.vehicle.licensePlate}</span>
                 </div>
                 <div className="flex justify-between border-b pb-1">
-                  <span className="text-muted-foreground">VIN:</span>
-                  <span className="font-mono font-medium">{inspection.vehicle.vin}</span>
+                  <span className="text-muted-foreground">Código Único GNC:</span>
+                  <span className="font-mono font-medium">{inspection.vehicle.codigoUnicoGnc || '—'}</span>
                 </div>
                 <div className="flex justify-between border-b pb-1">
                   <span className="text-muted-foreground">Marca/Modelo:</span>
@@ -158,7 +158,11 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Kilómetros:</span>
-                  <span className="font-medium">{inspection.kmCurrent.toLocaleString('es-AR')}</span>
+                  <span className="font-medium">
+                    {inspection.kmCurrent != null
+                      ? inspection.kmCurrent.toLocaleString('es-AR') + ' km'
+                      : '—'}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -279,11 +283,16 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             <CardContent>
               {signatureUrl ? (
                 <div className="border-2 border-dashed rounded-xl overflow-hidden bg-card p-2">
-                  <img src={signatureUrl} alt="Firma del titular" className="w-full h-auto object-contain" />
+                  <img
+                    src={signatureUrl}
+                    alt="Firma del titular"
+                    className="w-full h-auto object-contain"
+                  />
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground text-center py-4">
-                  No hay firma registrada.
+                <div className="text-sm text-muted-foreground text-center py-6 border-2 border-dashed rounded-xl space-y-1">
+                  <p className="font-medium">Sin firma registrada</p>
+                  <p className="text-xs">La firma del propietario se captura al desmontar los cilindros.</p>
                 </div>
               )}
             </CardContent>

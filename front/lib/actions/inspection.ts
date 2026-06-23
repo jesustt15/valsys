@@ -335,7 +335,7 @@ export async function lookupOwnerAction(
 
 export async function lookupVehicleAction(
   licensePlate: string,
-): Promise<{ vehicle: { id: string; vin: string; licensePlate: string; vehicleType: string; brand: string | null; model: string | null; year: number | null; owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null } | null; error?: string }> {
+): Promise<{ vehicle: { id: string; codigoUnicoGnc: string | null; licensePlate: string; vehicleType: string; brand: string | null; model: string | null; marcaKit: string | null; owner: { id: string; documentId: string; fullName: string; phone: string | null; email: string | null } | null } | null; error?: string }> {
   try {
     const { getVehicleByPlate } = await import('@/lib/services/vehicle')
     const vehicle = await getVehicleByPlate(licensePlate.toUpperCase())
@@ -343,12 +343,12 @@ export async function lookupVehicleAction(
     return {
       vehicle: {
         id: vehicle.id,
-        vin: vehicle.vin,
+        codigoUnicoGnc: vehicle.codigoUnicoGnc,
         licensePlate: vehicle.licensePlate,
         vehicleType: vehicle.vehicleType,
         brand: vehicle.brand,
         model: vehicle.model,
-        year: vehicle.year,
+        marcaKit: vehicle.marcaKit,
         owner: vehicle.owner ? {
           id: vehicle.owner.id,
           documentId: vehicle.owner.documentId,
@@ -402,12 +402,12 @@ export async function createUnifiedInspectionAction(
     fullName: formData.get('fullName') as string || undefined,
     phone: formData.get('phone') as string || undefined,
     email: formData.get('email') as string || undefined,
-    vin: formData.get('vin') as string || undefined,
+    codigoUnicoGnc: formData.get('codigoUnicoGnc') as string || undefined,
     licensePlate: formData.get('licensePlate') as string || undefined,
     vehicleType: formData.get('vehicleType') as string || undefined,
     brand: formData.get('brand') as string || undefined,
     model: formData.get('model') as string || undefined,
-    year: formData.get('year') as string || undefined,
+    marcaKit: formData.get('marcaKit') as string || undefined,
     specificAttributes: formData.get('specificAttributes') as string || undefined,
     kmCurrent: formData.get('kmCurrent') as string || undefined,
     observations: formData.get('observations') as string || undefined,
@@ -493,7 +493,7 @@ export async function createUnifiedInspectionAction(
         }
       }
 
-      if (!vehicleId && data.vin && data.licensePlate) {
+      if (!vehicleId && data.licensePlate) {
         const plate = data.licensePlate.toUpperCase()
 
         // Check if vehicle exists by plate
@@ -506,27 +506,29 @@ export async function createUnifiedInspectionAction(
         if (existing) {
           vehicleId = existing.id
         } else {
-          // Check VIN duplicate
-          const dupVin = await tx
-            .select({ id: vehicles.id })
-            .from(vehicles)
-            .where(eq(vehicles.vin, data.vin))
-            .limit(1)
+          // Check codigoUnicoGnc duplicate (only if provided)
+          if (data.codigoUnicoGnc) {
+            const dupGnc = await tx
+              .select({ id: vehicles.id })
+              .from(vehicles)
+              .where(eq(vehicles.codigoUnicoGnc, data.codigoUnicoGnc))
+              .limit(1)
 
-          if (dupVin.length > 0) {
-            throw new Error(`Ya existe un vehículo con VIN ${data.vin}`)
+            if (dupGnc.length > 0) {
+              throw new Error(`Ya existe un vehículo con Código Único GNC ${data.codigoUnicoGnc}`)
+            }
           }
 
           const [created] = await tx
             .insert(vehicles)
             .values({
               ownerId,
-              vin: data.vin,
+              codigoUnicoGnc: data.codigoUnicoGnc || null,
               licensePlate: plate,
-              vehicleType: data.vehicleType || 'otro',
+              vehicleType: data.vehicleType || 'sedan',
               brand: data.brand || null,
               model: data.model || null,
-              year: data.year || null,
+              marcaKit: data.marcaKit || null,
               specificAttributes: data.specificAttributes || null,
             })
             .returning({ id: vehicles.id })
@@ -542,7 +544,7 @@ export async function createUnifiedInspectionAction(
       let inspectionId: string
       let signatureId: string | undefined
 
-      if (data.branch === 'montados' && data.signature) {
+      if (data.signature) {
         // Upload signature first
         const base64Data = data.signature.split(',')[1]
         const buffer = Buffer.from(base64Data, 'base64')
@@ -650,10 +652,37 @@ export async function createUnifiedInspectionAction(
       }
     }
 
+    // 6. Upload photos (graceful failure — inspection + answers + cylinders already persisted)
+    let photoError: string | undefined
+    const photos = formData.getAll('photos') as File[]
+    const category = branch === 'montados' ? 'initial' : 'removal'
+    if (photos.length > 0) {
+      try {
+        for (const file of photos) {
+          if (!file || file.size === 0) continue
+          const timestamp = Date.now()
+          const minioKey = `inspections/${result.inspectionId}/${category}/${timestamp}-${file.name}`
+          await putObject(minioKey, file)
+          await db.insert(inspectionAttachments).values({
+            inspectionId: result.inspectionId,
+            fileName: file.name,
+            minioKey,
+            fileType: file.type,
+            fileSize: file.size,
+            category: category as 'initial' | 'removal' | 'post_mount',
+          })
+        }
+      } catch (e) {
+        console.error('Error uploading photos:', e)
+        photoError = 'La inspección se creó pero hubo un error al subir las fotos. Puede agregarlas luego.'
+      }
+    }
+
     revalidatePath('/inspections')
     return {
       success: true,
       data: { inspectionId: result.inspectionId },
+      ...(photoError ? { photoError } : {}),
     }
   } catch (e) {
     console.error('Error creating unified inspection:', e)
@@ -751,5 +780,53 @@ export async function markAsScheduledAction(
   return {
     success: true,
     data: { correlativeNumber: correlativeNumber.trim() },
+  }
+}
+
+export type SignatureCaptureState = {
+  success?: boolean
+  error?: string
+}
+
+export async function captureSignatureAction(
+  _prev: SignatureCaptureState | null,
+  formData: FormData,
+): Promise<SignatureCaptureState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+
+  const inspectionId = formData.get('inspectionId') as string
+  const signatureData = formData.get('signature') as string
+
+  if (!inspectionId || !signatureData || !signatureData.startsWith('data:image')) {
+    return { error: 'Firma inválida o faltante' }
+  }
+
+  try {
+    // Upload signature to MinIO
+    const base64Data = signatureData.split(',')[1]
+    const buffer = Buffer.from(base64Data, 'base64')
+    const timestamp = Date.now()
+    const minioKey = `signatures/${timestamp}.png`
+
+    await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+
+    // Create signature record
+    const [sig] = await db
+      .insert(signatures)
+      .values({ minioKey })
+      .returning({ id: signatures.id })
+
+    // Update inspection with signature reference
+    await db
+      .update(inspections)
+      .set({ ownerSignatureId: sig.id, updatedAt: new Date() })
+      .where(eq(inspections.id, inspectionId))
+
+    revalidatePath(`/inspections/${inspectionId}`)
+    return { success: true }
+  } catch (e) {
+    console.error('Error capturing signature:', e)
+    return { error: 'Error al guardar la firma. Intente de nuevo.' }
   }
 }

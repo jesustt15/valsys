@@ -1,0 +1,22 @@
+
+> front@0.1.0 dev C:\Users\Jesus\Documents\valsys\front
+> next dev
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://172.29.64.1:3000
+- Environments: .env.local
+✓ Ready in 1339ms
+- Experiments (use with caution):
+  · serverActions
+
+○ Compiling /inspections/new ...
+ GET / 200 in 5.2s (next.js: 2.9s, proxy.ts: 367ms, application-code: 2.0s)
+ GET /inspections/new 200 in 6.3s (next.js: 4.1s, application-code: 2.2s)
+ GET /inspections 200 in 6.3s (next.js: 3.8s, application-code: 2.5s)
+✓ Compiled in 852ms
+ GET / 200 in 1020ms (next.js: 535ms, proxy.ts: 119ms, application-code: 366ms)
+ GET /inspections/new 200 in 1882ms (next.js: 1079ms, application-code: 803ms)
+ GET /inspections 200 in 563ms (next.js: 68ms, application-code: 495ms)
+[?25h
+ ELIFECYCLE  Command failed with exit code 1.

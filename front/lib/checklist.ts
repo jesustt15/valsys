@@ -6,7 +6,7 @@ export interface ChecklistQuestion {
 
 export const FRONT_QUESTIONS: ChecklistQuestion[] = [
   { section: 'front', key: 'front_fuel_selector', label: 'Selector de Combustible' },
-  { section: 'front', key: 'front_ecu', label: 'ECU (Eje y Funcionamiento)' },
+  { section: 'front', key: 'front_ecu', label: 'ECU (Fijación y Funcionamiento)' },
   { section: 'front', key: 'front_regulator', label: 'Regulador (Fijación y Funcionamiento)' },
   { section: 'front', key: 'front_injectors', label: 'Inyectores (Fijación y Funcionamiento)' },
   { section: 'front', key: 'front_fill_valve', label: 'Pico de Carga (Fijación y Funcionamiento)' },
@@ -21,7 +21,6 @@ export const REAR_QUESTIONS: ChecklistQuestion[] = [
   { section: 'rear', key: 'rear_leak', label: 'Fuga' },
   { section: 'rear', key: 'rear_cradle_movement', label: 'Movimiento Cuna' },
   { section: 'rear', key: 'rear_grade8_bolts', label: 'Tornillos Grado 8' },
-  { section: 'rear', key: 'rear_cylinder', label: 'Cilindro' },
   { section: 'rear', key: 'rear_cradle', label: 'Cuna' },
   { section: 'rear', key: 'rear_corrosion', label: 'Corrosión' },
   { section: 'rear', key: 'rear_cylinder_valve', label: 'Válvula Cilindro (Abre/Cierra)' },

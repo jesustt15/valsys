@@ -79,8 +79,8 @@ export default async function CorrelativeResultPage({ params }: PageProps) {
                     <span className="font-mono font-bold">{vehicle.licensePlate}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">VIN:</span>
-                    <span className="font-mono font-medium">{vehicle.vin}</span>
+                    <span className="text-muted-foreground">Código Único GNC:</span>
+                    <span className="font-mono font-medium">{vehicle.codigoUnicoGnc || '—'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Marca / Modelo:</span>
@@ -90,10 +90,10 @@ export default async function CorrelativeResultPage({ params }: PageProps) {
                     <span className="text-muted-foreground">Tipo:</span>
                     <span>{vehicle.vehicleType}</span>
                   </div>
-                  {vehicle.year && (
+                  {vehicle.marcaKit && (
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Año:</span>
-                      <span>{vehicle.year}</span>
+                      <span className="text-muted-foreground">Marca KIT GNC:</span>
+                      <span>{vehicle.marcaKit}</span>
                     </div>
                   )}
                 </div>
@@ -150,7 +150,9 @@ export default async function CorrelativeResultPage({ params }: PageProps) {
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Kilometraje:</span>
                   <span className="text-sm font-medium">
-                    {inspection.kmCurrent.toLocaleString('es-AR')} km
+                    {inspection.kmCurrent != null
+                      ? inspection.kmCurrent.toLocaleString('es-AR') + ' km'
+                      : '—'}
                   </span>
                 </div>
               </div>

@@ -24,7 +24,7 @@ export interface InspectionSummary {
   brand: string | null
   model: string | null
   status: string
-  kmCurrent: number
+  kmCurrent: number | null
   operatorName: string | null
 }
 

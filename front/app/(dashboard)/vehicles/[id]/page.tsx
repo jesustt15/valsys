@@ -71,12 +71,12 @@ export default async function VehicleDetailPage({ params }: PageProps) {
             </CardHeader>
             <CardContent className="pt-6 space-y-4 text-sm">
               <div className="flex justify-between border-b pb-2">
-                <span className="text-muted-foreground">Año</span>
-                <span className="font-medium">{vehicle.year || '—'}</span>
+                <span className="text-muted-foreground">Marca KIT GNC</span>
+                <span className="font-medium">{vehicle.marcaKit || '—'}</span>
               </div>
               <div className="flex justify-between border-b pb-2">
-                <span className="text-muted-foreground">VIN</span>
-                <span className="font-mono">{vehicle.vin || '—'}</span>
+                <span className="text-muted-foreground">Código Único GNC</span>
+                <span className="font-mono">{vehicle.codigoUnicoGnc || '—'}</span>
               </div>
               <div className="flex justify-between pb-2">
                 <span className="text-muted-foreground">Registro</span>
@@ -137,7 +137,9 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                               {insp.inspectionDate?.toLocaleDateString('es-AR') ?? 'Fecha desconocida'}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
-                              {insp.kmCurrent.toLocaleString('es-AR')} km
+                              {insp.kmCurrent != null
+                                ? insp.kmCurrent.toLocaleString('es-AR') + ' km'
+                                : 'Sin km registrado'}
                             </div>
                           </div>
                         </div>

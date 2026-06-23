@@ -38,7 +38,7 @@ export function UsersTable({ users, currentUserId }: UsersTableProps) {
         !q ||
         u.username.toLowerCase().includes(q) ||
         u.fullName.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q)
+        (u.email ?? '').toLowerCase().includes(q)
 
       const matchesRole = roleFilter === 'all' || u.role === roleFilter
 

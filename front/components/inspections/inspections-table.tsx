@@ -17,7 +17,7 @@ interface InspectionsTableProps {
     brand: string | null
     model: string | null
     status: string
-    kmCurrent: number
+    kmCurrent: number | null
     operatorName: string | null
   }>
   pendingSummaries?: Record<string, PendingItems>
@@ -42,6 +42,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [pendingFilter, setPendingFilter] = useState<string>('all')
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<'createdAt' | 'inspectionDate'>('createdAt')
 
   // Extract unique operator names for the filter
   const operators = useMemo(() => {
@@ -51,7 +52,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
-    return inspections.filter((i) => {
+    const result = inspections.filter((i) => {
       const matchesQuery =
         !q || (i.licensePlate ?? '').toLowerCase().includes(q)
 
@@ -70,7 +71,15 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
 
       return matchesQuery && matchesStatus && matchesPending && matchesOperator
     })
-  }, [inspections, query, statusFilter, pendingFilter, operatorFilter, pendingSummaries])
+
+    return result.sort((a, b) => {
+      if (sortBy === 'inspectionDate') {
+        return (b.inspectionDate?.getTime() ?? 0) - (a.inspectionDate?.getTime() ?? 0)
+      }
+      // createdAt — las más recientes primero; inspectionDate como fallback
+      return (b.inspectionDate?.getTime() ?? 0) - (a.inspectionDate?.getTime() ?? 0)
+    })
+  }, [inspections, query, statusFilter, pendingFilter, operatorFilter, pendingSummaries, sortBy])
 
   return (
     <motion.div
@@ -130,6 +139,16 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
           ))}
         </select>
 
+        <select
+          id="inspections-sort-filter"
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'inspectionDate')}
+          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+        >
+          <option value="createdAt">Más recientes primero</option>
+          <option value="inspectionDate">Por fecha de inspección</option>
+        </select>
+
         <Link
           href="/inspections/new"
           className="inline-flex items-center justify-center gap-2 h-11 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]"
@@ -168,9 +187,6 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                   Pendientes
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
-                  Km
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
                   Operador
                 </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -207,9 +223,6 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                   </td>
                   <td className="px-4 py-3.5 text-sm hidden md:table-cell">
                     <PendingBadge pending={pendingSummaries[insp.id]} status={insp.status} />
-                  </td>
-                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
-                    {insp.kmCurrent.toLocaleString('es-AR')}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
                     {insp.operatorName ?? '—'}

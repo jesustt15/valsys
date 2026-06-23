@@ -2,7 +2,7 @@
 
 import { useState, useActionState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw } from 'lucide-react'
+import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw, PenLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { PhotoUpload } from '@/components/inspections/photo-upload'
+import { SignaturePad } from '@/components/inspections/signature-pad'
 import { createCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
 
 interface Cylinder {
@@ -32,6 +33,8 @@ interface Props {
 export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [signature, setSignature] = useState('')
+  const [selectedStatus, setSelectedStatus] = useState<string>('')
 
   const [createState, createFormAction, createPending] = useActionState<CylinderFormState | null, FormData>(
     createCylinderAction,
@@ -249,6 +252,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                         <select
                           name="status"
                           defaultValue={currentStatus}
+                          onChange={(e) => setSelectedStatus(e.target.value)}
                           className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
                         >
                           {currentStatus === 'montado' && (
@@ -260,6 +264,31 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                           {currentStatus === 'de_baja' && <option value="de_baja" disabled>De Baja (Scrap)</option>}
                         </select>
                       </div>
+
+                      {/* Firma del propietario — solo al desmontaje */}
+                      <AnimatePresence>
+                        {(selectedStatus === 'en_planta' || (selectedStatus === '' && currentStatus === 'montado')) && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="space-y-2 pt-2">
+                              <Label className="flex items-center gap-2">
+                                <PenLine className="w-4 h-4 text-violet-500" />
+                                Firma del Propietario
+                              </Label>
+                              <p className="text-xs text-muted-foreground">
+                                El titular firma confirmando el retiro de los cilindros.
+                              </p>
+                              <SignaturePad onChange={setSignature} disabled={updatePending} />
+                              {/* Hidden field: se envía al server action */}
+                              <input type="hidden" name="signature" value={signature} />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     <div className="space-y-2">

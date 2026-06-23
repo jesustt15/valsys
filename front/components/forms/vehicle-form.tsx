@@ -74,40 +74,36 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
             )}
           </div>
 
-          {/* VIN y Patente */}
+          {/* Código Único GNC y Patente */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* VIN */}
+            {/* Código Único GNC */}
             <div className="space-y-2">
-              <Label htmlFor="vin" required>VIN (Chasis)</Label>
+              <Label htmlFor="codigoUnicoGnc">Código Único GNC</Label>
               <Input
-                id="vin"
-                name="vin"
+                id="codigoUnicoGnc"
+                name="codigoUnicoGnc"
                 type="text"
-                required
-                maxLength={17}
-                placeholder="1HGCM82633A004352"
+                maxLength={50}
+                placeholder="Código Único GNC (Opcional)"
                 className="h-12 text-base font-mono uppercase"
                 disabled={pending}
                 onInput={(e) => {
-                  e.currentTarget.value = e.currentTarget.value
-                    .toUpperCase()
-                    .replace(/[IOQ]/g, '')
-                    .replace(/[^A-HJ-NPR-Z0-9]/g, '')
+                  e.currentTarget.value = e.currentTarget.value.toUpperCase()
                 }}
               />
-              <p className="text-xs text-muted-foreground">17 caracteres (sin I, O, Q)</p>
+              <p className="text-xs text-muted-foreground">Opcional</p>
             </div>
 
             {/* Patente */}
             <div className="space-y-2">
-              <Label htmlFor="licensePlate" required>Patente</Label>
+              <Label htmlFor="licensePlate" required>Patente / Placa</Label>
               <Input
                 id="licensePlate"
                 name="licensePlate"
                 type="text"
                 required
-                maxLength={8}
-                placeholder="ABC-123"
+                maxLength={7}
+                placeholder="Ej: A123BC4 o AB123C"
                 className="h-12 text-base font-mono uppercase"
                 disabled={pending}
                 onInput={(e) => {
@@ -116,12 +112,12 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
                     .replace(/[^A-Z0-9]/g, '')
                 }}
               />
-              <p className="text-xs text-muted-foreground">Ej: ABC-123 o ABC123</p>
+              <p className="text-xs text-muted-foreground">6 a 7 caracteres alfanuméricos (debe comenzar con letra)</p>
             </div>
           </div>
 
-          {/* Tipo, Marca, Modelo */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Tipo, Marca, Modelo, Marca Kit */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Tipo */}
             <div className="space-y-2">
               <Label htmlFor="vehicleType" required>Tipo</Label>
@@ -132,16 +128,33 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
                 className="flex h-12 w-full rounded-xl border border-input bg-background px-4 py-3 text-base transition-all duration-200 hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent disabled:cursor-not-allowed disabled:opacity-50 bg-white dark:bg-card"
                 disabled={pending}
               >
-                <option value="">—</option>
+                <option value="">— Seleccione Tipo —</option>
+                <option value="sedan">Sedán</option>
+                <option value="autobus">Autobús</option>
                 <option value="camion">Camión</option>
-                <option value="pickup">Pickup</option>
-                <option value="furgon">Furgón</option>
+                <option value="pickup">Pick Up</option>
+                <option value="camioneta">Camioneta</option>
                 <option value="van">Van</option>
-                <option value="acoplado">Acoplado</option>
-                <option value="otro">Otro</option>
               </select>
             </div>
 
+            {/* Marca de KIT */}
+            <div className="space-y-2">
+              <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
+              <Input
+                id="marcaKit"
+                name="marcaKit"
+                type="text"
+                maxLength={50}
+                placeholder="Ej: Tomasetto Achille (Opcional)"
+                className="h-12 text-base"
+                disabled={pending}
+              />
+              <p className="text-xs text-muted-foreground">Opcional</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Marca */}
             <div className="space-y-2">
               <Label htmlFor="brand" required>Marca</Label>
@@ -171,22 +184,6 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
                 disabled={pending}
               />
             </div>
-          </div>
-
-          {/* Año */}
-          <div className="w-40 space-y-2">
-            <Label htmlFor="year" required>Año</Label>
-            <Input
-              id="year"
-              name="year"
-              type="number"
-              required
-              min={1990}
-              max={currentYear + 1}
-              defaultValue={currentYear}
-              className="h-12 text-base"
-              disabled={pending}
-            />
           </div>
 
           {/* Feedback */}

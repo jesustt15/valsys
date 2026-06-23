@@ -42,25 +42,17 @@ services:
     volumes:
       - minio_data:/data
 
-  # Túnel Cloudflare — exposición segura sin abrir puertos
+  # Túnel Cloudflare Quick Tunnel — exposición sin IP fija ni configuración
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: valvulas_tunnel
-    restart: always
-    command: tunnel --config /etc/cloudflared/config.yml run
-    environment:
-      - TUNNEL_METRICS=0.0.0.0:2000
-    ports:
-      - "2000:2000"  # Métricas (opcional, para monitoreo)
-    volumes:
-      - ./infra/cloudflared/config.yml:/etc/cloudflared/config.yml:ro
-      # Mount de las credenciales (se genera con cloudflared tunnel create)
-      # Ruta por defecto en Windows: C:\Users\tu-user\.cloudflared\<ID>.json
-      - .cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+    restart: unless-stopped
+    command: tunnel --url http://host.docker.internal:3000 --no-autoupdate
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Para acceder al localhost del host
-    networks:
-      - default
+      - "host.docker.internal:host-gateway"  # Acceso al host
 
 volumes:
   pg_data:

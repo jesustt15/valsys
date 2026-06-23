@@ -97,13 +97,12 @@ export function UserForm({ mode, user }: UserFormProps) {
 
           {/* Email */}
           <div className="space-y-2">
-            <Label htmlFor="email" required>Email</Label>
+            <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
               type="email"
               defaultValue={user?.email ?? ''}
-              required
               placeholder="ej@correo.com"
               className="h-12 text-base"
               disabled={isPending}
