@@ -37,8 +37,8 @@ const STEPS = [
   { label: 'Vehículo', icon: Truck },
   { label: 'Frente', icon: ClipboardCheck },
   { label: 'Trasera', icon: ClipboardCheck },
-  { label: 'Fotos', icon: Camera },
   { label: 'Cilindros', icon: Database },
+  { label: 'Fotos', icon: Camera },
   { label: 'Firma', icon: PenLine },
 ]
 
@@ -123,7 +123,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
         return true
       }
 
-      if (step === 5) {
+      if (step === 4) {
         // Cylinders are optional, but if any exist they must be fully filled
         const incompleteCylinder = newCylinders.some(c => !c.brand || !c.capacity || !c.initialSerial || !c.location)
         if (incompleteCylinder) {
@@ -175,7 +175,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
       return
     }
 
-    if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(5)) {
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) {
       return
     }
 
@@ -408,8 +408,8 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
               </motion.div>
             )}
 
-            {currentStep === 4 && (
-              <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {currentStep === 5 && (
+              <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <CardHeader>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
@@ -427,8 +427,8 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
               </motion.div>
             )}
 
-            {currentStep === 5 && (
-              <motion.div key="step5" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            {currentStep === 4 && (
+              <motion.div key="step4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
