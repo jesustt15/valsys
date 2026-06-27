@@ -453,7 +453,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                 <CardContent className="space-y-4">
                   {newCylinders.length === 0 ? (
                     <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-xl">
-                      No hay cilindros a registrar. Pulse Siguiente para omitir.
+                      No hay cilindros a registrar. Pulses Siguiente para omitir.
                     </div>
                   ) : (
                     <div className="space-y-4">
