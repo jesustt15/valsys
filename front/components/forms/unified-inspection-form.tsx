@@ -132,7 +132,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   }
 
   // ── Vehicle Selection (SearchableSelect) ────────────────────
-  const applyVehicle = (vehicle: any) => {
+  const applyVehicle = (vehicle: VehicleRecord) => {
     setFoundVehicle({
       id: vehicle.id,
       codigoUnicoGnc: vehicle.codigoUnicoGnc,
@@ -210,11 +210,13 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
 
   const updateCylinder = (idx: number, field: keyof CylinderEntry, value: string) => {
     const updated = [...cylinders]
-    const entry = { ...updated[idx] } as CylinderEntry
-    if (field === 'status' && (value === 'en_planta' || value === 'de_baja')) {
-      entry.status = value
-    } else if (field !== 'status') {
-      ;(entry as any)[field] = value
+    const entry = { ...updated[idx] }
+    if (field === 'status') {
+      if (value === 'en_planta' || value === 'de_baja') {
+        entry.status = value
+      }
+    } else {
+      entry[field] = value
     }
     updated[idx] = entry
     setCylinders(updated)
@@ -1063,6 +1065,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
       {/* ── Document Scanner Modal ──────────────────────── */}
       {scannerOpen && (
         <DocumentScanner
+          key={scannerOpen === 'cedula' ? 'cedula' : 'carnet'}
           label={scannerOpen === 'cedula' ? 'Escanear Cédula del Vehículo' : 'Escanear Carnet de Circulación'}
           onCapture={(file) => {
             if (scannerOpen === 'cedula') setCedulaFile(file)
