@@ -1,0 +1,39 @@
+name: Code Validation (CI with pnpm)
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-project:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9 # Puedes cambiarlo por la versión exacta de pnpm que uses (8, 9, etc.)
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20' # La versión de Node de tu proyecto
+          cache: 'pnpm'      # GitHub guardará la caché de pnpm automáticamente
+
+      - name: Instalar dependencias fijas
+        run: pnpm install --frozen-lockfile 
+        # --frozen-lockfile es el equivalente a 'npm ci'. 
+        # Valida que nadie haya modificado el pnpm-lock.yaml a mano.
+
+      - name: Verificar errores de Linter (ESLint)
+        run: pnpm run lint
+
+      - name: Validar compilación de Next.js (Build Test)
+        run: pnpm run build
+        env:
+          NEXT_PUBLIC_API_URL: https://mock-api.local
+          DATABASE_URL: postgresql://mock:mock@localhost:5432/mock
