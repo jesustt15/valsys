@@ -17,7 +17,7 @@ Follow these rules when creating new files, organizing code, or deciding where l
 
 1. **Layer dependencies**: `presentation → application → domain` ONLY. `domain` never imports from `application` or `presentation`. `infrastructure` implements `application` interfaces.
 
-2. **In the `apps/web/` (Next.js)**:
+2. **In the `front/` (Next.js)**:
    - `app/` = routes + page components ONLY. No logic here.
    - `components/` = UI components (atomic design: atoms → molecules → organisms → templates)
    - `lib/actions/` = Server Actions (thin — validates, calls service, returns result)
@@ -38,7 +38,7 @@ Follow these rules when creating new files, organizing code, or deciding where l
 ## Folder Reference
 
 ```
-apps/web/
+front/
 ├── app/
 │   ├── (auth)/              # login, register
 │   ├── (dashboard)/          # inspections, vehicles, owners
