@@ -50,7 +50,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   )
 
   // ── Branch ──────────────────────────────────────────────────
-  const [branch, setBranch] = useState<'montados' | 'desmontados'>('montados')
+  const [branch, setBranch] = useState<'montados' | 'desmontados'>('montados')  
   const [formError, setFormError] = useState<string | null>(null)
 
   // ── Owner State ─────────────────────────────────────────────
@@ -794,24 +794,6 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
               disabled={pending}
             />
           </Card>
-
-          {/* Photos */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-violet-600" />
-                </div>
-                <div>
-                  <CardTitle>Fotografías</CardTitle>
-                  <CardDescription>Fotos del estado actual del vehículo (opcional)</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <PhotoUpload category="initial" label="Fotos de inspección inicial" />
-            </CardContent>
-          </Card>
         </>
       )}
 
@@ -919,6 +901,25 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
           )}
         </CardContent>
       </Card>
+
+
+          {/* Photos */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <CardTitle>Fotografías</CardTitle>
+                  <CardDescription>Fotos del estado actual del vehículo (opcional)</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PhotoUpload category="initial" label="Fotos de inspección inicial" />
+            </CardContent>
+          </Card>
 
       {/* ── Signature (both paths) ──────────────────────────────── */}
       <Card>
