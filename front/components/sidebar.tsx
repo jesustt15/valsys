@@ -40,7 +40,7 @@ export function Sidebar({ role }: SidebarProps) {
     <motion.aside
       animate={{ width: isOpen ? 256 : 80 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex flex-col"
+      className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col"
     >
       {/* Logo */}
       <div className="p-5 border-b border-sidebar-border flex items-center justify-between">
