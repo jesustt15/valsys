@@ -3,9 +3,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
+  --background: #faffff;
   --foreground: #111827;
-  --card: #ffffff;
+  --card: #faf9f6;
   --card-foreground: #111827;
   --popover: #ffffff;
   --popover-foreground: #111827;
@@ -22,7 +22,8 @@
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e5e7eb;
-  --input: #f9fafb;
+  --input: #d1d5db;
+  --input-bg: #faffff;
   --ring: #3b82f6;
   --chart-1: #dc2626;
   --chart-2: #16a34a;
@@ -61,6 +62,7 @@
   --destructive-foreground: #ffffff;
   --border: #334155;
   --input: #0f172a;
+  --input-bg: #0f172a;
   --ring: #60a5fa;
   --chart-1: #ef4444;
   --chart-2: #22c55e;
@@ -98,6 +100,7 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-input-bg: var(--input-bg);
   --color-ring: var(--ring);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);

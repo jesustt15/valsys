@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { AlertCircle, CheckCircle, Plus, Trash2, User, Truck, ClipboardCheck, Camera, PenLine, Database, FileText, ScanLine, X } from 'lucide-react'
+import { AlertCircle, CheckCircle, Plus, Trash2, User, Truck, ClipboardCheck, Camera, PenLine, Database, FileText, ScanLine, X, CardSim } from 'lucide-react'
 import type { OwnerRecord } from '@/lib/services/owner'
 import type { VehicleRecord } from '@/lib/services/vehicle'
 
@@ -50,7 +50,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   )
 
   // ── Branch ──────────────────────────────────────────────────
-  const [branch, setBranch] = useState<'montados' | 'desmontados'>('montados')
+  const [branch, setBranch] = useState<'montados' | 'desmontados'>('montados')  
   const [formError, setFormError] = useState<string | null>(null)
 
   // ── Owner State ─────────────────────────────────────────────
@@ -400,7 +400,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   }
 
   return (
-    <form action={handleSubmit} className="space-y-6 max-w-4xl" noValidate>
+    <form action={handleSubmit} className="space-y-6" noValidate>
       {/* ── Branch Toggle ──────────────────────────────────── */}
       <Card>
         <CardContent className="p-6">
@@ -529,7 +529,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                 value={ownerDocumentType}
                 onChange={(e) => setOwnerDocumentType(e.target.value)}
                 disabled={pending || !!foundOwner}
-                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="V">V</option>
                 <option value="E">E</option>
@@ -677,7 +677,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                 value={vehicleType}
                 onChange={(e) => setVehicleType(e.target.value)}
                 disabled={pending || !!foundVehicle}
-                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="sedan">Sedán</option>
                 <option value="autobus">Autobús</option>
@@ -794,24 +794,6 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
               disabled={pending}
             />
           </Card>
-
-          {/* Photos */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-violet-600" />
-                </div>
-                <div>
-                  <CardTitle>Fotografías</CardTitle>
-                  <CardDescription>Fotos del estado actual del vehículo (opcional)</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <PhotoUpload category="initial" label="Fotos de inspección inicial" />
-            </CardContent>
-          </Card>
         </>
       )}
 
@@ -906,7 +888,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                         value={cyl.status}
                         onChange={(e) => updateCylinder(idx, 'status', e.target.value)}
                         disabled={pending}
-                        className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <option value="en_planta">En planta (recalificación)</option>
                         <option value="de_baja">De baja (chatarra)</option>
@@ -919,6 +901,25 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
           )}
         </CardContent>
       </Card>
+
+
+          {/* Photos */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-violet-600" />
+                </div>
+                <div>
+                  <CardTitle>Fotografías</CardTitle>
+                  <CardDescription>Fotos del estado actual del vehículo (opcional)</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PhotoUpload category="initial" label="Fotos de inspección inicial" />
+            </CardContent>
+          </Card>
 
       {/* ── Signature (both paths) ──────────────────────────────── */}
       <Card>
