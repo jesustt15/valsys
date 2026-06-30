@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures } from '@/db/schema'
+import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates } from '@/db/schema'
 import { eq, inArray, count, sql } from 'drizzle-orm'
 
 export interface StatusCounts {
@@ -26,6 +26,7 @@ export interface InspectionSummary {
   status: string
   kmCurrent: number | null
   operatorName: string | null
+  correlativeNumber: string | null
 }
 
 export async function getAllInspections(): Promise<InspectionSummary[]> {
@@ -37,8 +38,10 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
       operatorId: inspections.operatorId,
       status: inspections.status,
       kmCurrent: inspections.kmCurrent,
+      correlativeNumber: certificates.correlativeNumber,
     })
     .from(inspections)
+    .leftJoin(certificates, eq(certificates.inspectionId, inspections.id))
     .orderBy(inspections.inspectionDate)
 
   if (records.length === 0) return []
@@ -79,6 +82,7 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
     status: r.status ?? 'inspeccion_inicial',
     kmCurrent: r.kmCurrent,
     operatorName: r.operatorId ? operatorMap.get(r.operatorId)?.fullName ?? null : null,
+    correlativeNumber: r.correlativeNumber ?? null,
   }))
 }
 

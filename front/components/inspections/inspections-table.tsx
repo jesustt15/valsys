@@ -19,6 +19,7 @@ interface InspectionsTableProps {
     status: string
     kmCurrent: number | null
     operatorName: string | null
+    correlativeNumber: string | null
   }>
   pendingSummaries?: Record<string, PendingItems>
 }
@@ -37,6 +38,14 @@ const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive
   certificado: 'success',
 }
 
+const STATUS_TABS = [
+  { value: 'all', label: 'Todas' },
+  { value: 'inspeccion_inicial', label: 'Inicial' },
+  { value: 'recalificacion', label: 'Recalificación' },
+  { value: 'por_programar', label: 'Por Programar' },
+  { value: 'certificado', label: 'Certificadas' },
+] as const
+
 export function InspectionsTable({ inspections, pendingSummaries = {} }: InspectionsTableProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -50,11 +59,22 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
     return Array.from(names).sort()
   }, [inspections])
 
+  // Count inspections by status for tabs
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: inspections.length }
+    for (const insp of inspections) {
+      counts[insp.status] = (counts[insp.status] ?? 0) + 1
+    }
+    return counts
+  }, [inspections])
+
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim()
     const result = inspections.filter((i) => {
       const matchesQuery =
-        !q || (i.licensePlate ?? '').toLowerCase().includes(q)
+        !q ||
+        (i.licensePlate ?? '').toLowerCase().includes(q) ||
+        (i.correlativeNumber ?? '').toLowerCase().includes(q)
 
       const matchesStatus =
         statusFilter === 'all' || i.status === statusFilter
@@ -88,6 +108,38 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
       transition={{ duration: 0.4 }}
       className="space-y-4"
     >
+      {/* Status Tabs */}
+      <div className="border-b border-border">
+        <nav className="flex gap-1 overflow-x-auto" aria-label="Filtrar por estado">
+          {STATUS_TABS.map((tab) => {
+            const isActive = statusFilter === tab.value
+            const count = statusCounts[tab.value] ?? 0
+            return (
+              <button
+                key={tab.value}
+                onClick={() => setStatusFilter(tab.value)}
+                className={`
+                  relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap
+                  transition-colors focus:outline-none
+                  ${isActive
+                    ? 'text-primary border-b-2 border-primary'
+                    : 'text-muted-foreground hover:text-foreground hover:border-b-2 hover:border-muted-foreground/20'
+                  }
+                `}
+              >
+                {tab.label}
+                <span className={`
+                  inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-xs font-medium
+                  ${isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}
+                `}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+
       {/* Search & Filter bar */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -97,23 +149,10 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por placa..."
+            placeholder="Buscar por placa o correlativo..."
             className="pl-9 h-11"
           />
         </div>
-
-        <select
-          id="inspections-status-filter"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
-        >
-          <option value="all">Todos los estados</option>
-          <option value="inspeccion_inicial">Inspección Inicial</option>
-          <option value="recalificacion">Recalificación</option>
-          <option value="por_programar">Por Programar</option>
-          <option value="certificado">Certificado</option>
-        </select>
 
         <select
           id="inspections-pending-filter"
@@ -121,7 +160,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
           onChange={(e) => setPendingFilter(e.target.value)}
           className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
-          <option value="all">Todas las pendientes</option>
+          <option value="all">Pendientes</option>
           <option value="blocking">Con bloqueos</option>
           <option value="warnings">Con advertencias</option>
           <option value="clean">Sin novedad</option>
@@ -133,7 +172,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
           onChange={(e) => setOperatorFilter(e.target.value)}
           className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
-          <option value="all">Todos los operadores</option>
+          <option value="all">Operador</option>
           {operators.map((name) => (
             <option key={name} value={name!}>{name}</option>
           ))}
@@ -145,8 +184,8 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
           onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'inspectionDate')}
           className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
-          <option value="createdAt">Más recientes primero</option>
-          <option value="inspectionDate">Por fecha de inspección</option>
+          <option value="createdAt">Recientes</option>
+          <option value="inspectionDate">Por fecha</option>
         </select>
 
         <Link
@@ -154,12 +193,12 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
           className="inline-flex items-center justify-center gap-2 h-11 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
-          Nueva Inspección
+          Nueva
         </Link>
       </div>
 
       {/* Results count */}
-      {query || statusFilter !== 'all' || pendingFilter !== 'all' || operatorFilter !== 'all' ? (
+      {query || pendingFilter !== 'all' || operatorFilter !== 'all' ? (
         <p className="text-xs text-muted-foreground">
           {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} de {inspections.length}
         </p>
@@ -176,6 +215,9 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Patente
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">
+                  Correlativo
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
                   Vehículo
@@ -211,6 +253,9 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                   <td className="px-4 py-3.5 text-sm font-medium text-foreground font-mono">
                     {insp.licensePlate ?? '—'}
                   </td>
+                  <td className="px-4 py-3.5 text-sm font-mono text-muted-foreground hidden md:table-cell">
+                    {insp.correlativeNumber ?? '—'}
+                  </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
                     {insp.brand && insp.model
                       ? `${insp.brand} ${insp.model}`
@@ -245,11 +290,11 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
 
         {filtered.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
-            {query || statusFilter !== 'all' || pendingFilter !== 'all' || operatorFilter !== 'all'
+            {query || pendingFilter !== 'all' || operatorFilter !== 'all'
               ? 'No se encontraron inspecciones con esos filtros'
               : inspections.length === 0
                 ? 'No hay inspecciones registradas. Cree la primera para comenzar.'
-                : 'No hay inspecciones registradas'}
+                : 'No hay inspecciones en esta categoría'}
           </div>
         )}
       </Card>
