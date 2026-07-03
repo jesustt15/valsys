@@ -10,4 +10,6 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
+  verbose: true, // <-- Agrega esto
+  strict: true,  // <-- Agrega esto
 })

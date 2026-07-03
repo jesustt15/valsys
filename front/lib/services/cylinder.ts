@@ -22,13 +22,17 @@ export async function getCylindersByInspectionId(inspectionId: string) {
     return []
   }
 
-  // Step 2: select cylinders ordered with en_planta first
+  // Step 2: select cylinders ordered with en_planta first, then pendiente_reinstalacion, then others
   return await db
     .select()
     .from(gncCylinders)
     .where(eq(gncCylinders.vehicleId, inspection.vehicleId))
     .orderBy(
-      sql`CASE WHEN ${gncCylinders.status} = 'en_planta' THEN 0 ELSE 1 END`,
+      sql`CASE 
+        WHEN ${gncCylinders.status} = 'en_planta' THEN 0 
+        WHEN ${gncCylinders.status} = 'pendiente_reinstalacion' THEN 1 
+        ELSE 2 
+      END`,
       gncCylinders.createdAt,
     )
 }

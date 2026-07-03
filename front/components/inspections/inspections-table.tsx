@@ -20,6 +20,7 @@ interface InspectionsTableProps {
     kmCurrent: number | null
     operatorName: string | null
     correlativeNumber: string | null
+    appointmentDate?: Date | string | null
   }>
   pendingSummaries?: Record<string, PendingItems>
 }
@@ -28,6 +29,7 @@ const STATUS_LABELS: Record<string, string> = {
   inspeccion_inicial: 'Inspección Inicial',
   recalificacion: 'Recalificación',
   por_programar: 'Por Programar',
+  cita: 'Cita',
   certificado: 'Certificado',
 }
 
@@ -35,6 +37,7 @@ const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive
   inspeccion_inicial: 'info',
   recalificacion: 'warning',
   por_programar: 'destructive',
+  cita: 'info',
   certificado: 'success',
 }
 
@@ -43,6 +46,7 @@ const STATUS_TABS = [
   { value: 'inspeccion_inicial', label: 'Inicial' },
   { value: 'recalificacion', label: 'Recalificación' },
   { value: 'por_programar', label: 'Por Programar' },
+  { value: 'cita', label: 'Con Cita' },
   { value: 'certificado', label: 'Certificadas' },
 ] as const
 
@@ -225,6 +229,9 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Estado
                 </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden lg:table-cell">
+                  Cita
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">
                   Pendientes
                 </th>
@@ -265,6 +272,14 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                     <Badge variant={STATUS_BADGE[insp.status] ?? 'info'}>
                       {STATUS_LABELS[insp.status] ?? insp.status}
                     </Badge>
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden lg:table-cell">
+                    {insp.appointmentDate
+                      ? new Date(insp.appointmentDate).toLocaleString('es-AR', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        })
+                      : '—'}
                   </td>
                   <td className="px-4 py-3.5 text-sm hidden md:table-cell">
                     <PendingBadge pending={pendingSummaries[insp.id]} status={insp.status} />
@@ -356,6 +371,7 @@ function getPendingTitle(pending: PendingItems): string {
   const parts: string[] = []
   if (pending.nonCompliantCount > 0) parts.push(`${pending.nonCompliantCount} ítem(s) no conforme(s)`)
   if (pending.cylindersInPlant > 0) parts.push(`${pending.cylindersInPlant} cilindro(s) en planta`)
+  if (pending.cylindersPendingReinstall > 0) parts.push(`${pending.cylindersPendingReinstall} cilindro(s) pendiente(s) de reinstalación`)
   if (!pending.hasSignature) parts.push('Sin firma del titular')
   if (!pending.hasPostMountPhotos) parts.push('Sin fotos post-montaje')
   if (!pending.hasCertificate) parts.push('Sin certificado')

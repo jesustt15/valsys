@@ -7,6 +7,7 @@ import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { getObjectUrl } from '@/lib/minio'
 import { InspectionPendingSummary } from '@/components/inspections/inspection-pending-summary'
 import { InspectionStatusUpdater } from '@/components/inspections/inspection-status-updater'
+import { AppointmentScheduler } from '@/components/inspections/appointment-scheduler'
 import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
 import { CylinderManager } from '@/components/cylinders/cylinder-manager'
 import { CylinderRecertificationPanel } from '@/components/cylinders/cylinder-recertification-panel'
@@ -38,7 +39,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   const recertCylinders = await getCylindersByInspectionId(resolvedParams.id)
 
   // Determine if recertification panel should be shown
-  const inspectionStatusOrder = ['inspeccion_inicial', 'recalificacion', 'por_programar', 'certificado']
+  const inspectionStatusOrder = ['inspeccion_inicial', 'recalificacion', 'por_programar', 'cita', 'certificado']
   const currentStatusIndex = inspectionStatusOrder.indexOf(inspection.status || 'inspeccion_inicial')
   const recalificacionStatusIndex = inspectionStatusOrder.indexOf('recalificacion')
   const showRecertPanel = currentStatusIndex >= recalificacionStatusIndex
@@ -125,9 +126,16 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             inspectionId={resolvedParams.id} 
             currentStatus={inspection.status || 'inspeccion_inicial'} 
           />
+
+          {/* Appointment Scheduler (show for por_programar / cita) */}
+          <AppointmentScheduler
+            inspectionId={resolvedParams.id}
+            inspectionStatus={inspection.status || 'inspeccion_inicial'}
+            appointmentDate={inspection.appointmentDate}
+          />
           
-          {/* Post-Mount Photos (only when recalificacion or por_programar) */}
-          {(inspection.status === 'recalificacion' || inspection.status === 'por_programar') && (
+          {/* Post-Mount Photos (only when recalificacion, por_programar, or cita) */}
+          {(inspection.status === 'recalificacion' || inspection.status === 'por_programar' || inspection.status === 'cita') && (
             <PostMountPhotos
               inspectionId={resolvedParams.id}
               existingPhotos={postMountPhotos}
@@ -201,7 +209,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             vehicleId={inspection.vehicle.id}
             cylinders={cylinders.map(c => ({
               ...c,
-              status: c.status ?? 'montado',
+              status: c.status ?? 'instalado',
               recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null
             }))}
           />
@@ -212,7 +220,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
               inspectionId={resolvedParams.id}
               cylinders={recertCylinders.map(c => ({
                 ...c,
-                status: c.status ?? 'montado',
+                status: c.status ?? 'instalado',
                 recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null
               }))}
             />

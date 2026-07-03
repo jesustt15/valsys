@@ -29,7 +29,7 @@ interface Props {
 
 const statusLabels: Record<string, string> = {
   pendiente_reinstalacion: 'Pendiente Reinstalación',
-  de_baja: 'De Baja (Scrap)',
+  condenado: 'Condenado (De baja)',
 }
 
 function CylinderForm({
@@ -104,7 +104,7 @@ function CylinderForm({
                     >
                       <option value="">Seleccionar...</option>
                       <option value="pendiente_reinstalacion">Pendiente Reinstalación (Recertificado)</option>
-                      <option value="de_baja">De Baja (Scrap)</option>
+                      <option value="condenado">Condenado (De baja)</option>
                     </select>
                   </div>
 
@@ -219,8 +219,8 @@ function ResolvedCylinder({ cylinder }: { cylinder: Cylinder }) {
 
   const statusBadge = cylinder.status === 'pendiente_reinstalacion'
     ? <Badge variant="info">Pendiente Reinstalación</Badge>
-    : cylinder.status === 'de_baja'
-      ? <Badge variant="destructive">De Baja</Badge>
+    : cylinder.status === 'condenado'
+      ? <Badge variant="destructive">Condenado</Badge>
       : <Badge variant="secondary">{cylinder.status}</Badge>
 
   return (
