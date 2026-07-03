@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures } from '@/db/schema'
-import { eq, inArray, count, sql } from 'drizzle-orm'
+import { eq, inArray, count, sql, asc } from 'drizzle-orm'
 
 export interface StatusCounts {
   inspeccion_inicial: number
@@ -102,6 +102,7 @@ export async function getInspectionById(id: string) {
     .select()
     .from(inspectionAnswers)
     .where(eq(inspectionAnswers.inspectionId, id))
+    .orderBy(asc(inspectionAnswers.createdAt))
 
   const attachments = await db
     .select()

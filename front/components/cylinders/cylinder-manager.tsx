@@ -47,7 +47,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   )
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle>Cilindros GNC</CardTitle>
@@ -57,7 +57,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
           {showAdd ? 'Cancelar' : <><Plus className="w-4 h-4 mr-2" /> Añadir Cilindro</>}
         </Button>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 flex-1">
         
         <AnimatePresence>
           {showAdd && (
