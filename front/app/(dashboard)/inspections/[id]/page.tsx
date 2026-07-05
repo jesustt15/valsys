@@ -45,11 +45,16 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   const showRecertPanel = currentStatusIndex >= recalificacionStatusIndex
     && recertCylinders.some(c => c.status === 'en_planta')
 
-  // Resolve presigned URLs for images
+  // Resolve presigned URLs for images (safe: if MinIO is down, url is null)
   const attachmentsWithUrls = await Promise.all(
     inspection.attachments.map(async (att) => {
-      const url = await getObjectUrl(att.minioKey)
-      return { ...att, url }
+      try {
+        const url = await getObjectUrl(att.minioKey)
+        return { ...att, url }
+      } catch {
+        console.error(`Failed to get URL for attachment ${att.id}`)
+        return { ...att, url: null }
+      }
     })
   )
 
@@ -59,27 +64,40 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   // Fetch pending summary
   const pendingSummary = await getPendingSummary(resolvedParams.id)
 
-  let signatureUrl = null
+  let signatureUrl: string | null = null
   if (inspection.signature) {
-    signatureUrl = await getObjectUrl(inspection.signature.minioKey)
+    try {
+      signatureUrl = await getObjectUrl(inspection.signature.minioKey)
+    } catch {
+      console.error('Failed to get signature URL')
+    }
   }
 
   // Fetch certificate data
   const certificate = await getCertificateByInspectionId(resolvedParams.id)
 
-  // Fetch vehicle documents
+  // Fetch vehicle documents (safe: if MinIO is down, url is null)
   const vehicleDocs = await getDocsByVehicle(inspection.vehicle.id)
   const vehicleDocsWithUrls = await Promise.all(
     vehicleDocs.map(async (doc) => {
-      const url = await getObjectUrl(doc.minioKey)
-      return { ...doc, url }
+      try {
+        const url = await getObjectUrl(doc.minioKey)
+        return { ...doc, url }
+      } catch {
+        console.error(`Failed to get URL for vehicle document ${doc.id}`)
+        return { ...doc, url: null }
+      }
     })
   )
 
-  // Resolve presigned URL for plant document
+  // Resolve presigned URL for plant document (safe: if MinIO is down, stays null)
   let plantDocUrl: string | null = null
   if (certificate?.plantDocKey) {
-    plantDocUrl = await getObjectUrl(certificate.plantDocKey)
+    try {
+      plantDocUrl = await getObjectUrl(certificate.plantDocKey)
+    } catch {
+      console.error('Failed to get plant document URL')
+    }
   }
 
   return (
@@ -327,33 +345,46 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {attachmentsWithUrls.map(att => (
-                    <a 
-                      key={att.id} 
-                      href={att.url} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm hover:ring-2 hover:ring-primary transition-all"
-                    >
-                      {att.fileType.startsWith('image/') ? (
-                        <img 
-                          src={att.url} 
-                          alt={att.fileName} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
-                          <FileText className="w-8 h-8 text-muted-foreground mb-2" />
-                          <span className="text-xs text-center px-2 truncate w-full">{att.fileName}</span>
-                        </div>
-                      )}
-                      <div className="absolute top-2 left-2">
-                        <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
-                          {att.category}
-                        </Badge>
+                  {attachmentsWithUrls.map(att => {
+                    const isLink = att.url != null
+                    const content = att.fileType.startsWith('image/') && att.url ? (
+                      <img 
+                        src={att.url} 
+                        alt={att.fileName} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                        <FileText className="w-8 h-8 text-muted-foreground mb-2" />
+                        <span className="text-xs text-center px-2 truncate w-full">{att.fileName}</span>
+                        {!att.url && <span className="text-[10px] text-muted-foreground mt-1">No disponible</span>}
                       </div>
-                    </a>
-                  ))}
+                    )
+                    const className = "group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm " + (isLink ? "hover:ring-2 hover:ring-primary transition-all" : "opacity-60")
+                    
+                    if (isLink) {
+                      return (
+                        <a key={att.id} href={att.url!} target="_blank" rel="noopener noreferrer" className={className}>
+                          {content}
+                          <div className="absolute top-2 left-2">
+                            <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
+                              {att.category}
+                            </Badge>
+                          </div>
+                        </a>
+                      )
+                    }
+                    return (
+                      <div key={att.id} className={className}>
+                        {content}
+                        <div className="absolute top-2 left-2">
+                          <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
+                            {att.category}
+                          </Badge>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>
@@ -377,26 +408,47 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {vehicleDocsWithUrls.map((doc) => (
-                    <a
-                      key={doc.id}
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm hover:ring-2 hover:ring-primary transition-all"
-                    >
+                  {vehicleDocsWithUrls.map((doc) => {
+                    const isLink = doc.url != null
+                    const className = "group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm " + (isLink ? "hover:ring-2 hover:ring-primary transition-all" : "opacity-60")
+                    
+                    const content = doc.url ? (
                       <img
                         src={doc.url}
                         alt={doc.originalName || doc.type}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                        <FileText className="w-8 h-8 text-muted-foreground mb-2" />
+                        <span className="text-xs text-center px-2">{doc.originalName || doc.type}</span>
+                        <span className="text-[10px] text-muted-foreground mt-1">No disponible</span>
+                      </div>
+                    )
+                    
+                    const badge = (
                       <div className="absolute top-2 left-2">
                         <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
                           {doc.type === 'cedula' ? 'Cédula' : 'Carnet'}
                         </Badge>
                       </div>
-                    </a>
-                  ))}
+                    )
+                    
+                    if (isLink) {
+                      return (
+                        <a key={doc.id} href={doc.url!} target="_blank" rel="noopener noreferrer" className={className}>
+                          {content}
+                          {badge}
+                        </a>
+                      )
+                    }
+                    return (
+                      <div key={doc.id} className={className}>
+                        {content}
+                        {badge}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

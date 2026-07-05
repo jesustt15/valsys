@@ -479,8 +479,25 @@ export async function createUnifiedInspectionAction(
   const data = parsed.data
   const buildDocId = (type: string, num: string) => `${type}-${num}`
 
+  // ── Upload signature to MinIO BEFORE the transaction ──
+  // External I/O must NOT be inside the DB transaction.
+  // If MinIO is unreachable, fail early instead of rolling back the entire inspection.
+  let uploadedSigKey: string | undefined
+  if (data.signature) {
+    try {
+      const base64Data = data.signature.split(',')[1]
+      const buffer = Buffer.from(base64Data, 'base64')
+      const timestamp = Date.now()
+      uploadedSigKey = `signatures/${timestamp}.png`
+      await putObject(uploadedSigKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+    } catch (e) {
+      console.error('Error uploading signature to MinIO:', e)
+      return { error: 'Error al subir la firma. Verifique la conexión e intente de nuevo.' }
+    }
+  }
+
   try {
-    // Run everything in a single transaction
+    // Run everything in a single DB transaction (NO external I/O inside)
     const result = await db.transaction(async (tx) => {
       // 1. Resolve Owner
       let ownerId: string | undefined
@@ -592,17 +609,10 @@ export async function createUnifiedInspectionAction(
       let inspectionId: string
       let signatureId: string | undefined
 
-      if (data.signature) {
-        // Upload signature first
-        const base64Data = data.signature.split(',')[1]
-        const buffer = Buffer.from(base64Data, 'base64')
-        const timestamp = Date.now()
-        const minioKey = `signatures/${timestamp}.png`
-        await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
-
+      if (uploadedSigKey) {
         const [sig] = await tx
           .insert(signatures)
-          .values({ minioKey })
+          .values({ minioKey: uploadedSigKey })
           .returning({ id: signatures.id })
         signatureId = sig.id
       }
