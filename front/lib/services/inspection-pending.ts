@@ -11,6 +11,8 @@ export interface PendingItems {
   unansweredCount: number
   /** Cylinders still in "en_planta" status (waiting for recertification) */
   cylindersInPlant: number
+  /** Cylinders in "pendiente_reinstalacion" status (awaiting remount) */
+  cylindersPendingReinstall: number
   /** Whether the owner's signature has been captured */
   hasSignature: boolean
   /** Whether post-mount photos exist */
@@ -122,6 +124,8 @@ export async function getPendingSummaries(
 
   // 6. Cylinders en_planta per vehicle
   const cylinderMap = new Map<string, number>()
+  // 6b. Cylinders pendiente_reinstalacion per vehicle
+  const cylinderReinstallMap = new Map<string, number>()
   if (vehicleIds.length > 0) {
     const cylRows = await db
       .select({
@@ -140,6 +144,26 @@ export async function getPendingSummaries(
     for (const row of cylRows) {
       if (row.vehicleId) {
         cylinderMap.set(row.vehicleId, Number(row.count))
+      }
+    }
+
+    const reinstallRows = await db
+      .select({
+        vehicleId: gncCylinders.vehicleId,
+        count: sql<number>`count(*)`,
+      })
+      .from(gncCylinders)
+      .where(
+        and(
+          inArray(gncCylinders.vehicleId, vehicleIds),
+          eq(gncCylinders.status, 'pendiente_reinstalacion')
+        )
+      )
+      .groupBy(gncCylinders.vehicleId)
+
+    for (const row of reinstallRows) {
+      if (row.vehicleId) {
+        cylinderReinstallMap.set(row.vehicleId, Number(row.count))
       }
     }
   }
@@ -168,17 +192,19 @@ export async function getPendingSummaries(
     const hasSig = sigMap.get(id) ?? false
     const vehicleId = vehicleRows.find((r) => r.id === id)?.vehicleId
     const cyls = vehicleId ? cylinderMap.get(vehicleId) ?? 0 : 0
+    const cylsReinstall = vehicleId ? cylinderReinstallMap.get(vehicleId) ?? 0 : 0
     const hasCert = certSet.has(id)
 
     // Blocking issues: non-compliant items
-    // Warnings: cylinders in plant + missing post-mount photos
+    // Warnings: cylinders in plant + cylinders pending reinstall + missing post-mount photos
     const blocking = nc
-    const warnings = cyls + (photos === 0 ? 1 : 0)
+    const warnings = cyls + cylsReinstall + (photos === 0 ? 1 : 0)
 
     result.set(id, {
       nonCompliantCount: nc,
       unansweredCount: ua,
       cylindersInPlant: cyls,
+      cylindersPendingReinstall: cylsReinstall,
       hasSignature: hasSig,
       hasPostMountPhotos: photos > 0,
       hasCertificate: hasCert,

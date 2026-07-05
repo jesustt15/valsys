@@ -11,8 +11,10 @@ import { upsertDoc } from '@/lib/services/vehicle-document'
 import { createNotification } from '@/lib/services/notification'
 import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
-import { getNonCompliantAnswers, getPostMountAttachments, cycleInspectionAnswer } from '@/lib/services/inspection'
+import { getNonCompliantAnswers, getPostMountAttachments, cycleInspectionAnswer, scheduleAppointment } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
+import { canIssueCertificate } from '@/lib/services/inspection-gate'
+import { scheduleAppointmentSchema } from '@/lib/validations/inspection'
 
 export type InspectionFormState = {
   success?: boolean
@@ -151,7 +153,7 @@ export async function createInspectionAction(
             capacity: String(c.capacity),
             initialSerial: String(c.initialSerial),
             location: String(c.location),
-            status: 'montado' as const,
+            status: 'instalado' as const,
             updatedBy: session.sub,
           }))
         )
@@ -213,7 +215,7 @@ export async function updateInspectionStatusAction(
   const id = formData.get('id') as string
   const status = formData.get('status') as string
 
-  const parsed = z.enum(['inspeccion_inicial', 'recalificacion', 'por_programar']).safeParse(status)
+  const parsed = z.enum(['inspeccion_inicial', 'recalificacion', 'por_programar', 'cita']).safeParse(status)
   if (!id || !parsed.success) {
     return { error: 'Datos inválidos' }
   }
@@ -316,6 +318,52 @@ export type MarkScheduledState = {
   success?: boolean
   error?: string
   data?: { correlativeNumber: string }
+  missing?: string[]
+}
+
+// ─── Human-readable gate messages ────────────────────────────
+const GATE_MESSAGES: Record<string, string> = {
+  cylinders_pending: 'Hay cilindros pendientes en planta o por reinstalar',
+  post_mount_photos: 'Se requieren fotos de post-montaje',
+  signature: 'Se requiere la firma del propietario',
+  checklist_incomplete: 'El checklist tiene respuestas pendientes',
+  inspection_not_found: 'Inspección no encontrada',
+  no_vehicle: 'La inspección no tiene vehículo asociado',
+}
+
+// ─── Schedule Appointment Action ──────────────────────────────
+
+export async function scheduleAppointmentAction(
+  _prev: InspectionFormState | null,
+  formData: FormData,
+): Promise<InspectionFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+
+  const parsed = scheduleAppointmentSchema.safeParse({
+    id: formData.get('id'),
+    appointmentDate: formData.get('appointmentDate'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const appointmentDate = new Date(parsed.data.appointmentDate)
+  if (isNaN(appointmentDate.getTime())) {
+    return { error: 'Fecha de cita inválida' }
+  }
+
+  const result = await scheduleAppointment(parsed.data.id, appointmentDate)
+
+  if (!result.success) {
+    return { error: result.error }
+  }
+
+  revalidatePath(`/inspections/${parsed.data.id}`)
+  revalidatePath('/inspections')
+
+  return { success: true }
 }
 
 // ─── Owner / Vehicle Lookup Actions ─────────────────────────────
@@ -431,8 +479,25 @@ export async function createUnifiedInspectionAction(
   const data = parsed.data
   const buildDocId = (type: string, num: string) => `${type}-${num}`
 
+  // ── Upload signature to MinIO BEFORE the transaction ──
+  // External I/O must NOT be inside the DB transaction.
+  // If MinIO is unreachable, fail early instead of rolling back the entire inspection.
+  let uploadedSigKey: string | undefined
+  if (data.signature) {
+    try {
+      const base64Data = data.signature.split(',')[1]
+      const buffer = Buffer.from(base64Data, 'base64')
+      const timestamp = Date.now()
+      uploadedSigKey = `signatures/${timestamp}.png`
+      await putObject(uploadedSigKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+    } catch (e) {
+      console.error('Error uploading signature to MinIO:', e)
+      return { error: 'Error al subir la firma. Verifique la conexión e intente de nuevo.' }
+    }
+  }
+
   try {
-    // Run everything in a single transaction
+    // Run everything in a single DB transaction (NO external I/O inside)
     const result = await db.transaction(async (tx) => {
       // 1. Resolve Owner
       let ownerId: string | undefined
@@ -544,17 +609,10 @@ export async function createUnifiedInspectionAction(
       let inspectionId: string
       let signatureId: string | undefined
 
-      if (data.signature) {
-        // Upload signature first
-        const base64Data = data.signature.split(',')[1]
-        const buffer = Buffer.from(base64Data, 'base64')
-        const timestamp = Date.now()
-        const minioKey = `signatures/${timestamp}.png`
-        await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
-
+      if (uploadedSigKey) {
         const [sig] = await tx
           .insert(signatures)
-          .values({ minioKey })
+          .values({ minioKey: uploadedSigKey })
           .returning({ id: signatures.id })
         signatureId = sig.id
       }
@@ -595,7 +653,7 @@ export async function createUnifiedInspectionAction(
             capacity: c.capacity,
             initialSerial: c.initialSerial,
             location: c.location,
-            status: data.branch === 'montados' ? ('montado' as const) : ((c.status || 'en_planta') as 'en_planta' | 'de_baja'),
+            status: data.branch === 'montados' ? ('instalado' as const) : ((c.status || 'en_planta') as 'en_planta' | 'condenado'),
             updatedBy: session.sub,
           }))
         )
@@ -706,7 +764,7 @@ export async function markAsScheduledAction(
 
   const inspectionId = id
 
-  // 1. Fetch inspection and verify status is por_programar
+  // 1. Fetch inspection and verify status is cita
   const [inspection] = await db
     .select()
     .from(inspections)
@@ -716,34 +774,27 @@ export async function markAsScheduledAction(
     return { error: 'Inspección no encontrada' }
   }
 
-  if (inspection.status !== 'por_programar') {
-    return { error: "La inspección debe estar en estado 'por programar'" }
+  if (inspection.status !== 'cita') {
+    return { error: "La inspección debe estar en estado 'cita'" }
   }
 
-  // 2. Check existing certificate
+  // 2. Gate check — verify all preconditions for certificate issuance
+  const gate = await canIssueCertificate(inspectionId)
+  if (!gate.canIssue) {
+    const messages = gate.missing.map((key) => GATE_MESSAGES[key] ?? key)
+    return {
+      error: messages.join('. '),
+      missing: gate.missing,
+    }
+  }
+
+  // 3. Check existing certificate
   const existingCert = await getCertificateByInspectionId(inspectionId)
   if (existingCert) {
     return { error: 'Ya existe un certificado para esta inspección' }
   }
 
-  // 3. Check non-compliant items
-  const nonCompliant = await getNonCompliantAnswers(inspectionId)
-  if (nonCompliant.length > 0) {
-    return { error: 'Existen ítems no conformes sin resolver' }
-  }
-
-  // 4. Check post-mount photos exist
-  const postMountPhotos = await getPostMountAttachments(inspectionId)
-  if (postMountPhotos.length === 0) {
-    return { error: 'Se requieren fotos de post-montaje' }
-  }
-
-  // 5. Check signature exists
-  if (!inspection.ownerSignatureId) {
-    return { error: 'Se requiere la firma del propietario' }
-  }
-
-  // 6. Check duplicate correlative
+  // 4. Check duplicate correlative
   const [duplicate] = await db
     .select({ id: certificates.id })
     .from(certificates)
@@ -753,7 +804,7 @@ export async function markAsScheduledAction(
     return { error: 'El número correlativo ya existe' }
   }
 
-  // 7. Create certificate + transition status in transaction
+  // 5. Create certificate + transition status in transaction
   try {
     await db.transaction(async (tx) => {
       await tx.insert(certificates).values({
@@ -771,7 +822,7 @@ export async function markAsScheduledAction(
     })
   } catch (e) {
     console.error('Error marking inspection as scheduled:', e)
-    return { error: 'Error al marcar como programado. Intente de nuevo.' }
+    return { error: 'Error al emitir el certificado. Intente de nuevo.' }
   }
 
   revalidatePath(`/inspections/${inspectionId}`)

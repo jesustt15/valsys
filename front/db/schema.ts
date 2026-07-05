@@ -24,16 +24,18 @@ export const attachmentCategory = pgEnum('attachment_category', [
 ]);
 
 export const cylinderStatus = pgEnum('cylinder_status', [
-  'montado',
+  'instalado',
   'en_planta',
   'pendiente_reinstalacion',
-  'de_baja',
+  'reinstalado',
+  'condenado',
 ]);
 
 export const inspectionStatus = pgEnum('inspection_status', [
   'inspeccion_inicial',
   'recalificacion',
   'por_programar',
+  'cita',
   'certificado',
 ]);
 
@@ -100,7 +102,7 @@ export const gncCylinders = pgTable('gnc_cylinders', {
   capacity: varchar('capacity').notNull(),
   initialSerial: varchar('initial_serial').notNull(),
   actualSerial: varchar('actual_serial'),
-  status: cylinderStatus('status').default('montado'),
+  status: cylinderStatus('status').default('instalado'),
   recalificationDate: date('recalification_date'),
   location: varchar('location').notNull(),
   updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
@@ -121,6 +123,7 @@ export const inspections = pgTable('inspections', {
   kmCurrent: integer('km_current'),
   inspectionDate: timestamp('inspection_date').defaultNow(),
   observations: text('observations'),
+  appointmentDate: timestamp('appointment_date'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({

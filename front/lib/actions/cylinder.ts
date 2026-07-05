@@ -84,17 +84,17 @@ export async function updateCylinderStatusAction(
       .limit(1)
 
     if (current.length) {
-      if (current[0].status === 'en_planta') {
-        if (parsed.data.status !== 'pendiente_reinstalacion' && parsed.data.status !== 'de_baja') {
-          return { error: 'Los cilindros en planta solo pueden pasar a "pendiente reinstalación" o "de baja"' }
+      if (current[0].status === 'instalado') {
+        if (parsed.data.status !== 'en_planta' && parsed.data.status !== 'condenado') {
+          return { error: 'Los cilindros instalados solo pueden pasarse a "en planta" o "condenado"' }
+        }
+      } else if (current[0].status === 'en_planta') {
+        if (parsed.data.status !== 'pendiente_reinstalacion' && parsed.data.status !== 'condenado') {
+          return { error: 'Los cilindros en planta solo pueden pasar a "pendiente reinstalación" o "condenado"' }
         }
       } else if (current[0].status === 'pendiente_reinstalacion') {
-        if (parsed.data.status !== 'montado') {
-          return { error: 'Los cilindros pendientes de reinstalación solo pueden marcarse como "montado"' }
-        }
-      } else if (current[0].status === 'montado') {
-        if (parsed.data.status !== 'en_planta' && parsed.data.status !== 'de_baja') {
-          return { error: 'Los cilindros montados solo pueden pasarse a "en planta" o "de baja"' }
+        if (parsed.data.status !== 'reinstalado') {
+          return { error: 'Los cilindros pendientes de reinstalación solo pueden marcarse como "reinstalado"' }
         }
       }
     }
@@ -164,19 +164,19 @@ export async function updateCylinderStatusAction(
     }
 
     // Notifications
-    if (parsed.data.status === 'de_baja') {
+    if (parsed.data.status === 'condenado') {
       try {
         await createNotification(session.sub, {
           type: 'cylinder_scrapped',
-          title: 'Cilindro dado de baja',
-          message: 'El cilindro fue marcado como de baja',
+          title: 'Cilindro condenado',
+          message: 'El cilindro fue marcado como condenado',
           relatedEntityType: 'cylinder',
           relatedEntityId: parsed.data.id,
         })
       } catch (e) {
         console.error('Failed to create notification:', e)
       }
-    } else if (parsed.data.status === 'montado') {
+    } else if (parsed.data.status === 'reinstalado') {
       try {
         await createNotification(session.sub, {
           type: 'cylinder_sent_to_plant',
@@ -268,11 +268,11 @@ export async function recertifyCylinderAction(
           relatedEntityType: 'cylinder',
           relatedEntityId: parsed.data.id,
         })
-      } else if (parsed.data.status === 'de_baja') {
+      } else if (parsed.data.status === 'condenado') {
         await createNotification(session.sub, {
           type: 'cylinder_scrapped',
-          title: 'Cilindro dado de baja',
-          message: `El cilindro ${parsed.data.actualSerial ?? 's/n'} fue marcado como de baja`,
+          title: 'Cilindro condenado',
+          message: `El cilindro ${parsed.data.actualSerial ?? 's/n'} fue marcado como condenado`,
           relatedEntityType: 'cylinder',
           relatedEntityId: parsed.data.id,
         })
