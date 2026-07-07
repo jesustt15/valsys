@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useActionState } from 'react'
+import { useState, useActionState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { FRONT_QUESTIONS, REAR_QUESTIONS, type ChecklistQuestion } from '@/lib/checklist'
@@ -94,6 +94,8 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
   // ── Vehicle Documents (inline) ──────────────────────────────
   const [cedulaFile, setCedulaFile] = useState<File | null>(null)
   const [carnetFile, setCarnetFile] = useState<File | null>(null)
+  const cedulaInputRef = useRef<HTMLInputElement>(null)
+  const carnetInputRef = useRef<HTMLInputElement>(null)
   // Scanner states
   const [scannerOpen, setScannerOpen] = useState<'cedula' | 'carnet' | null>(null)
 
@@ -371,7 +373,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
       }
     }
 
-    return formAction(submitData)
+    formAction(submitData)
   }
 
   // ── Success State ───────────────────────────────────────────
@@ -960,9 +962,9 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
 
             {/* Cédula */}
             <div className="space-y-2">
-              <Label htmlFor="cedula">Cédula del Vehículo</Label>
+              <Label>Cédula del Vehículo</Label>
               <div className="flex flex-col gap-2">
-                {cedulaFile ? (
+                {cedulaFile && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
                     <FileText className="w-4 h-4 text-teal-600 shrink-0" />
                     <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">{cedulaFile.name}</span>
@@ -974,45 +976,46 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <label
-                      htmlFor="cedula"
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
-                    >
-                      <FileText className="w-4 h-4" />
-                      Seleccionar archivo
-                      <input
-                        id="cedula"
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="sr-only"
-                        onChange={(e) => setCedulaFile(e.target.files?.[0] || null)}
-                        disabled={pending}
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setScannerOpen('cedula')}
-                      disabled={pending}
-                      className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
-                      title="Escanear documento con la cámara"
-                    >
-                      <ScanLine className="w-4 h-4" />
-                      Escanear
-                    </Button>
-                  </div>
                 )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => cedulaInputRef.current?.click()}
+                    disabled={pending}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {cedulaFile ? 'Reemplazar archivo' : 'Seleccionar archivo'}
+                  </button>
+                  <input
+                    ref={cedulaInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="sr-only"
+                    onChange={(e) => setCedulaFile(e.target.files?.[0] || null)}
+                    disabled={pending}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setScannerOpen('cedula')}
+                    disabled={pending}
+                    className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
+                    title="Escanear documento con la cámara"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    Escanear
+                  </Button>
+                </div>
               </div>
             </div>
 
             {/* Carnet */}
             <div className="space-y-2">
-              <Label htmlFor="carnet">Carnet de Circulación</Label>
+              <Label>Carnet de Circulación</Label>
               <div className="flex flex-col gap-2">
-                {carnetFile ? (
+                {carnetFile && (
                   <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
                     <FileText className="w-4 h-4 text-teal-600 shrink-0" />
                     <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">{carnetFile.name}</span>
@@ -1024,37 +1027,38 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                       <X className="w-4 h-4" />
                     </button>
                   </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <label
-                      htmlFor="carnet"
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
-                    >
-                      <FileText className="w-4 h-4" />
-                      Seleccionar archivo
-                      <input
-                        id="carnet"
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="sr-only"
-                        onChange={(e) => setCarnetFile(e.target.files?.[0] || null)}
-                        disabled={pending}
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setScannerOpen('carnet')}
-                      disabled={pending}
-                      className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
-                      title="Escanear documento con la cámara"
-                    >
-                      <ScanLine className="w-4 h-4" />
-                      Escanear
-                    </Button>
-                  </div>
                 )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => carnetInputRef.current?.click()}
+                    disabled={pending}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {carnetFile ? 'Reemplazar archivo' : 'Seleccionar archivo'}
+                  </button>
+                  <input
+                    ref={carnetInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="sr-only"
+                    onChange={(e) => setCarnetFile(e.target.files?.[0] || null)}
+                    disabled={pending}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setScannerOpen('carnet')}
+                    disabled={pending}
+                    className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
+                    title="Escanear documento con la cámara"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    Escanear
+                  </Button>
+                </div>
               </div>
             </div>
 
