@@ -1,7 +1,7 @@
 import dotenv from 'dotenv'
-dotenv.config({ path: '.env.local' })
+dotenv.config({ path: '.env' })
 
-import { hash } from '@node-rs/bcrypt'
+import bcrypt from 'bcryptjs'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Pool } from 'pg'
 import { users } from '@/db/schema'
@@ -16,8 +16,8 @@ async function seed() {
 
   console.log('🌱 Seeding users...\n')
 
-  const adminPassword = await hash('admin123', 10)
-  const operatorPassword = await hash('operador123', 10)
+  const adminPassword = await bcrypt.hash('admin123', 10)
+  const operatorPassword = await bcrypt.hash('operador123', 10)
 
   // ── Superadmin ──────────────────────────────────────────────
   const existingAdmin = await db

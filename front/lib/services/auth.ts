@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { verify } from '@node-rs/bcrypt'
+import bcrypt from 'bcryptjs'
 import { db } from '@/lib/db'
 import { users } from '@/db/schema'
 import { createSession } from '@/lib/auth/session'
@@ -29,7 +29,7 @@ export async function authenticateUser(
       return { error: 'Usuario o contraseña incorrectos' }
     }
 
-    const passwordValid = await verify(password, user.passwordHash)
+    const passwordValid = await bcrypt.compare(password, user.passwordHash)
 
     if (!passwordValid) {
       return { error: 'Usuario o contraseña incorrectos' }
