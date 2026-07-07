@@ -3,13 +3,14 @@
 import { useActionState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, ShieldCheck } from 'lucide-react'
+import Image from 'next/image'
 import { searchAction } from '@/lib/actions/search'
 
 export default function ConsultaPage() {
   const [state, formAction, pending] = useActionState(searchAction, null)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -62,9 +63,12 @@ export default function ConsultaPage() {
         </form>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          Sistema de Gestión de Certificados GNC — Valsys
-        </p>
+        <div className="text-center mt-8">
+          <Image src="/logo/logoagrogas.png" alt="Valsys" width={110} height={32} className="object-contain opacity-80 inline-block" />
+          <p className="text-xs text-muted-foreground mt-2">
+            Sistema de Gestión de Certificados GNC — Valsys
+          </p>
+        </div>
       </motion.div>
     </div>
   )

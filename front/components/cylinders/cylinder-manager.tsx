@@ -251,9 +251,9 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden mt-4"
               >
-                <form action={updateFormAction} className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-800 space-y-4">
+                <form action={updateFormAction} className="bg-green-50/50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-800 space-y-4">
                   <h4 className="font-medium text-sm flex items-center gap-2">
-                    <Edit2 className="w-4 h-4 text-blue-500" />
+                    <Edit2 className="w-4 h-4 text-green-500" />
                     Actualizar Estado de Cilindro
                   </h4>
                   <input type="hidden" name="id" value={editingId} />
