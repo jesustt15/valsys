@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import Image from 'next/image'
 import { ArrowLeft, ShieldCheck, FileText, Calendar, Truck, User, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getCertificateByCorrelative } from '@/lib/services/certificate'
 import { getObjectUrl } from '@/lib/minio'
@@ -35,7 +36,7 @@ export default async function CorrelativeResultPage({ params }: PageProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-green-50 dark:from-slate-950 dark:to-slate-900">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* Back link */}
         <Link
@@ -206,9 +207,12 @@ export default async function CorrelativeResultPage({ params }: PageProps) {
         </div>
 
         {/* Footer */}
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          Sistema de Gestión de Certificados GNC — Valsys
-        </p>
+        <div className="text-center mt-6">
+          <Image src="/logo/logoagrogas.png" alt="Valsys" width={100} height={30} className="object-contain opacity-80 inline-block" />
+          <p className="text-xs text-muted-foreground mt-2">
+            Sistema de Gestión de Certificados GNC — Valsys
+          </p>
+        </div>
       </div>
     </div>
   )

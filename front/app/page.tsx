@@ -8,6 +8,7 @@ import { loginAction } from '@/lib/actions/auth'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Shield, Zap, CheckCircle, ArrowRight } from 'lucide-react'
+import Image from 'next/image'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,7 +27,7 @@ export default function LoginPage() {
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 flex-col justify-between p-12 text-white relative overflow-hidden"
+        className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-green-600 via-green-700 to-green-800 flex-col justify-between p-12 text-white relative overflow-hidden"
       >
         {/* Background decoration */}
         <div className="absolute inset-0 opacity-10">
@@ -39,14 +40,11 @@ export default function LoginPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.5 }}
-            className="flex items-center gap-3 mb-2"
+            className="mb-2"
           >
-            <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-blue-600 font-bold text-xl">V</span>
-            </div>
-            <span className="text-3xl font-bold">ValSys</span>
+            <Image src="/logo/logoagrogas.png" alt="Valsys" width={180} height={80} className="object-contain" />
           </motion.div>
-          <p className="text-blue-100 text-base">Sistema de Inspección GNC</p>
+          <p className="text-green-100 text-base">Sistema de Inspección GNC</p>
         </div>
 
         <div className="space-y-6 relative z-10">
@@ -61,7 +59,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h3 className="font-semibold text-lg">Inspecciones Precisas</h3>
-              <p className="text-blue-100 text-sm">Registro completo y detallado de cada inspección</p>
+              <p className="text-green-100 text-sm">Registro completo y detallado de cada inspección</p>
             </div>
           </motion.div>
 
@@ -76,7 +74,7 @@ export default function LoginPage() {
             </div>
             <div>
               <h3 className="font-semibold text-lg">Rápido y Eficiente</h3>
-              <p className="text-blue-100 text-sm">Gestiona inspecciones en tiempo real</p>
+              <p className="text-green-100 text-sm">Gestiona inspecciones en tiempo real</p>
             </div>
           </motion.div>
 
@@ -91,12 +89,15 @@ export default function LoginPage() {
             </div>
             <div>
               <h3 className="font-semibold text-lg">Seguro y Confiable</h3>
-              <p className="text-blue-100 text-sm">Datos protegidos y trazabilidad completa</p>
+              <p className="text-green-100 text-sm">Datos protegidos y trazabilidad completa</p>
             </div>
           </motion.div>
         </div>
 
-        <p className="text-blue-200 text-xs relative z-10">© 2026 ValSys. Todos los derechos reservados.</p>
+        <div>
+          <Image src="/logo/logoagrogas.png" alt="Valsys" width={120} height={34} className="object-contain opacity-90" />
+          <p className="text-green-200 text-xs mt-2">© 2026 ValSys. Todos los derechos reservados.</p>
+        </div>
       </motion.div>
 
       {/* Right side - Login Form */}
@@ -115,10 +116,10 @@ export default function LoginPage() {
             className="lg:hidden mb-8"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-xl">V</span>
+              <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+                <Image src="/logo/logoagrogas2.png" alt="Valsys" width={40} height={40} className="object-contain" />
               </div>
-              <span className="text-2xl font-bold text-foreground">ValSys</span>
+              <Image src="/logo/logoagrogas.png" alt="Valsys" width={130} height={38} className="object-contain" />
             </div>
             <p className="text-muted-foreground text-sm">Sistema de Inspección GNC</p>
           </motion.div>
@@ -190,7 +191,7 @@ export default function LoginPage() {
               type="submit"
               disabled={isPending}
               size="lg"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 active:scale-[0.98]"
+              className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-green-600/25 hover:shadow-xl hover:shadow-green-600/30 active:scale-[0.98]"
             >
               {isPending ? (
                 <div className="flex items-center gap-2">
@@ -238,8 +239,8 @@ export default function LoginPage() {
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">98%</div>
               <p className="text-xs text-muted-foreground mt-1">Precisión</p>
             </div>
-            <div className="text-center p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">24/7</div>
+            <div className="text-center p-3 rounded-xl bg-green-50 dark:bg-green-900/20">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">24/7</div>
               <p className="text-xs text-muted-foreground mt-1">Disponible</p>
             </div>
           </motion.div>

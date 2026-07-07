@@ -293,7 +293,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                       title="Ver Expediente"
                       className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-secondary hover:text-secondary-foreground transition-all"
                     >
-                      <FileText className="h-4 w-4 text-blue-600" />
+                      <FileText className="h-4 w-4 text-green-600" />
                       <span className="sr-only">Ver Expediente</span>
                     </Link>
                   </td>

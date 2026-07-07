@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
+import Image from 'next/image'
 import {
   LayoutDashboard,
   Users,
@@ -54,10 +55,10 @@ export function Sidebar({ role }: SidebarProps) {
               transition={{ duration: 0.2 }}
               className="flex items-center gap-3"
             >
-              <div className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-sm">
-                <span className="text-sidebar-primary-foreground font-bold text-sm">V</span>
+              <div className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
+                <Image src="/logo/logoagrogas2.png" alt="logochiqui" width={36} height={36} className="object-contain" />
               </div>
-              <span className="font-bold text-lg">ValSys</span>
+              <Image src="/logo/logoagrogas.png" alt="logo" width={120} height={36} className="object-contain" />
             </motion.div>
           ) : (
             <motion.div
@@ -66,9 +67,9 @@ export function Sidebar({ role }: SidebarProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2 }}
-              className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-sm"
+              className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-sm overflow-hidden"
             >
-              <span className="text-sidebar-primary-foreground font-bold text-sm">V</span>
+              <Image src="/logo/logoagrogas2.png" alt="logo" width={36} height={36} className="object-contain" />
             </motion.div>
           )}
         </AnimatePresence>

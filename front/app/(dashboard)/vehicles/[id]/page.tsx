@@ -113,7 +113,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <ClipboardCheck className="w-5 h-5 text-blue-500" />
+                <ClipboardCheck className="w-5 h-5 text-green-500" />
                 Historial de Inspecciones
                 <Badge variant="secondary" className="ml-auto">{inspections.length}</Badge>
               </CardTitle>
@@ -129,11 +129,11 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                     <Link key={insp.id} href={`/inspections/${insp.id}`} className="block group">
                       <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors shadow-sm">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600">
+                          <div className="w-10 h-10 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center text-green-600">
                             <Calendar className="w-4 h-4" />
                           </div>
                           <div>
-                            <div className="font-medium text-sm group-hover:text-blue-600 transition-colors">
+                            <div className="font-medium text-sm group-hover:text-green-600 transition-colors">
                               {insp.inspectionDate?.toLocaleDateString('es-AR') ?? 'Fecha desconocida'}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
@@ -150,7 +150,7 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                           }>
                             {(insp.status ?? 'inspeccion_inicial').replace('_', ' ').toUpperCase()}
                           </Badge>
-                          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-50 group-hover:opacity-100 group-hover:text-blue-600" />
+                          <ArrowRight className="w-4 h-4 text-muted-foreground opacity-50 group-hover:opacity-100 group-hover:text-green-600" />
                         </div>
                       </div>
                     </Link>

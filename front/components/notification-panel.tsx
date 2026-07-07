@@ -36,7 +36,7 @@ const typeIcons: Record<NotificationType, typeof Truck> = {
 }
 
 const typeIconColors: Record<NotificationType, string> = {
-  cylinder_sent_to_plant: 'text-blue-500',
+  cylinder_sent_to_plant: 'text-green-500',
   cylinder_recertified: 'text-green-500',
   cylinder_scrapped: 'text-red-500',
   inspection_pending_items: 'text-amber-500',

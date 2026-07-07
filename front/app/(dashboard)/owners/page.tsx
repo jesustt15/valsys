@@ -34,7 +34,7 @@ export default async function OwnersPage() {
             <Link
               href="/owners/new"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium
-                         text-white bg-blue-600 rounded-lg hover:bg-blue-500 transition-colors"
+                         text-white bg-green-600 rounded-lg hover:bg-green-500 transition-colors"
             >
               Crear primer dueño
             </Link>

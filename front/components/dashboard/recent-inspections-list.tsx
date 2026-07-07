@@ -49,7 +49,7 @@ export function RecentInspectionsList({ inspections }: RecentInspectionsListProp
                 className="flex items-center justify-between py-3.5 hover:bg-secondary/30 rounded-lg px-2 -mx-2 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-sm font-mono font-bold text-blue-600 dark:text-blue-400">
+                  <div className="w-11 h-11 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center text-sm font-mono font-bold text-green-600 dark:text-green-400">
                     {insp.licensePlate ? insp.licensePlate.slice(-3) : '---'}
                   </div>
                   <div>

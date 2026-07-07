@@ -46,7 +46,7 @@ export function AppointmentScheduler({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Calendar className="w-5 h-5 text-blue-500" />
+            <Calendar className="w-5 h-5 text-green-500" />
             Cita Programada
           </CardTitle>
           <CardDescription>Esta inspección tiene una cita agendada</CardDescription>
@@ -55,14 +55,14 @@ export function AppointmentScheduler({
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800"
+            className="flex items-center gap-4 p-4 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-200 dark:border-green-800"
           >
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
-              <Calendar className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
+              <Calendar className="w-6 h-6 text-green-600" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-blue-900 dark:text-blue-100">{formatted}</p>
-              <p className="text-sm text-blue-700 dark:text-blue-300 mt-0.5">
+              <p className="font-semibold text-green-900 dark:text-green-100">{formatted}</p>
+              <p className="text-sm text-green-700 dark:text-green-300 mt-0.5">
                 El vehículo tiene cita programada para inspección
               </p>
             </div>
@@ -118,7 +118,7 @@ export function AppointmentScheduler({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          <Calendar className="w-5 h-5 text-blue-500" />
+          <Calendar className="w-5 h-5 text-green-500" />
           Programar Cita
         </CardTitle>
         <CardDescription>
@@ -188,7 +188,7 @@ export function AppointmentScheduler({
             <Button
               type="submit"
               disabled={pending || !date || !time}
-              className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
             >
               {pending ? (
                 <div className="flex items-center gap-2">

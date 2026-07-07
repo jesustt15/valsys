@@ -13,7 +13,7 @@ import { countVehicles } from '@/lib/services/vehicle'
 
 const quickActions = [
   { href: '/inspections/new', title: 'Nuevo Ingreso Rápido', desc: 'Ingreso unificado (montados/desmontados)', icon: 'zap', color: 'from-amber-500 to-orange-600', featured: true },
-  { href: '/owners/new', title: 'Nuevo Dueño', desc: 'Registrar titular de vehículo', icon: 'user-plus', color: 'from-blue-500 to-blue-600' },
+  { href: '/owners/new', title: 'Nuevo Dueño', desc: 'Registrar titular de vehículo', icon: 'user-plus', color: 'from-green-500 to-green-600' },
   { href: '/vehicles/new', title: 'Nuevo Vehículo', desc: 'Registrar vehículo para inspección', icon: 'truck', color: 'from-emerald-500 to-emerald-600' },
   { href: '/inspections', title: 'Ver Inspecciones', desc: 'Listado completo de inspecciones', icon: 'clipboard-check', color: 'from-violet-500 to-violet-600' },
 ]

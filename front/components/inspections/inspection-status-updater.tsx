@@ -30,7 +30,7 @@ export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) 
     <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <RefreshCw className="w-5 h-5 text-blue-500" />
+          <RefreshCw className="w-5 h-5 text-green-500" />
           Estado de la Inspección
         </CardTitle>
         <CardDescription>Actualice el estado del expediente según avance el trámite</CardDescription>

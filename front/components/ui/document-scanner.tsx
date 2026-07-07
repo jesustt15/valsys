@@ -260,7 +260,7 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
               <polygon
                 points={corners.map((c) => `${c.x},${c.y}`).join(' ')}
                 fill="rgba(52,211,153,0.15)"
-                stroke="#34d399"
+                stroke="#119c03"
                 strokeWidth={2 * (imgDims.w / 595)}
               />
             </svg>
