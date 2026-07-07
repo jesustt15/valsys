@@ -1,39 +1,23 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { getInspectionById } from "@/lib/services/inspection";
-import { getCertificateByInspectionId } from "@/lib/services/certificate";
-import {
-  getCylindersByVehicleId,
-  getCylindersByInspectionId,
-} from "@/lib/services/cylinder";
-import { getDocsByVehicle } from "@/lib/services/vehicle-document";
-import { getObjectUrl } from "@/lib/minio";
-import { InspectionPendingSummary } from "@/components/inspections/inspection-pending-summary";
-import { InspectionStatusUpdater } from "@/components/inspections/inspection-status-updater";
-import { PostMountPhotos } from "@/components/inspections/post-mount-photos";
-import { CylinderManager } from "@/components/cylinders/cylinder-manager";
-import { CylinderRecertificationPanel } from "@/components/cylinders/cylinder-recertification-panel";
-import { ExpedienteUploader } from "@/components/inspections/expediente-uploader";
-import { getPendingSummary } from "@/lib/services/inspection-pending";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import {
-  FileText,
-  Camera,
-  CheckSquare,
-  Truck,
-  User,
-  Calendar,
-} from "lucide-react";
-import { ChecklistCard } from "@/components/inspections/checklist-card";
-import { ALL_QUESTIONS } from "@/lib/checklist";
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { getInspectionById } from '@/lib/services/inspection'
+import { getCertificateByInspectionId } from '@/lib/services/certificate'
+import { getCylindersByVehicleId, getCylindersByInspectionId } from '@/lib/services/cylinder'
+import { getDocsByVehicle } from '@/lib/services/vehicle-document'
+import { getObjectUrl } from '@/lib/minio'
+import { InspectionPendingSummary } from '@/components/inspections/inspection-pending-summary'
+import { InspectionStatusUpdater } from '@/components/inspections/inspection-status-updater'
+import { AppointmentScheduler } from '@/components/inspections/appointment-scheduler'
+import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
+import { CylinderManager } from '@/components/cylinders/cylinder-manager'
+import { CylinderRecertificationPanel } from '@/components/cylinders/cylinder-recertification-panel'
+import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
+import { CertificateCard } from '@/components/certificates/certificate-card'
+import { getPendingSummary } from '@/lib/services/inspection-pending'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { FileText, Camera, CheckSquare, Truck, User, Calendar } from 'lucide-react'
+import { ChecklistToggle } from '@/components/inspections/checklist-toggle'
 
 // Types based on the expected params in Next.js 15+
 interface PageProps {
@@ -55,22 +39,13 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   const recertCylinders = await getCylindersByInspectionId(resolvedParams.id);
 
   // Determine if recertification panel should be shown
-  const inspectionStatusOrder = [
-    "inspeccion_inicial",
-    "recalificacion",
-    "por_programar",
-    "certificado",
-  ];
-  const currentStatusIndex = inspectionStatusOrder.indexOf(
-    inspection.status || "inspeccion_inicial",
-  );
-  const recalificacionStatusIndex =
-    inspectionStatusOrder.indexOf("recalificacion");
-  const showRecertPanel =
-    currentStatusIndex >= recalificacionStatusIndex &&
-    recertCylinders.some((c) => c.status === "en_planta");
+  const inspectionStatusOrder = ['inspeccion_inicial', 'recalificacion', 'por_programar', 'cita', 'certificado']
+  const currentStatusIndex = inspectionStatusOrder.indexOf(inspection.status || 'inspeccion_inicial')
+  const recalificacionStatusIndex = inspectionStatusOrder.indexOf('recalificacion')
+  const showRecertPanel = currentStatusIndex >= recalificacionStatusIndex
+    && recertCylinders.some(c => c.status === 'en_planta')
 
-  // Resolve presigned URLs for images
+  // Resolve presigned URLs for images (safe: if MinIO is down, url is null)
   const attachmentsWithUrls = await Promise.all(
     inspection.attachments.map(async (att) => {
       const url = await getObjectUrl(att.minioKey);
@@ -349,10 +324,8 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             vehicleId={inspection.vehicle.id}
             cylinders={cylinders.map((c) => ({
               ...c,
-              status: c.status ?? "montado",
-              recalificationDate: c.recalificationDate
-                ? new Date(c.recalificationDate).toISOString()
-                : null,
+              status: c.status ?? 'instalado',
+              recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null
             }))}
           />
 
@@ -361,10 +334,8 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
               inspectionId={resolvedParams.id}
               cylinders={recertCylinders.map((c) => ({
                 ...c,
-                status: c.status ?? "montado",
-                recalificationDate: c.recalificationDate
-                  ? new Date(c.recalificationDate).toISOString()
-                  : null,
+                status: c.status ?? 'instalado',
+                recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null
               }))}
             />            
           )}

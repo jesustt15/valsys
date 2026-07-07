@@ -42,7 +42,7 @@ cp .env.example front/.env.local
 Editá `front/.env.local` si cambiaste las credenciales por defecto:
 
 ```env
-DATABASE_URL=postgres://admin:adminpassword@localhost:5432/sistema_valvulas
+DATABASE_URL=postgres://admin:adminpassword@localhost:5433/sistema_valvulas
 MINIO_ENDPOINT=localhost
 MINIO_PORT=9000
 MINIO_USE_SSL=false
@@ -60,7 +60,7 @@ docker compose up -d
 ```
 
 Esto inicia:
-- **PostgreSQL** en `localhost:5432`
+- **PostgreSQL** en `localhost:5433`
 - **Meilisearch** en `localhost:7700`
 - **MinIO** en `localhost:9000` (API) y `localhost:9001` (panel web)
 
@@ -144,7 +144,7 @@ valsys/
 | App | http://localhost:3000 | — |
 | MinIO Panel | http://localhost:9001 | admin_minio / password_minio |
 | Meilisearch | http://localhost:7700 | masterKey123! |
-| PostgreSQL | localhost:5432 | admin / adminpassword |
+| PostgreSQL | localhost:5433 | admin / adminpassword |
 | Drizzle Studio | `pnpm db:studio` | — |
 
 ## Notas
@@ -152,4 +152,4 @@ valsys/
 - **No hay API routes para mutaciones**: todo usa Server Actions
 - **Archivos van a MinIO**: nunca al filesystem del servidor
 - **Búsquedas usan Meilisearch**: PostgreSQL solo para datos relacionales
-- **Cloudflare Tunnel** (pendiente): para acceso externo a certificados
+- **Cloudflare Quick Tunnel** (vía Docker): para acceso externo a certificados — ver `infra/quick-tunnel.md`

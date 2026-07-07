@@ -37,7 +37,7 @@ interface CylinderEntry {
   capacity: string
   initialSerial: string
   location: string
-  status: 'en_planta' | 'de_baja'
+  status: 'en_planta' | 'condenado'
 }
 
 // ─── Main Component ───────────────────────────────────────────────
@@ -214,7 +214,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
     const updated = [...cylinders]
     const entry = { ...updated[idx] }
     if (field === 'status') {
-      if (value === 'en_planta' || value === 'de_baja') {
+      if (value === 'en_planta' || value === 'condenado') {
         entry.status = value
       }
     } else {
@@ -275,8 +275,8 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
       }
     }
 
-    // Signature required for all inspections (needed for certification)
-    if (!signature) {
+    // Signature required only for montados branch (desmontados signature comes from cylinder-manager)
+    if (branch === 'montados' && !signature) {
       setFormError('La firma del propietario es obligatoria')
       return false
     }
@@ -348,8 +348,10 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
       submitData.set('answers', '[]')
     }
 
-    // Signature required for all inspections
-    submitData.set('signature', signature)
+    // Signature — only for montados branch (desmontados signature comes from cylinder-manager)
+    if (branch === 'montados') {
+      submitData.set('signature', signature)
+    }
 
     // Cylinders
     if (cylinders.length > 0) {
@@ -893,7 +895,7 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
                         className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <option value="en_planta">En planta (recalificación)</option>
-                        <option value="de_baja">De baja (chatarra)</option>
+                        <option value="condenado">Condenado (De baja)</option>
                       </select>
                     </div>
                   )}
@@ -923,26 +925,28 @@ export function UnifiedInspectionForm({ owners, vehicles }: UnifiedInspectionFor
             </CardContent>
           </Card>
 
-      {/* ── Signature (both paths) ──────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
-              <PenLine className="w-5 h-5 text-rose-600" />
+      {/* ── Signature (montados only — desmontados sign in cylinder-manager) ── */}
+      {branch === 'montados' && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
+                <PenLine className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <CardTitle>Firma del Propietario</CardTitle>
+                <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle>Firma del Propietario</CardTitle>
-              <CardDescription>El propietario debe firmar en la pantalla</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <SignaturePad onChange={setSignature} disabled={pending} />
-          <p className="text-xs text-muted-foreground mt-2">
-            Esta firma quedará registrada como constancia de la inspección.
-          </p>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <SignaturePad onChange={setSignature} disabled={pending} />
+            <p className="text-xs text-muted-foreground mt-2">
+              Esta firma quedará registrada como constancia de la inspección.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* ── Vehicle Documents (both paths) ─────────────────────── */}
       <Card>

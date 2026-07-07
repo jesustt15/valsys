@@ -47,6 +47,6 @@ Query by `license_plate`. Public-facing route fetches latest `final_cert_key` fr
 docker compose up -d
 
 # Run Next.js dev server
-cd apps/web && pnpm dev
+cd front && pnpm dev
 ```
 <!-- END:valsys-project-rules -->

@@ -129,7 +129,21 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <td className="px-4 py-3 text-sm">{cyl.capacity}</td>
                     <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
                     <td className="px-4 py-3 text-sm">
-                      <Badge variant={cyl.status === 'en_planta' ? 'warning' : 'info'}>{cyl.status}</Badge>
+                      <Badge variant={
+                        cyl.status === 'en_planta' ? 'warning'
+                          : cyl.status === 'pendiente_reinstalacion' ? 'warning'
+                          : cyl.status === 'condenado' ? 'destructive'
+                          : cyl.status === 'instalado' ? 'success'
+                          : cyl.status === 'reinstalado' ? 'success'
+                          : 'info'
+                      }>
+                        {cyl.status === 'instalado' ? 'Instalado'
+                          : cyl.status === 'reinstalado' ? 'Reinstalado'
+                          : cyl.status === 'condenado' ? 'Condenado (De baja)'
+                          : cyl.status === 'en_planta' ? 'En Planta'
+                          : cyl.status === 'pendiente_reinstalacion' ? 'Pendiente de Reinstalación'
+                          : cyl.status}
+                      </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === cyl.id ? null : cyl.id)}>
@@ -194,7 +208,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     </h4>
                     <input type="hidden" name="id" value={editingId} />
                     <input type="hidden" name="inspectionId" value={inspectionId} />
-                    <input type="hidden" name="status" value="montado" />
+                    <input type="hidden" name="status" value="reinstalado" />
 
                     <div className="flex items-start gap-3 p-3 bg-green-100 dark:bg-green-900/20 rounded-xl">
                       <CheckCircle className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
@@ -229,7 +243,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
               )
             }
 
-            // Default: montado / de_baja — show full status editor
+            // Default: instalado / reinstalado / condenado — show full status editor
             return (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -255,19 +269,25 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                           onChange={(e) => setSelectedStatus(e.target.value)}
                           className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
                         >
-                          {currentStatus === 'montado' && (
+                          {currentStatus === 'instalado' && (
                             <>
                               <option value="en_planta">En Planta (Desmontado)</option>
-                              <option value="de_baja">De Baja (Scrap)</option>
+                              <option value="condenado">Condenado (De baja)</option>
                             </>
                           )}
-                          {currentStatus === 'de_baja' && <option value="de_baja" disabled>De Baja (Scrap)</option>}
+                          {currentStatus === 'reinstalado' && (
+                            <>
+                              <option value="en_planta">En Planta (Desmontado)</option>
+                              <option value="condenado">Condenado (De baja)</option>
+                            </>
+                          )}
+                          {currentStatus === 'condenado' && <option value="condenado" disabled>Condenado (De baja)</option>}
                         </select>
                       </div>
 
                       {/* Firma del propietario — solo al desmontaje */}
                       <AnimatePresence>
-                        {(selectedStatus === 'en_planta' || (selectedStatus === '' && currentStatus === 'montado')) && (
+                        {(selectedStatus === 'en_planta' || (selectedStatus === '' && (currentStatus === 'instalado' || currentStatus === 'reinstalado'))) && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}

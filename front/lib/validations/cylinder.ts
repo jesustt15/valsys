@@ -10,14 +10,14 @@ export const createCylinderSchema = z.object({
 
 export const updateCylinderStatusSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(['montado', 'en_planta', 'pendiente_reinstalacion', 'de_baja']),
+  status: z.enum(['instalado', 'en_planta', 'pendiente_reinstalacion', 'reinstalado', 'condenado']),
   actualSerial: z.string().optional(),
 })
 
 export const recertifyCylinderSchema = z.object({
   id: z.string().uuid(),
   inspectionId: z.string().uuid(),
-  status: z.enum(['pendiente_reinstalacion', 'de_baja']),
+  status: z.enum(['pendiente_reinstalacion', 'condenado']),
   actualSerial: z.string().optional(),
   recalificationDate: z.string().optional(),
 }).superRefine((data, ctx) => {

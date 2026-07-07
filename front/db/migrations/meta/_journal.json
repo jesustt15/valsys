@@ -36,6 +36,13 @@
       "when": 1780423000000,
       "tag": "0004_busy_wiccan",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780423000001,
+      "tag": "0005_inspection_cylinder_lifecycle_redesign",
+      "breakpoints": true
     }
   ]
 }

@@ -193,11 +193,16 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                           <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
                           <td className="px-4 py-3 text-sm">
                             <Badge variant={
-                              cyl.status === 'montado' ? 'success' : 
+                              cyl.status === 'instalado' || cyl.status === 'reinstalado' ? 'success' : 
                               cyl.status === 'en_planta' ? 'warning' : 
-                              cyl.status === 'de_baja' ? 'destructive' : 'secondary'
+                              cyl.status === 'pendiente_reinstalacion' ? 'info' :
+                              cyl.status === 'condenado' ? 'destructive' : 'secondary'
                             }>
-                              {cyl.status}
+                              {cyl.status === 'instalado' ? 'Instalado' :
+                               cyl.status === 'reinstalado' ? 'Reinstalado' :
+                               cyl.status === 'en_planta' ? 'En Planta' :
+                               cyl.status === 'pendiente_reinstalacion' ? 'Pendiente Reinstalación' :
+                               cyl.status === 'condenado' ? 'Condenado' : cyl.status}
                             </Badge>
                           </td>
                         </tr>

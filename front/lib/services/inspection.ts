@@ -1,11 +1,12 @@
 import { db } from '@/lib/db'
-import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures } from '@/db/schema'
-import { eq, inArray, count, sql, asc } from 'drizzle-orm'
+import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates } from '@/db/schema'
+import { eq, inArray, count, sql } from 'drizzle-orm'
 
 export interface StatusCounts {
   inspeccion_inicial: number
   recalificacion: number
   por_programar: number
+  cita: number
   certificado: number
 }
 
@@ -26,6 +27,8 @@ export interface InspectionSummary {
   status: string
   kmCurrent: number | null
   operatorName: string | null
+  correlativeNumber: string | null
+  appointmentDate: Date | null
 }
 
 export async function getAllInspections(): Promise<InspectionSummary[]> {
@@ -37,8 +40,11 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
       operatorId: inspections.operatorId,
       status: inspections.status,
       kmCurrent: inspections.kmCurrent,
+      correlativeNumber: certificates.correlativeNumber,
+      appointmentDate: inspections.appointmentDate,
     })
     .from(inspections)
+    .leftJoin(certificates, eq(certificates.inspectionId, inspections.id))
     .orderBy(inspections.inspectionDate)
 
   if (records.length === 0) return []
@@ -79,6 +85,8 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
     status: r.status ?? 'inspeccion_inicial',
     kmCurrent: r.kmCurrent,
     operatorName: r.operatorId ? operatorMap.get(r.operatorId)?.fullName ?? null : null,
+    correlativeNumber: r.correlativeNumber ?? null,
+    appointmentDate: r.appointmentDate ?? null,
   }))
 }
 
@@ -152,6 +160,7 @@ export async function countInspectionsByStatus(): Promise<StatusCounts> {
     inspeccion_inicial: 0,
     recalificacion: 0,
     por_programar: 0,
+    cita: 0,
     certificado: 0,
   }
 
@@ -244,4 +253,43 @@ export async function getPostMountAttachments(inspectionId: string) {
     .where(eq(inspectionAttachments.inspectionId, inspectionId))
 
   return attachments.filter((a) => a.category === 'post_mount')
+}
+
+// ─── Schedule Appointment ──────────────────────────────────────
+
+export async function scheduleAppointment(
+  inspectionId: string,
+  appointmentDate: Date,
+): Promise<{ success: true } | { success: false; error: string }> {
+  // Verify inspection exists and status is por_programar
+  const [inspection] = await db
+    .select({ id: inspections.id, status: inspections.status })
+    .from(inspections)
+    .where(eq(inspections.id, inspectionId))
+    .limit(1)
+
+  if (!inspection) {
+    return { success: false, error: 'Inspección no encontrada' }
+  }
+
+  if (inspection.status !== 'por_programar') {
+    return { success: false, error: 'La inspección debe estar en estado "por programar"' }
+  }
+
+  // Verify appointmentDate is in the future
+  if (appointmentDate <= new Date()) {
+    return { success: false, error: 'La fecha de la cita debe ser futura' }
+  }
+
+  // Update status to cita + set appointment_date
+  await db
+    .update(inspections)
+    .set({
+      status: 'cita',
+      appointmentDate,
+      updatedAt: new Date(),
+    })
+    .where(eq(inspections.id, inspectionId))
+
+  return { success: true }
 }

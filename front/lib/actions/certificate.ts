@@ -7,6 +7,7 @@ import { createCertificateSchema } from '@/lib/validations/certificate'
 import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
 import { eq } from 'drizzle-orm'
+import { getCertifiableCylinders } from '@/lib/services/certificate'
 
 export type CertificateFormState = {
   success?: boolean
@@ -57,9 +58,9 @@ export async function createCertificateAction(
     }
   }
 
-  if (inspection.status !== 'recalificacion' && inspection.status !== 'certificado') {
+  if (inspection.status !== 'cita') {
     return {
-      error: 'La inspección no está en estado válido',
+      error: 'La inspección debe estar en estado "Cita" para generar el certificado. Use el flujo de "Emitir Certificado" desde la inspección.',
       fields: { correlativeNumber: validatedCorrelative },
     }
   }
@@ -89,6 +90,9 @@ export async function createCertificateAction(
       fields: { correlativeNumber: validatedCorrelative },
     }
   }
+
+  // 4c. Get certifiable cylinders (for document assembly)
+  const certifiableCylinders = await getCertifiableCylinders(validatedInspectionId)
 
   // 5. Validate PDF file
   const plantDoc = formData.get('plantDoc') as File | null

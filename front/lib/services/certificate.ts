@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { certificates, inspections, vehicles, owners } from '@/db/schema'
-import { eq, sql } from 'drizzle-orm'
+import { certificates, inspections, vehicles, owners, gncCylinders } from '@/db/schema'
+import { eq, sql, and, inArray } from 'drizzle-orm'
 
 export interface CertificateRecord {
   id: string
@@ -82,4 +82,31 @@ export async function getCertificateByCorrelative(
     vehicle,
     owner,
   }
+}
+
+// ─── Certifiable Cylinders Filter ─────────────────────────────
+
+/**
+ * Returns cylinders eligible for certificate document assembly:
+ * only those with status 'instalado' or 'reinstalado'.
+ * Excludes: en_planta, pendiente_reinstalacion, condenado.
+ */
+export async function getCertifiableCylinders(inspectionId: string) {
+  const [inspection] = await db
+    .select({ vehicleId: inspections.vehicleId })
+    .from(inspections)
+    .where(eq(inspections.id, inspectionId))
+    .limit(1)
+
+  if (!inspection?.vehicleId) return []
+
+  return db
+    .select()
+    .from(gncCylinders)
+    .where(
+      and(
+        eq(gncCylinders.vehicleId, inspection.vehicleId),
+        inArray(gncCylinders.status, ['instalado', 'reinstalado'])
+      )
+    )
 }

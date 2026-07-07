@@ -67,7 +67,7 @@ export const cylinderInputSchema = z.object({
   capacity: z.string().min(1, 'Capacidad es requerida'),
   initialSerial: z.string().min(1, 'Número de serie es requerido'),
   location: z.string().min(1, 'Ubicación es requerida'),
-  status: z.enum(['en_planta', 'de_baja']).optional(),
+  status: z.enum(['en_planta', 'condenado']).optional(),
 })
 
 const montadosSchema = z.object({
@@ -98,7 +98,7 @@ const desmontadosSchema = z.object({
   ),
   observations: z.string().optional(),
   answers: z.array(checklistAnswerSchema).max(0, 'No se permiten respuestas de checklist en desmontados'),
-  signature: z.string().min(1, 'La firma del propietario es obligatoria'),
+  signature: z.string().optional(),
   cylinders: z.array(cylinderInputSchema).min(1, 'Al menos un cilindro es requerido'),
 })
 
@@ -107,3 +107,22 @@ export const unifiedInspectionSchema = z.discriminatedUnion('branch', [montadosS
 export type UnifiedMontadosInput = z.infer<typeof montadosSchema>
 export type UnifiedDesmontadosInput = z.infer<typeof desmontadosSchema>
 export type UnifiedInspectionInput = z.infer<typeof unifiedInspectionSchema>
+
+// ─── Schedule Appointment ─────────────────────────────────────
+const isValidFutureDate = (val: string) => {
+  const date = new Date(val)
+  if (isNaN(date.getTime())) return false
+  return date > new Date()
+}
+
+export const scheduleAppointmentSchema = z.object({
+  id: z.string().uuid('ID de inspección inválido'),
+  appointmentDate: z
+    .string()
+    .min(1, 'La fecha de la cita es obligatoria')
+    .refine(isValidFutureDate, {
+      message: 'La fecha de la cita debe ser una fecha futura válida',
+    }),
+})
+
+export type ScheduleAppointmentInput = z.infer<typeof scheduleAppointmentSchema>
