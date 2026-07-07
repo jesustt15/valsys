@@ -110,6 +110,7 @@ export async function getInspectionById(id: string) {
     .select()
     .from(inspectionAnswers)
     .where(eq(inspectionAnswers.inspectionId, id))
+    .orderBy(asc(inspectionAnswers.createdAt))
 
   const attachments = await db
     .select()

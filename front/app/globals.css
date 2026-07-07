@@ -3,6 +3,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --soft-black: #0e0d0d;
   --background: #faffff;
   --foreground: #111827;
   --card: #faf9f6;

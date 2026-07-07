@@ -27,7 +27,7 @@ export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) 
   }
 
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <RefreshCw className="w-5 h-5 text-blue-500" />
@@ -35,7 +35,7 @@ export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) 
         </CardTitle>
         <CardDescription>Actualice el estado del expediente según avance el trámite</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         <form action={action} className="space-y-4">
           <input type="hidden" name="id" value={inspectionId} />
           
