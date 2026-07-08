@@ -49,7 +49,7 @@ export async function canIssueCertificate(inspectionId: string): Promise<GateRes
     .where(eq(gncCylinders.vehicleId, inspection.vehicleId))
 
   const pendingCylinders = cylinders.filter(
-    (c) => c.status === 'en_planta' || c.status === 'pendiente_reinstalacion'
+    (c) => c.status === 'desmontado' || c.status === 'en_planta' || c.status === 'pendiente_reinstalacion'
   )
   if (pendingCylinders.length > 0) {
     missing.push('cylinders_pending')

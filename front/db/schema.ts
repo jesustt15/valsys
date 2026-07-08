@@ -25,6 +25,7 @@ export const attachmentCategory = pgEnum('attachment_category', [
 
 export const cylinderStatus = pgEnum('cylinder_status', [
   'instalado',
+  'desmontado',
   'en_planta',
   'pendiente_reinstalacion',
   'reinstalado',

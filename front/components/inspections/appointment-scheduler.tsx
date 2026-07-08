@@ -23,6 +23,7 @@ export function AppointmentScheduler({
 }: AppointmentSchedulerProps) {
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
+  const [isEditing, setIsEditing] = useState(false)
 
   const [state, formAction, pending] = useActionState<InspectionFormState | null, FormData>(
     scheduleAppointmentAction,
@@ -30,13 +31,18 @@ export function AppointmentScheduler({
   )
 
   const isScheduled = inspectionStatus === 'cita'
-  const canSchedule = inspectionStatus === 'por_programar'
+  const canSchedule = inspectionStatus === 'por_programar' || (isScheduled && isEditing)
+
+  // Pre-fill date/time from existing appointment when editing
+  const existingDate = appointmentDate ? new Date(appointmentDate) : null
+  const existingDateStr = existingDate && !isNaN(existingDate.getTime()) ? existingDate.toISOString().split('T')[0] : ''
+  const existingTimeStr = existingDate && !isNaN(existingDate.getTime()) ? existingDate.toTimeString().slice(0, 5) : ''
 
   // Combine date + time into a single ISO-ish string for the server action
   const combinedDateTime = date && time ? `${date}T${time}:00` : ''
 
   // ── Read-only: appointment already scheduled ──────────────────
-  if (isScheduled && appointmentDate) {
+  if (isScheduled && appointmentDate && !isEditing) {
     const formatted = new Date(appointmentDate).toLocaleString('es-AR', {
       dateStyle: 'full',
       timeStyle: 'short',
@@ -66,7 +72,12 @@ export function AppointmentScheduler({
                 El vehículo tiene cita programada para inspección
               </p>
             </div>
-            <Badge variant="info">Cita</Badge>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                Reagendar
+              </Button>
+              <Badge variant="info">Cita</Badge>
+            </div>
           </motion.div>
         </CardContent>
       </Card>
@@ -119,10 +130,13 @@ export function AppointmentScheduler({
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Calendar className="w-5 h-5 text-green-500" />
-          Programar Cita
+          {isScheduled ? 'Reagendar Cita' : 'Programar Cita'}
         </CardTitle>
         <CardDescription>
-          Seleccione fecha y hora para la cita de inspección
+          {isScheduled
+            ? 'Modifique la fecha y hora de la cita existente'
+            : 'Seleccione fecha y hora para la cita de inspección'
+          }
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -139,7 +153,7 @@ export function AppointmentScheduler({
               <input
                 id="appointment-date"
                 type="date"
-                value={date}
+                value={date || existingDateStr}
                 onChange={(e) => setDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
                 disabled={pending}
@@ -158,7 +172,7 @@ export function AppointmentScheduler({
               <input
                 id="appointment-time"
                 type="time"
-                value={time}
+                value={time || existingTimeStr}
                 onChange={(e) => setTime(e.target.value)}
                 disabled={pending}
                 className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm
@@ -184,10 +198,15 @@ export function AppointmentScheduler({
             )}
           </AnimatePresence>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end gap-2 pt-2">
+            {isScheduled && (
+              <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                Cancelar
+              </Button>
+            )}
             <Button
               type="submit"
-              disabled={pending || !date || !time}
+              disabled={pending || !(date || existingDateStr) || !(time || existingTimeStr)}
               className="bg-green-600 hover:bg-green-700 text-white shadow-sm"
             >
               {pending ? (
@@ -196,12 +215,12 @@ export function AppointmentScheduler({
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Programando...
+                  {isScheduled ? 'Reagendando...' : 'Programando...'}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  Programar Cita
+                  {isScheduled ? 'Reagendar Cita' : 'Programar Cita'}
                 </div>
               )}
             </Button>

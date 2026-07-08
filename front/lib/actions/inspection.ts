@@ -15,6 +15,7 @@ import { getNonCompliantAnswers, getPostMountAttachments, cycleInspectionAnswer,
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
 import { canIssueCertificate } from '@/lib/services/inspection-gate'
 import { scheduleAppointmentSchema } from '@/lib/validations/inspection'
+import { autoTransitionCylinders } from '@/lib/services/cylinder'
 
 export type InspectionFormState = {
   success?: boolean
@@ -221,9 +222,28 @@ export async function updateInspectionStatusAction(
   }
 
   try {
+    // Get vehicleId before updating status (needed for auto-transition)
+    const [currentInspection] = await db
+      .select({ vehicleId: inspections.vehicleId, status: inspections.status })
+      .from(inspections)
+      .where(eq(inspections.id, id))
+      .limit(1)
+
     await db.update(inspections)
       .set({ status: parsed.data, updatedAt: new Date() })
       .where(eq(inspections.id, id))
+
+    // Auto-transition cylinders based on status change
+    if (currentInspection?.vehicleId) {
+      try {
+        if (parsed.data === 'recalificacion' && currentInspection.status === 'inspeccion_inicial') {
+          await autoTransitionCylinders(currentInspection.vehicleId, 'recalificacion')
+        }
+      } catch (e) {
+        console.error('Failed to auto-transition cylinders on status update:', e)
+        // Non-fatal — status already updated
+      }
+    }
 
     revalidatePath(`/inspections/${id}`)
     revalidatePath('/inspections')
@@ -662,6 +682,16 @@ export async function createUnifiedInspectionAction(
       return { inspectionId, vehicleId, ownerId }
     })
 
+    // After transaction: auto-transition cylinders to desmontado
+    // For montados: cylinders are created as 'instalado' → needs to go to 'desmontado'
+    // For desmontados: cylinders are created as 'en_planta'/'condenado' → auto-transition is no-op
+    try {
+      await autoTransitionCylinders(result.vehicleId, 'inspeccion_inicial')
+    } catch (e) {
+      console.error('Failed to auto-transition cylinders:', e)
+      // Non-fatal — cylinder status can be updated manually
+    }
+
     // After transaction: upload vehicle documents (if any)
     const cedulaFile = formData.get('cedula') as File | null
     const carnetFile = formData.get('carnet') as File | null
@@ -804,7 +834,7 @@ export async function markAsScheduledAction(
     return { error: 'El número correlativo ya existe' }
   }
 
-  // 5. Create certificate + transition status in transaction
+    // 5. Create certificate + transition status in transaction
   try {
     await db.transaction(async (tx) => {
       await tx.insert(certificates).values({
@@ -820,6 +850,16 @@ export async function markAsScheduledAction(
         .set({ status: 'certificado', updatedAt: new Date() })
         .where(eq(inspections.id, inspectionId))
     })
+
+    // Auto-transition pendiente_reinstalacion → reinstalado after certificate issuance
+    if (inspection.vehicleId) {
+      try {
+        await autoTransitionCylinders(inspection.vehicleId, 'certificado')
+      } catch (e) {
+        console.error('Failed to auto-transition cylinders to reinstalado:', e)
+        // Non-fatal — cylinder status can be updated manually
+      }
+    }
   } catch (e) {
     console.error('Error marking inspection as scheduled:', e)
     return { error: 'Error al emitir el certificado. Intente de nuevo.' }

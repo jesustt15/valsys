@@ -98,7 +98,7 @@ const desmontadosSchema = z.object({
   ),
   observations: z.string().optional(),
   answers: z.array(checklistAnswerSchema).max(0, 'No se permiten respuestas de checklist en desmontados'),
-  signature: z.string().optional(),
+  signature: z.string().min(1, 'La firma del propietario es obligatoria'),
   cylinders: z.array(cylinderInputSchema).min(1, 'Al menos un cilindro es requerido'),
 })
 

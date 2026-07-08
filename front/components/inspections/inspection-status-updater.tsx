@@ -22,7 +22,7 @@ export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) 
   const [state, action, pending] = useActionState(updateInspectionStatusAction, null)
 
   // Hide status updater for terminal statuses — use CertificateCard actions instead
-  if (currentStatus === 'por_programar' || currentStatus === 'cita' || currentStatus === 'certificado') {
+  if (currentStatus === 'cita' || currentStatus === 'certificado') {
     return null
   }
 

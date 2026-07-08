@@ -4,10 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { gncCylinders, inspectionAttachments, signatures, inspections } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { createCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema } from '@/lib/validations/cylinder'
+import { createCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema, decideCylinderFateSchema } from '@/lib/validations/cylinder'
 import { getSession } from '@/lib/auth/get-session'
 import { putObject } from '@/lib/minio'
 import { createNotification } from '@/lib/services/notification'
+import { decideCylinderFate } from '@/lib/services/cylinder'
 
 export type CylinderFormState = {
   success?: boolean
@@ -288,4 +289,90 @@ export async function recertifyCylinderAction(
     console.error('Error recertifying cylinder:', error)
     return { error: 'Error al recertificar el cilindro' }
   }
+}
+
+export async function decideCylinderFateAction(
+  _prev: CylinderFormState | null,
+  formData: FormData,
+): Promise<CylinderFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No autorizado' }
+
+  const data = Object.fromEntries(formData)
+  const parsed = decideCylinderFateSchema.safeParse(data)
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  // Validate plant document BEFORE calling service
+  const plantDoc = formData.get('plantDoc') as File
+  if (plantDoc && plantDoc.size > 0) {
+    if (plantDoc.type !== 'application/pdf') {
+      return { error: 'El documento de planta debe ser PDF' }
+    }
+  }
+
+  const result = await decideCylinderFate({
+    cylinderId: parsed.data.id,
+    inspectionId: parsed.data.inspectionId,
+    status: parsed.data.status,
+    actualSerial: parsed.data.actualSerial,
+    recalificationDate: parsed.data.recalificationDate,
+    updatedBy: session.sub,
+  })
+
+  if (!result.success) {
+    return { error: result.error }
+  }
+
+  // Upload plant document after DB update
+  if (plantDoc && plantDoc.size > 0) {
+    try {
+      const timestamp = Date.now()
+      const minioKey = `inspections/${parsed.data.inspectionId}/plant/${parsed.data.id}/${timestamp}-${plantDoc.name}`
+      await putObject(minioKey, plantDoc)
+
+      const { db } = await import('@/lib/db')
+      const { inspectionAttachments } = await import('@/db/schema')
+      await db.insert(inspectionAttachments).values({
+        inspectionId: parsed.data.inspectionId,
+        fileName: plantDoc.name,
+        minioKey,
+        fileType: plantDoc.type,
+        fileSize: plantDoc.size,
+        category: 'plant',
+      })
+    } catch (e) {
+      console.error('Error uploading plant document:', e)
+      // Non-fatal — cylinder fate already decided
+    }
+  }
+
+  // Notification
+  try {
+    if (parsed.data.status === 'pendiente_reinstalacion') {
+      await createNotification(session.sub, {
+        type: 'cylinder_recertified',
+        title: 'Cilindro recertificado',
+        message: `El cilindro fue recertificado exitosamente`,
+        relatedEntityType: 'cylinder',
+        relatedEntityId: parsed.data.id,
+      })
+    } else if (parsed.data.status === 'condenado') {
+      await createNotification(session.sub, {
+        type: 'cylinder_scrapped',
+        title: 'Cilindro condenado',
+        message: `El cilindro fue marcado como condenado`,
+        relatedEntityType: 'cylinder',
+        relatedEntityId: parsed.data.id,
+      })
+    }
+  } catch (e) {
+    console.error('Failed to create notification:', e)
+  }
+
+  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+
+  return { success: true }
 }

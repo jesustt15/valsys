@@ -130,7 +130,8 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={
-                        cyl.status === 'en_planta' ? 'warning'
+                        cyl.status === 'desmontado' ? 'warning'
+                          : cyl.status === 'en_planta' ? 'warning'
                           : cyl.status === 'pendiente_reinstalacion' ? 'warning'
                           : cyl.status === 'condenado' ? 'destructive'
                           : cyl.status === 'instalado' ? 'success'
@@ -138,6 +139,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                           : 'info'
                       }>
                         {cyl.status === 'instalado' ? 'Instalado'
+                          : cyl.status === 'desmontado' ? 'Desmontado'
                           : cyl.status === 'reinstalado' ? 'Reinstalado'
                           : cyl.status === 'condenado' ? 'Condenado (De baja)'
                           : cyl.status === 'en_planta' ? 'En Planta'
@@ -271,7 +273,14 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                         >
                           {currentStatus === 'instalado' && (
                             <>
-                              <option value="en_planta">En Planta (Desmontado)</option>
+                              <option value="desmontado">Desmontado</option>
+                              <option value="en_planta">En Planta</option>
+                              <option value="condenado">Condenado (De baja)</option>
+                            </>
+                          )}
+                          {currentStatus === 'desmontado' && (
+                            <>
+                              <option value="en_planta">En Planta</option>
                               <option value="condenado">Condenado (De baja)</option>
                             </>
                           )}
@@ -287,7 +296,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
 
                       {/* Firma del propietario — solo al desmontaje */}
                       <AnimatePresence>
-                        {(selectedStatus === 'en_planta' || (selectedStatus === '' && (currentStatus === 'instalado' || currentStatus === 'reinstalado'))) && (
+                        {(selectedStatus === 'en_planta' || selectedStatus === 'desmontado' || (selectedStatus === '' && (currentStatus === 'instalado' || currentStatus === 'reinstalado'))) && (
                           <motion.div
                             initial={{ opacity: 0, height: 0 }}
                             animate={{ opacity: 1, height: 'auto' }}
