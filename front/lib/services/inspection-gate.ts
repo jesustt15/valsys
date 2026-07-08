@@ -3,7 +3,6 @@ import {
   inspections,
   gncCylinders,
   inspectionAttachments,
-  inspectionAnswers,
 } from '@/db/schema'
 import { eq, and, sql } from 'drizzle-orm'
 
@@ -15,14 +14,10 @@ export interface GateResult {
 /**
  * Gate-check: verifies all preconditions before issuing a certificate.
  *
- * Checks (in order):
- * 1. All vehicle cylinders in instalado | reinstalado | condenado (none in en_planta or pendiente_reinstalacion)
+ * Checks (simplified):
+ * 1. All vehicle cylinders in final states: reinstalado | condenado
+ *    (none in en_planta, pendiente_reinstalacion, desmontado)
  * 2. Post-mount photos exist (inspection_attachments category post_mount, count > 0)
- * 3. inspections.ownerSignatureId IS NOT NULL
- * 4. For montados branch: all inspection_answers have non-null answer
- *
- * Branch determination: if inspection_answers exist for this inspection → montados branch.
- * If no answers → desmontados branch (skip checklist check).
  */
 export async function canIssueCertificate(inspectionId: string): Promise<GateResult> {
   const missing: string[] = []
@@ -42,7 +37,7 @@ export async function canIssueCertificate(inspectionId: string): Promise<GateRes
     return { canIssue: false, missing: ['no_vehicle'] }
   }
 
-  // Step 2: Check cylinder statuses
+  // Step 2: Check cylinder statuses — all must be in final states
   const cylinders = await db
     .select({ status: gncCylinders.status })
     .from(gncCylinders)
@@ -69,27 +64,6 @@ export async function canIssueCertificate(inspectionId: string): Promise<GateRes
   if ((photoCount?.count ?? 0) === 0) {
     missing.push('post_mount_photos')
   }
-
-  // Step 4: Check signature
-  if (!inspection.ownerSignatureId) {
-    missing.push('signature')
-  }
-
-  // Step 5: Check checklist completeness (montados branch only)
-  // Determine branch: if inspection_answers exist → montados branch
-  const answers = await db
-    .select({ id: inspectionAnswers.id, answer: inspectionAnswers.answer })
-    .from(inspectionAnswers)
-    .where(eq(inspectionAnswers.inspectionId, inspectionId))
-
-  if (answers.length > 0) {
-    // Montados branch — check all answers are non-null
-    const unanswered = answers.filter((a) => a.answer === null)
-    if (unanswered.length > 0) {
-      missing.push('checklist_incomplete')
-    }
-  }
-  // If no answers → desmontados branch → skip checklist check
 
   return {
     canIssue: missing.length === 0,

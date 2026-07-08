@@ -71,7 +71,7 @@ export const cylinderInputSchema = z.object({
   }),
   initialSerial: z.string().min(1, 'Número de serie es requerido'),
   location: z.string().min(1, 'Ubicación es requerida'),
-  status: z.enum(['en_planta', 'condenado']).optional(),
+  status: z.literal('desmontado').optional(),
 })
 
 const montadosSchema = z.object({

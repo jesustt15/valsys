@@ -39,7 +39,10 @@ export function AppointmentScheduler({
   const existingTimeStr = existingDate && !isNaN(existingDate.getTime()) ? existingDate.toTimeString().slice(0, 5) : ''
 
   // Combine date + time into a single ISO-ish string for the server action
-  const combinedDateTime = date && time ? `${date}T${time}:00` : ''
+  // Use existing values as fallback when user hasn't changed them (re-scheduling)
+  const effectiveDate = date || existingDateStr
+  const effectiveTime = time || existingTimeStr
+  const combinedDateTime = effectiveDate && effectiveTime ? `${effectiveDate}T${effectiveTime}:00` : ''
 
   // ── Read-only: appointment already scheduled ──────────────────
   if (isScheduled && appointmentDate && !isEditing) {

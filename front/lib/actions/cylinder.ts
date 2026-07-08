@@ -77,6 +77,22 @@ export async function updateCylinderStatusAction(
     return { error: parsed.error.issues[0].message }
   }
 
+  // Extract inspectionId early — needed by condemnation guard
+  const inspectionId = formData.get('inspectionId') as string
+
+  // Condemnation guard: reject if parent inspection is still in inspeccion_inicial
+  if (parsed.data.status === 'condenado' && inspectionId) {
+    const [parentInspection] = await db
+      .select({ status: inspections.status })
+      .from(inspections)
+      .where(eq(inspections.id, inspectionId))
+      .limit(1)
+
+    if (parentInspection && parentInspection.status === 'inspeccion_inicial') {
+      return { error: 'No se puede condenar un cilindro mientras la inspección está en estado inicial. Complete la inspección primero.' }
+    }
+  }
+
   try {
     // Status guard: validate allowed transitions based on current status
     const current = await db.select({ status: gncCylinders.status })
@@ -110,10 +126,12 @@ export async function updateCylinderStatusAction(
       .where(eq(gncCylinders.id, parsed.data.id))
 
     // Handle signature when dismounting (en_planta transition)
-    const inspectionId = formData.get('inspectionId') as string
     const signatureData = formData.get('signature') as string
 
-    if (parsed.data.status === 'en_planta' && inspectionId && signatureData?.startsWith('data:image')) {
+    if (parsed.data.status === 'en_planta' && inspectionId) {
+      if (!signatureData || !signatureData.startsWith('data:image')) {
+        return { error: 'La firma del propietario es obligatoria para desmontar cilindros.' }
+      }
       try {
         const base64Data = signatureData.split(',')[1]
         const buffer = Buffer.from(base64Data, 'base64')

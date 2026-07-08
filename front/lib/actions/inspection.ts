@@ -345,8 +345,6 @@ export type MarkScheduledState = {
 const GATE_MESSAGES: Record<string, string> = {
   cylinders_pending: 'Hay cilindros pendientes en planta o por reinstalar',
   post_mount_photos: 'Se requieren fotos de post-montaje',
-  signature: 'Se requiere la firma del propietario',
-  checklist_incomplete: 'El checklist tiene respuestas pendientes',
   inspection_not_found: 'Inspección no encontrada',
   no_vehicle: 'La inspección no tiene vehículo asociado',
 }
@@ -494,6 +492,11 @@ export async function createUnifiedInspectionAction(
   if (!parsed.success) {
     const firstError = parsed.error.issues?.[0]?.message ?? 'Error de validación'
     return { error: firstError }
+  }
+
+  // Explicit signature guard (belt-and-suspenders — schema also validates this)
+  if (!parsed.data.signature || parsed.data.signature.trim().length === 0) {
+    return { error: 'La firma del propietario es obligatoria para completar la inspección.' }
   }
 
   const data = parsed.data
@@ -673,7 +676,7 @@ export async function createUnifiedInspectionAction(
             capacity: c.capacity,
             initialSerial: c.initialSerial,
             location: c.location,
-            status: data.branch === 'montados' ? ('instalado' as const) : ((c.status || 'en_planta') as 'en_planta' | 'condenado'),
+            status: data.branch === 'montados' ? ('instalado' as const) : ('desmontado' as const),
             updatedBy: session.sub,
           }))
         )

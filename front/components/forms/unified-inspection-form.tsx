@@ -71,7 +71,7 @@ interface CylinderEntry {
   capacity: string;
   initialSerial: string;
   location: string;
-  status: "en_planta" | "condenado";
+  status: "desmontado";
 }
 
 // ─── Main Component ───────────────────────────────────────────────
@@ -274,27 +274,15 @@ export function UnifiedInspectionForm({
         capacity: "",
         initialSerial: "",
         location: "",
-        status: "en_planta",
+        status: "desmontado",
       },
     ]);
   };
 
-  const updateCylinder = (
-    idx: number,
-    field: keyof CylinderEntry,
-    value: string,
-  ) => {
-    const updated = [...cylinders];
-    const entry = { ...updated[idx] };
-    if (field === "status") {
-      if (value === "en_planta" || value === "condenado") {
-        entry.status = value;
-      }
-    } else {
-      entry[field] = value;
-    }
-    updated[idx] = entry;
-    setCylinders(updated);
+  const updateCylinder = (idx: number, field: keyof CylinderEntry, value: string) => {
+    setCylinders((prev) =>
+      prev.map((cyl, i) => (i === idx ? { ...cyl, [field]: value } : cyl))
+    );
   };
 
   const removeCylinder = (idx: number) => {
@@ -361,8 +349,8 @@ export function UnifiedInspectionForm({
       }
     }
 
-    // Signature required only for montados branch (desmontados signature comes from cylinder-manager)
-    if (branch === "montados" && !signature) {
+    // Signature required for both montados and desmontados branches
+    if (!signature) {
       setFormError("La firma del propietario es obligatoria");
       return false;
     }
@@ -436,10 +424,8 @@ export function UnifiedInspectionForm({
       submitData.set("answers", "[]");
     }
 
-    // Signature — only for montados branch (desmontados signature comes from cylinder-manager)
-    if (branch === "montados") {
-      submitData.set("signature", signature);
-    }
+    // Signature — required for both montados and desmontados branches
+    submitData.set("signature", signature);
 
     // Cylinders
     if (cylinders.length > 0) {
@@ -1086,24 +1072,6 @@ export function UnifiedInspectionForm({
                       />
                     </div>
                   </div>
-                  {branch === "desmontados" && (
-                    <div className="space-y-2">
-                      <Label>Estado del cilindro</Label>
-                      <select
-                        value={cyl.status}
-                        onChange={(e) =>
-                          updateCylinder(idx, "status", e.target.value)
-                        }
-                        disabled={pending}
-                        className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <option value="en_planta">
-                          En planta (recalificación)
-                        </option>
-                        <option value="condenado">Condenado (De baja)</option>
-                      </select>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -1131,30 +1099,28 @@ export function UnifiedInspectionForm({
         </CardContent>
       </Card>
 
-      {/* ── Signature (montados only — desmontados sign in cylinder-manager) ── */}
-      {branch === "montados" && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
-                <PenLine className="w-5 h-5 text-rose-600" />
-              </div>
-              <div>
-                <CardTitle>Firma del Propietario</CardTitle>
-                <CardDescription>
-                  El propietario debe firmar en la pantalla
-                </CardDescription>
-              </div>
+      {/* ── Signature (both montados and desmontados) ── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
+              <PenLine className="w-5 h-5 text-rose-600" />
             </div>
-          </CardHeader>
-          <CardContent>
-            <SignaturePad onChange={setSignature} disabled={pending} />
-            <p className="text-xs text-muted-foreground mt-2">
-              Esta firma quedará registrada como constancia de la inspección.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+            <div>
+              <CardTitle>Firma del Propietario</CardTitle>
+              <CardDescription>
+                El propietario debe firmar en la pantalla
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <SignaturePad onChange={setSignature} disabled={pending} />
+          <p className="text-xs text-muted-foreground mt-2">
+            Esta firma quedará registrada como constancia de la inspección.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* ── Vehicle Documents (both paths) ─────────────────────── */}
       <Card>

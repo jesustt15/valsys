@@ -44,7 +44,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
         const url = await getObjectUrl(att.minioKey)
         return { ...att, url }
       } catch {
-        return { ...att, url: null }
+        return { ...att, url: undefined }
       }
     }),
   )
@@ -141,7 +141,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             appointmentDate={inspection.appointmentDate}
           />
 
-          {(inspection.status === 'recalificacion' || inspection.status === 'por_programar' || inspection.status === 'cita') && (
+          {inspection.status === 'cita' && (
             <PostMountPhotos
               inspectionId={resolvedParams.id}
               existingPhotos={postMountPhotos}
