@@ -67,7 +67,7 @@ export function Sidebar({ role }: SidebarProps) {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
               transition={{ duration: 0.2 }}
-              className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-sm overflow-hidden"
+              className="w-9 h-9.5 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-md overflow-hidden"
             >
               <Image src="/logo/logoagrogas2.png" alt="logo" width={36} height={36} className="object-contain" />
             </motion.div>

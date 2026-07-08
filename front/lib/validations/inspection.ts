@@ -58,13 +58,17 @@ const vehicleFieldsShape = {
   vehicleType: z.enum(['sedan', 'autobus', 'camion', 'pickup', 'camioneta', 'van']),
   brand: z.string().min(2).max(50),
   model: z.string().min(1).max(50),
-  marcaKit: z.string().optional().or(z.literal('')),
+  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'MAT', 'Tartarini', 'OMVL']),
   specificAttributes: z.record(z.string(), z.unknown()).optional(),
 } as const
 
 export const cylinderInputSchema = z.object({
-  brand: z.string().min(1, 'Marca del cilindro es requerida'),
-  capacity: z.string().min(1, 'Capacidad es requerida'),
+  brand: z.enum(['MAT', 'Sinoma', 'Kioshi', 'Cilbras', 'Faber', 'Inflex'], {
+    message: 'Seleccione una marca de cilindro',
+  }),
+  capacity: z.enum(['27', '40', '50', '57', '60', '80', '90', '115'], {
+    message: 'Seleccione una capacidad',
+  }),
   initialSerial: z.string().min(1, 'Número de serie es requerido'),
   location: z.string().min(1, 'Ubicación es requerida'),
   status: z.enum(['en_planta', 'condenado']).optional(),
