@@ -27,7 +27,7 @@ export default function LoginPage() {
         initial={{ opacity: 0, x: -30 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-green-600 via-green-700 to-green-800 flex-col justify-between p-12 text-white relative overflow-hidden"
+        className="hidden lg:flex lg:w-1/2 bg-linear-to-br from-green-600 via-green-700 to-green-800 flex-col justify-between p-12 text-white relative overflow-hidden"
       >
         {/* Background decoration */}
         <div className="absolute inset-0 opacity-10">
@@ -54,7 +54,7 @@ export default function LoginPage() {
             transition={{ delay: 0.4, duration: 0.5 }}
             className="flex items-center gap-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <CheckCircle className="w-6 h-6" />
             </div>
             <div>
@@ -69,7 +69,7 @@ export default function LoginPage() {
             transition={{ delay: 0.5, duration: 0.5 }}
             className="flex items-center gap-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <Zap className="w-6 h-6" />
             </div>
             <div>
@@ -84,7 +84,7 @@ export default function LoginPage() {
             transition={{ delay: 0.6, duration: 0.5 }}
             className="flex items-center gap-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <Shield className="w-6 h-6" />
             </div>
             <div>
@@ -147,7 +147,7 @@ export default function LoginPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3"
               >
-                <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 text-red-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
                 <span className="text-red-800 dark:text-red-200 text-sm">{state.error}</span>
