@@ -37,7 +37,7 @@ export function Topbar({ fullName, role, logoutButton, initialUnreadCount }: Top
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border h-16 flex items-center px-6"
+      className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border h-20 flex items-center py-6 px-6"
     >
       <div className="flex-1" />
 
