@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
+import { LogoContainer } from '@/components/logo-container'
 import { ArrowLeft, ShieldCheck, FileText, Calendar, Truck, User, CheckCircle2, AlertCircle } from 'lucide-react'
 import { getCertificateByCorrelative } from '@/lib/services/certificate'
 import { getObjectUrl } from '@/lib/minio'
@@ -208,7 +209,7 @@ export default async function CorrelativeResultPage({ params }: PageProps) {
 
         {/* Footer */}
         <div className="text-center mt-6">
-          <Image src="/logo/logoagrogas.png" alt="Valsys" width={100} height={30} className="object-contain opacity-80 inline-block" />
+          <LogoContainer src="/logo/logoagrogas.png" alt="Valsys" width={100} height={30} size="md" className="opacity-80" />
           <p className="text-xs text-muted-foreground mt-2">
             Sistema de Gestión de Certificados GNC — Valsys
           </p>

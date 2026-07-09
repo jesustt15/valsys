@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
+import { LogoContainer } from '@/components/logo-container'
 import {
   LayoutDashboard,
   Users,
@@ -56,9 +57,9 @@ export function Sidebar({ role }: SidebarProps) {
               className="flex items-center gap-3"
             >
               <div className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
-                <Image src="/logo/logoagrogas2.png" alt="logochiqui" width={36} height={36} className="object-contain" />
+                <LogoContainer src="/logo/logoagrogas2.png" alt="logochiqui" width={36} height={36} size="sm" />
               </div>
-              <Image src="/logo/logoagrogas.png" alt="logo" width={120} height={36} className="object-contain" />
+              <LogoContainer src="/logo/logoagrogas.png" alt="logo" width={120} height={36} size="md" />
             </motion.div>
           ) : (
             <motion.div
@@ -69,7 +70,7 @@ export function Sidebar({ role }: SidebarProps) {
               transition={{ duration: 0.2 }}
               className="w-9 h-9.5 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-md overflow-hidden"
             >
-              <Image src="/logo/logoagrogas2.png" alt="logo" width={36} height={36} className="object-contain" />
+              <LogoContainer src="/logo/logoagrogas2.png" alt="logo" width={36} height={36} size="sm" />
             </motion.div>
           )}
         </AnimatePresence>

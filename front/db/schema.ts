@@ -73,6 +73,8 @@ export const owners = pgTable('owners', {
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({
   documentIdIdx: index('idx_owners_document_id').on(table.documentId),
+  phoneUniqueIdx: uniqueIndex('idx_owners_phone_unique').on(table.phone),
+  emailUniqueIdx: uniqueIndex('idx_owners_email_unique').on(table.email),
 }));
 
 // ─── 3. Vehicles ────────────────────────────────────────────────

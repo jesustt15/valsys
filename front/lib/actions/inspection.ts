@@ -550,6 +550,30 @@ export async function createUnifiedInspectionAction(
         if (existing) {
           ownerId = existing.id
         } else {
+          // Check phone uniqueness (nullable — multiple NULLs are fine)
+          if (data.phone) {
+            const dupPhone = await tx
+              .select({ id: owners.id })
+              .from(owners)
+              .where(eq(owners.phone, data.phone))
+              .limit(1)
+            if (dupPhone.length > 0) {
+              throw new Error('El número de teléfono ya está registrado para otro propietario')
+            }
+          }
+
+          // Check email uniqueness (nullable — multiple NULLs are fine)
+          if (data.email) {
+            const dupEmail = await tx
+              .select({ id: owners.id })
+              .from(owners)
+              .where(eq(owners.email, data.email))
+              .limit(1)
+            if (dupEmail.length > 0) {
+              throw new Error('El correo electrónico ya está registrado para otro propietario')
+            }
+          }
+
           const [created] = await tx
             .insert(owners)
             .values({

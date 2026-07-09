@@ -39,6 +39,32 @@ export async function updateOwner(id: string, data: UpdateOwnerData): Promise<{ 
     }
   }
 
+  // Phone uniqueness check (exclude self)
+  if (data.phone) {
+    const dupPhone = await db
+      .select({ id: owners.id })
+      .from(owners)
+      .where(and(eq(owners.phone, data.phone), ne(owners.id, id)))
+      .limit(1)
+
+    if (dupPhone.length > 0) {
+      return { success: false, error: 'El número de teléfono ya está registrado para otro propietario' }
+    }
+  }
+
+  // Email uniqueness check (exclude self)
+  if (data.email) {
+    const dupEmail = await db
+      .select({ id: owners.id })
+      .from(owners)
+      .where(and(eq(owners.email, data.email), ne(owners.id, id)))
+      .limit(1)
+
+    if (dupEmail.length > 0) {
+      return { success: false, error: 'El correo electrónico ya está registrado para otro propietario' }
+    }
+  }
+
   try {
     const [owner] = await db
       .update(owners)

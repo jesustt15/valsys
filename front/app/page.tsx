@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Shield, Zap, CheckCircle, ArrowRight } from 'lucide-react'
 import Image from 'next/image'
+import { LogoContainer } from '@/components/logo-container'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -42,7 +43,7 @@ export default function LoginPage() {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="mb-2"
           >
-            <Image src="/logo/logoagrogas.png" alt="Valsys" width={180} height={80} className="object-contain" />
+            <LogoContainer src="/logo/logoagrogas.png" alt="Valsys" width={180} height={80} size="lg" />
           </motion.div>
           <p className="text-green-100 text-base">Sistema de Inspección GNC</p>
         </div>
@@ -95,8 +96,8 @@ export default function LoginPage() {
         </div>
 
         <div>
-          <Image src="/logo/logoagrogas.png" alt="Valsys" width={120} height={34} className="object-contain opacity-90" />
-          <p className="text-green-200 text-xs mt-2">© 2026 ValSys. Todos los derechos reservados.</p>
+          <LogoContainer src="/logo/logoagrogas.png" alt="Valsys" width={120} height={34} size="md" className="opacity-90" />
+          <p className="text-green-200 text-xs mt-2">© 2026 Inspeccion GNC. Todos los derechos reservados.</p>
         </div>
       </motion.div>
 
@@ -117,9 +118,9 @@ export default function LoginPage() {
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
-                <Image src="/logo/logoagrogas2.png" alt="Valsys" width={40} height={40} className="object-contain" />
+                <LogoContainer src="/logo/logoagrogas2.png" alt="Valsys" width={40} height={40} size="sm" />
               </div>
-              <Image src="/logo/logoagrogas.png" alt="Valsys" width={130} height={38} className="object-contain" />
+              <LogoContainer src="/logo/logoagrogas.png" alt="Valsys" width={130} height={38} size="md" />
             </div>
             <p className="text-muted-foreground text-sm">Sistema de Inspección GNC</p>
           </motion.div>
@@ -224,26 +225,6 @@ export default function LoginPage() {
             </p>
           </motion.div>
 
-          {/* Footer Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mt-8 grid grid-cols-3 gap-4"
-          >
-            <div className="text-center p-3 rounded-xl bg-secondary/50">
-              <div className="text-2xl font-bold text-foreground">500+</div>
-              <p className="text-xs text-muted-foreground mt-1">Inspecciones</p>
-            </div>
-            <div className="text-center p-3 rounded-xl bg-green-50 dark:bg-green-900/20">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">98%</div>
-              <p className="text-xs text-muted-foreground mt-1">Precisión</p>
-            </div>
-            <div className="text-center p-3 rounded-xl bg-green-50 dark:bg-green-900/20">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">24/7</div>
-              <p className="text-xs text-muted-foreground mt-1">Disponible</p>
-            </div>
-          </motion.div>
         </div>
       </motion.div>
     </div>
