@@ -581,8 +581,8 @@ export function UnifiedInspectionForm({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center">
-              <User className="w-5 h-5 text-green-600" />
+            <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
+              <User className="w-5 h-5 text-primary" />
             </div>
             <div>
               <CardTitle>Propietario</CardTitle>
@@ -650,7 +650,6 @@ export function UnifiedInspectionForm({
 
           {/*Contenedor Tipo Doc, Nro Documento y Telefono*/}
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            
             {/*Contenedor Tipo Doc y Número Doc*/}
             <div className="grid grid-cols-3 gap-2 md:col-span-3">
               {/*Tipo Doc*/}
@@ -711,17 +710,15 @@ export function UnifiedInspectionForm({
               placeholder="correo@ejemplo.com"
             />
           </div>
-          
         </CardContent>
       </Card>
 
       {/* ── Vehicle Section ──────────────────────────────────── */}
-
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl flex items-center justify-center">
-              <Truck className="w-5 h-5 text-emerald-600" />
+            <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
+              <Truck className="w-5 h-5 text-primary" />
             </div>
             <div>
               <CardTitle>Vehículo</CardTitle>
@@ -774,48 +771,12 @@ export function UnifiedInspectionForm({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="codigoUnicoGnc">Código Único GNC</Label>
-              <Input
-                id="codigoUnicoGnc"
-                name="codigoUnicoGnc"
-                value={codigoUnicoGnc}
-                onChange={(e) =>
-                  setCodigoUnicoGnc(e.target.value.toUpperCase())
-                }
-                maxLength={50}
-                disabled={pending || !!foundVehicle}
-                placeholder="Código Único GNC (Opcional)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="licensePlate">Placa</Label>
-              <Input
-                id="licensePlate"
-                name="licensePlate"
-                value={licensePlate}
-                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
-                disabled={pending || !!foundVehicle}
-                maxLength={7}
-                placeholder="Ej: A123BC4 o AB123C"
-              />
-              <p className="text-xs text-muted-foreground">
-                6 a 7 caracteres alfanuméricos (comienza con letra)
-              </p>
-            </div>
-          </div>
-
-          {/* Tipo, Marca y Modelo*/}
+          {/* Contenedor Tipo, Marca y Modelo*/}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-            {/* Tipo de Vehiculo*/}             
+            {/* Tipo */}
             <div className="space-y-2">
               <Label htmlFor="vehicleType">Tipo</Label>
-              <Select
-                value={vehicleType}
-                onValueChange={setVehicleType}
-              >
+              <Select value={vehicleType} onValueChange={setVehicleType}>
                 <SelectTrigger
                   disabled={pending || !!foundVehicle}
                   className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -859,14 +820,47 @@ export function UnifiedInspectionForm({
               />
             </div>
           </div>
-          
+
+          {/* Contenedor Placa y Código Único GNC */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Placa */}
+            <div className="space-y-2">
+              <Label htmlFor="licensePlate">Placa</Label>
+              <Input
+                id="licensePlate"
+                name="licensePlate"
+                value={licensePlate}
+                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+                disabled={pending || !!foundVehicle}
+                maxLength={7}
+                placeholder="Ej: A123BC4 o AB123C"
+              />
+              <p className="text-xs text-muted-foreground">
+                6 a 7 caracteres alfanuméricos (comienza con letra)
+              </p>
+            </div>
+
+            {/* Código Único GNC */}
+            <div className="space-y-2">
+              <Label htmlFor="codigoUnicoGnc">Código Único GNC</Label>
+              <Input
+                id="codigoUnicoGnc"
+                name="codigoUnicoGnc"
+                value={codigoUnicoGnc}
+                onChange={(e) =>
+                  setCodigoUnicoGnc(e.target.value.toUpperCase())
+                }
+                maxLength={50}
+                disabled={pending || !!foundVehicle}
+                placeholder="Código Único GNC (Opcional)"
+              />
+            </div>
+          </div>
+
           {/* Marca de KIT GNC */}
           <div className="space-y-2">
             <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
-            <Select
-              value={marcaKit}
-              onValueChange={setMarcaKit}
-            >
+            <Select value={marcaKit} onValueChange={setMarcaKit}>
               <SelectTrigger
                 disabled={pending || !!foundVehicle}
                 className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -937,7 +931,7 @@ export function UnifiedInspectionForm({
           {/* Front Questions */}
           <Card>
             <ChecklistSection
-              title="Checklist — Frente"
+              title="Checklist - Frente"
               questions={FRONT_QUESTIONS}
               answers={answers}
               setAnswer={setAnswer}
@@ -949,7 +943,7 @@ export function UnifiedInspectionForm({
           {/* Rear Questions */}
           <Card>
             <ChecklistSection
-              title="Checklist — Parte Trasera"
+              title="Checklist - Parte Trasera"
               questions={REAR_QUESTIONS}
               answers={answers}
               setAnswer={setAnswer}
@@ -1013,7 +1007,6 @@ export function UnifiedInspectionForm({
                   </Button>
                   <h4 className="font-medium text-sm">Cilindro #{idx + 1}</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    
                     <div className="space-y-2">
                       <Label>Marca</Label>
                       <Select
@@ -1315,7 +1308,7 @@ export function UnifiedInspectionForm({
           type="submit"
           size="lg"
           disabled={pending}
-          className="bg-green-600 hover:bg-green-700 shadow-lg shadow-green-600/25 min-w-[200px]"
+          className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 min-w-[200px]"
         >
           {pending ? (
             <div className="flex items-center gap-2">
@@ -1392,7 +1385,7 @@ function ChecklistSection({
               className="rounded-xl border border-border bg-secondary/30 p-4"
             >
               <div className="flex items-start gap-3">
-                <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-primary/10 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
+                <span className="shrink-0 w-7 h-7 rounded-lg bg-primary/20 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
                   {idx + 1}
                 </span>
 
@@ -1408,12 +1401,12 @@ function ChecklistSection({
                       disabled={disabled}
                       className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
                         current.answer === true
-                          ? "bg-green-50 border-green-300 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400 shadow-sm"
-                          : "bg-background border-border text-muted-foreground hover:border-green-200 hover:text-green-600"
+                          ? "bg-primary/10 border-primary text-primary dark:bg-primary/20 dark:border-primary dark:text-primary shadow-sm"
+                          : "bg-background border-border text-muted-foreground hover:border-primary/30 hover:text-primary"
                       }`}
                     >
                       <span
-                        className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === true ? "bg-green-500" : "bg-muted"}`}
+                        className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === true ? "bg-primary" : "bg-muted"}`}
                       />
                       Sí
                     </button>
