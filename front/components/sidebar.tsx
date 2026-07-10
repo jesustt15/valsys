@@ -1,11 +1,10 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import Image from 'next/image'
-import { LogoContainer } from '@/components/logo-container'
+import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import {
   LayoutDashboard,
   Users,
@@ -14,34 +13,34 @@ import {
   UserCog,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react'
+} from "lucide-react";
 
 interface SidebarProps {
-  role: string
+  role: string;
 }
 
 export function Sidebar({ role }: SidebarProps) {
-  const pathname = usePathname()
-  const [isOpen, setIsOpen] = useState(true)
+  const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(true);
 
   const menuItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    { label: 'Dueños', href: '/owners', icon: Users },
-    { label: 'Vehículos', href: '/vehicles', icon: Truck },
-    { label: 'Inspecciones', href: '/inspections', icon: ClipboardCheck },
-  ]
+    { label: "Inspecciones", href: "/inspections", icon: ClipboardCheck },
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { label: "Dueños", href: "/owners", icon: Users },
+    { label: "Vehículos", href: "/vehicles", icon: Truck },
+  ];
 
   const adminItems = [
-    { label: 'Usuarios', href: '/admin/users', icon: UserCog },
-  ]
+    { label: "Usuarios", href: "/admin/users", icon: UserCog },
+  ];
 
-  const isActive = (href: string) => pathname === href
-  const isAdmin = role === 'admin'
+  const isActive = (href: string) => pathname === href;
+  const isAdmin = role === "admin";
 
   return (
     <motion.aside
       animate={{ width: isOpen ? 256 : 80 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
       className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col"
     >
       {/* Logo */}
@@ -57,9 +56,21 @@ export function Sidebar({ role }: SidebarProps) {
               className="flex items-center gap-3"
             >
               <div className="w-9 h-9 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-sm overflow-hidden">
-                <LogoContainer src="/logo/logoagrogas2.png" alt="logochiqui" width={36} height={36} size="sm" />
+                <Image
+                  src="/logo/logoagrogas2.png"
+                  alt="logochiqui"
+                  width={36}
+                  height={36}
+                  className="object-contain"
+                />
               </div>
-              <LogoContainer src="/logo/logoagrogas.png" alt="logo" width={120} height={36} size="md" />
+              <Image
+                src="/logo/logoagrogas.png"
+                alt="logo"
+                width={120}
+                height={36}
+                className="object-contain drop-shadow-[0_0_0.1px_rgba(255,255,255,0.5)]"
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -70,7 +81,13 @@ export function Sidebar({ role }: SidebarProps) {
               transition={{ duration: 0.2 }}
               className="w-9 h-9.5 bg-sidebar-primary rounded-xl flex items-center justify-center mx-auto shadow-md overflow-hidden"
             >
-              <LogoContainer src="/logo/logoagrogas2.png" alt="logo" width={36} height={36} size="sm" />
+              <Image
+                src="/logo/logoagrogas2.png"
+                alt="logo"
+                width={36}
+                height={36}
+                className="object-contain"
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -79,16 +96,16 @@ export function Sidebar({ role }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-5 space-y-1.5">
         {menuItems.map((item) => {
-          const Icon = item.icon
-          const active = isActive(item.href)
+          const Icon = item.icon;
+          const active = isActive(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
               className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden ${
                 active
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                  : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground'
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
+                  : "text-sidebar-foreground/80 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground"
               }`}
               title={!isOpen ? item.label : undefined}
             >
@@ -104,7 +121,7 @@ export function Sidebar({ role }: SidebarProps) {
                 {isOpen && (
                   <motion.span
                     initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
+                    animate={{ opacity: 1, width: "auto" }}
                     exit={{ opacity: 0, width: 0 }}
                     transition={{ duration: 0.15 }}
                     className="font-medium whitespace-nowrap overflow-hidden"
@@ -114,7 +131,7 @@ export function Sidebar({ role }: SidebarProps) {
                 )}
               </AnimatePresence>
             </Link>
-          )
+          );
         })}
 
         {/* Admin Section */}
@@ -127,16 +144,16 @@ export function Sidebar({ role }: SidebarProps) {
               </p>
             )}
             {adminItems.map((item) => {
-              const Icon = item.icon
-              const active = isActive(item.href)
+              const Icon = item.icon;
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 ${
                     active
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/80 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground'
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/80 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground"
                   }`}
                   title={!isOpen ? item.label : undefined}
                 >
@@ -154,7 +171,7 @@ export function Sidebar({ role }: SidebarProps) {
                     )}
                   </AnimatePresence>
                 </Link>
-              )
+              );
             })}
           </>
         )}
@@ -165,7 +182,7 @@ export function Sidebar({ role }: SidebarProps) {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="w-full flex items-center justify-center p-2.5 rounded-xl text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground transition-all duration-200"
-          aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+          aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
         >
           {isOpen ? (
             <ChevronLeft className="w-5 h-5" />
@@ -175,5 +192,5 @@ export function Sidebar({ role }: SidebarProps) {
         </button>
       </div>
     </motion.aside>
-  )
+  );
 }
