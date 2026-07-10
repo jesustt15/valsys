@@ -4,6 +4,7 @@ import { useActionState } from 'react'
 import { motion } from 'framer-motion'
 import { Search, ShieldCheck } from 'lucide-react'
 import Image from 'next/image'
+import { LogoContainer } from '@/components/logo-container'
 import { searchAction } from '@/lib/actions/search'
 
 export default function ConsultaPage() {
@@ -64,7 +65,7 @@ export default function ConsultaPage() {
 
         {/* Footer */}
         <div className="text-center mt-8">
-          <Image src="/logo/logoagrogas.png" alt="Valsys" width={110} height={32} className="object-contain opacity-80 inline-block" />
+          <LogoContainer src="/logo/logoagrogas.png" alt="Valsys" width={110} height={32} size="md" className="opacity-80" />
           <p className="text-xs text-muted-foreground mt-2">
             Sistema de Gestión de Certificados GNC — Valsys
           </p>

@@ -47,7 +47,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   )
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
           <CardTitle>Cilindros GNC</CardTitle>
@@ -130,7 +130,8 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={
-                        cyl.status === 'en_planta' ? 'warning'
+                        cyl.status === 'desmontado' ? 'warning'
+                          : cyl.status === 'en_planta' ? 'warning'
                           : cyl.status === 'pendiente_reinstalacion' ? 'warning'
                           : cyl.status === 'condenado' ? 'destructive'
                           : cyl.status === 'instalado' ? 'success'
@@ -138,6 +139,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                           : 'info'
                       }>
                         {cyl.status === 'instalado' ? 'Instalado'
+                          : cyl.status === 'desmontado' ? 'Desmontado'
                           : cyl.status === 'reinstalado' ? 'Reinstalado'
                           : cyl.status === 'condenado' ? 'Condenado (De baja)'
                           : cyl.status === 'en_planta' ? 'En Planta'
@@ -243,7 +245,37 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
               )
             }
 
-            // Default: instalado / reinstalado / condenado — show full status editor
+            if (currentStatus === 'condenado') {
+              return (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mt-4"
+                >
+                  <div className="bg-muted/30 p-4 rounded-xl border border-border space-y-3">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-muted-foreground shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-sm text-muted-foreground">
+                          Cilindro Condenado
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Este cilindro fue dado de baja. No se pueden realizar más acciones.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                        Cerrar
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            }
+
+            // Default: instalado / reinstalado — show dismount form (no status dropdown)
             return (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
@@ -251,71 +283,45 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                 exit={{ opacity: 0, height: 0 }}
                 className="overflow-hidden mt-4"
               >
-                <form action={updateFormAction} className="bg-green-50/50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-800 space-y-4">
+                <form action={updateFormAction} className="bg-amber-50/50 dark:bg-amber-900/10 p-4 rounded-xl border border-amber-200 dark:border-amber-800 space-y-4">
                   <h4 className="font-medium text-sm flex items-center gap-2">
-                    <Edit2 className="w-4 h-4 text-green-500" />
-                    Actualizar Estado de Cilindro
+                    <Camera className="w-4 h-4 text-amber-600" />
+                    Desmontaje de Cilindro
                   </h4>
                   <input type="hidden" name="id" value={editingId} />
                   <input type="hidden" name="inspectionId" value={inspectionId} />
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="status">Nuevo Estado</Label>
-                        <select
-                          name="status"
-                          defaultValue={currentStatus}
-                          onChange={(e) => setSelectedStatus(e.target.value)}
-                          className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
-                        >
-                          {currentStatus === 'instalado' && (
-                            <>
-                              <option value="en_planta">En Planta (Desmontado)</option>
-                              <option value="condenado">Condenado (De baja)</option>
-                            </>
-                          )}
-                          {currentStatus === 'reinstalado' && (
-                            <>
-                              <option value="en_planta">En Planta (Desmontado)</option>
-                              <option value="condenado">Condenado (De baja)</option>
-                            </>
-                          )}
-                          {currentStatus === 'condenado' && <option value="condenado" disabled>Condenado (De baja)</option>}
-                        </select>
-                      </div>
+                  <input type="hidden" name="status" value="en_planta" />
+                  <input type="hidden" name="category" value="removal" />
 
-                      {/* Firma del propietario — solo al desmontaje */}
-                      <AnimatePresence>
-                        {(selectedStatus === 'en_planta' || (selectedStatus === '' && (currentStatus === 'instalado' || currentStatus === 'reinstalado'))) && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="space-y-2 pt-2">
-                              <Label className="flex items-center gap-2">
-                                <PenLine className="w-4 h-4 text-violet-500" />
-                                Firma del Propietario
-                              </Label>
-                              <p className="text-xs text-muted-foreground">
-                                El titular firma confirmando el retiro de los cilindros.
-                              </p>
-                              <SignaturePad onChange={setSignature} disabled={updatePending} />
-                              {/* Hidden field: se envía al server action */}
-                              <input type="hidden" name="signature" value={signature} />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                  <div className="flex items-start gap-3 p-3 bg-amber-100 dark:bg-amber-900/20 rounded-xl">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="text-sm text-amber-800 dark:text-amber-300">
+                      <p className="font-medium">{cyl?.brand} — {cyl?.capacity}L</p>
+                      <p className="text-amber-700 dark:text-amber-400 mt-1">
+                        Serial: <code className="font-mono">{cyl?.actualSerial || cyl?.initialSerial}</code>
+                      </p>
+                      <p className="text-amber-700 dark:text-amber-400 mt-1">
+                        El cilindro pasará a estado <strong>En Planta</strong>. Capture fotos de evidencia y la firma del propietario.
+                      </p>
                     </div>
+                  </div>
 
-                    <div className="space-y-2">
-                      <Label>Fotos de Evidencia</Label>
-                      <input type="hidden" name="category" value="removal" />
-                      <PhotoUpload category="removal" label="Fotos del cilindro/desmontaje" />
-                    </div>
+                  {/* Firma del propietario — obligatoria al desmontaje */}
+                  <div className="space-y-2 pt-2">
+                    <Label className="flex items-center gap-2">
+                      <PenLine className="w-4 h-4 text-violet-500" />
+                      Firma del Propietario <span className="text-red-500">*</span>
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      El titular firma confirmando el retiro de los cilindros.
+                    </p>
+                    <SignaturePad onChange={setSignature} disabled={updatePending} />
+                    <input type="hidden" name="signature" value={signature} />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Fotos de Evidencia</Label>
+                    <PhotoUpload category="removal" label="Fotos del cilindro/desmontaje" />
                   </div>
 
                   {updateState?.error && (
@@ -329,8 +335,8 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <Button type="button" variant="ghost" onClick={() => setEditingId(null)}>
                       Cancelar
                     </Button>
-                    <Button type="submit" disabled={updatePending}>
-                      {updatePending ? 'Guardando...' : 'Guardar Cambios'}
+                    <Button type="submit" disabled={updatePending} className="bg-amber-600 hover:bg-amber-700 text-white">
+                      {updatePending ? 'Guardando...' : '✓ Desmontar Cilindro'}
                     </Button>
                   </div>
                 </form>

@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates } from '@/db/schema'
-import { eq, inArray, count, sql } from 'drizzle-orm'
+import { eq, inArray, count, sql, asc } from 'drizzle-orm'
 
 export interface StatusCounts {
   inspeccion_inicial: number
@@ -272,8 +272,8 @@ export async function scheduleAppointment(
     return { success: false, error: 'Inspección no encontrada' }
   }
 
-  if (inspection.status !== 'por_programar') {
-    return { success: false, error: 'La inspección debe estar en estado "por programar"' }
+  if (inspection.status !== 'por_programar' && inspection.status !== 'cita') {
+    return { success: false, error: 'La inspección debe estar en estado "por programar" o "cita"' }
   }
 
   // Verify appointmentDate is in the future
@@ -281,12 +281,12 @@ export async function scheduleAppointment(
     return { success: false, error: 'La fecha de la cita debe ser futura' }
   }
 
-  // Update status to cita + set appointment_date
+  // Update appointment date; transition status to cita only if currently por_programar
   await db
     .update(inspections)
     .set({
-      status: 'cita',
       appointmentDate,
+      ...(inspection.status === 'por_programar' ? { status: 'cita' } : {}),
       updatedAt: new Date(),
     })
     .where(eq(inspections.id, inspectionId))

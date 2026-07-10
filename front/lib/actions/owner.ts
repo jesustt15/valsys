@@ -33,7 +33,7 @@ export async function createOwner(
   const { fullName, documentType, documentNumber, phone, email } = parsed.data
   const documentId = buildDocumentId(documentType, documentNumber)
 
-  // Checkear duplicado
+  // Checkear duplicado por documento
   const existing = await db
     .select({ id: owners.id })
     .from(owners)
@@ -42,6 +42,32 @@ export async function createOwner(
 
   if (existing.length > 0) {
     return { error: `Ya existe un dueño con documento ${documentId}` }
+  }
+
+  // Checkear duplicado por teléfono
+  if (phone) {
+    const dupPhone = await db
+      .select({ id: owners.id })
+      .from(owners)
+      .where(eq(owners.phone, phone))
+      .limit(1)
+
+    if (dupPhone.length > 0) {
+      return { error: 'El número de teléfono ya está registrado para otro propietario' }
+    }
+  }
+
+  // Checkear duplicado por correo
+  if (email) {
+    const dupEmail = await db
+      .select({ id: owners.id })
+      .from(owners)
+      .where(eq(owners.email, email))
+      .limit(1)
+
+    if (dupEmail.length > 0) {
+      return { error: 'El correo electrónico ya está registrado para otro propietario' }
+    }
   }
 
   // Insertar

@@ -94,36 +94,45 @@ export async function createCertificateAction(
   // 4c. Get certifiable cylinders (for document assembly)
   const certifiableCylinders = await getCertifiableCylinders(validatedInspectionId)
 
-  // 5. Validate PDF file
+  // 5. Upload to MinIO (optional — correlative-only is valid)
   const plantDoc = formData.get('plantDoc') as File | null
+  let minioKey: string | null = null
 
-  if (!plantDoc || plantDoc.size === 0 || plantDoc.type !== 'application/pdf') {
-    return {
-      error: 'El documento de planta es requerido y debe ser PDF',
-      fields: { correlativeNumber: validatedCorrelative },
+  if (plantDoc && plantDoc.size > 0) {
+    if (plantDoc.type !== 'application/pdf') {
+      return {
+        error: 'El documento de planta debe ser PDF',
+        fields: { correlativeNumber: validatedCorrelative },
+      }
+    }
+
+    minioKey = `certificates/${validatedInspectionId}/plant/${validatedCorrelative}.pdf`
+
+    try {
+      await putObject(minioKey, plantDoc)
+    } catch (e) {
+      console.error('Error uploading certificate to MinIO:', e)
+      return {
+        error: 'Error al subir el documento. Intente de nuevo.',
+        fields: { correlativeNumber: validatedCorrelative },
+      }
     }
   }
 
-  // 6. Upload to MinIO
-  const minioKey = `certificates/${validatedInspectionId}/plant/${validatedCorrelative}.pdf`
-
+  // 6. Insert certificate + transition status in transaction
   try {
-    await putObject(minioKey, plantDoc)
-  } catch (e) {
-    console.error('Error uploading certificate to MinIO:', e)
-    return {
-      error: 'Error al subir el documento. Intente de nuevo.',
-      fields: { correlativeNumber: validatedCorrelative },
-    }
-  }
+    await db.transaction(async (tx) => {
+      await tx.insert(certificates).values({
+        inspectionId: validatedInspectionId,
+        correlativeNumber: validatedCorrelative,
+        plantDocKey: minioKey,
+        issueDate: new Date().toISOString().split('T')[0],
+      })
 
-  // 7. Insert certificate record
-  try {
-    await db.insert(certificates).values({
-      inspectionId: validatedInspectionId,
-      correlativeNumber: validatedCorrelative,
-      plantDocKey: minioKey,
-      issueDate: new Date().toISOString().split('T')[0], // today's date as YYYY-MM-DD
+      await tx
+        .update(inspections)
+        .set({ status: 'certificado', updatedAt: new Date() })
+        .where(eq(inspections.id, validatedInspectionId))
     })
   } catch (e) {
     console.error('Error creating certificate record:', e)
@@ -133,7 +142,25 @@ export async function createCertificateAction(
     }
   }
 
+  // Auto-transition cylinders after certificate issuance
+  try {
+    const { autoTransitionCylinders } = await import('@/lib/services/cylinder')
+    const [inspectionWithVehicle] = await db
+      .select({ vehicleId: inspections.vehicleId })
+      .from(inspections)
+      .where(eq(inspections.id, validatedInspectionId))
+      .limit(1)
+
+    if (inspectionWithVehicle?.vehicleId) {
+      await autoTransitionCylinders(inspectionWithVehicle.vehicleId, 'certificado')
+    }
+  } catch (e) {
+    console.error('Failed to auto-transition cylinders to reinstalado:', e)
+  }
+
   revalidatePath(`/inspections/${validatedInspectionId}`)
+  revalidatePath('/inspections')
+  revalidatePath('/dashboard')
 
   return {
     success: true,

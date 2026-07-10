@@ -71,7 +71,7 @@ export const cylinderInputSchema = z.object({
   }),
   initialSerial: z.string().min(1, 'Número de serie es requerido'),
   location: z.string().min(1, 'Ubicación es requerida'),
-  status: z.enum(['en_planta', 'condenado']).optional(),
+  status: z.literal('desmontado').optional(),
 })
 
 const montadosSchema = z.object({
@@ -102,7 +102,7 @@ const desmontadosSchema = z.object({
   ),
   observations: z.string().optional(),
   answers: z.array(checklistAnswerSchema).max(0, 'No se permiten respuestas de checklist en desmontados'),
-  signature: z.string().optional(),
+  signature: z.string().min(1, 'La firma del propietario es obligatoria'),
   cylinders: z.array(cylinderInputSchema).min(1, 'Al menos un cilindro es requerido'),
 })
 

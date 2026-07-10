@@ -62,7 +62,7 @@ export default function LoginPage() {
             transition={{ delay: 0.4, duration: 0.5 }}
             className="flex items-center gap-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <CheckCircle className="w-6 h-6" />
             </div>
             <div>
@@ -79,7 +79,7 @@ export default function LoginPage() {
             transition={{ delay: 0.5, duration: 0.5 }}
             className="flex items-center gap-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <Zap className="w-6 h-6" />
             </div>
             <div>
@@ -96,7 +96,7 @@ export default function LoginPage() {
             transition={{ delay: 0.6, duration: 0.5 }}
             className="flex items-center gap-4 p-4 bg-white/10 rounded-xl backdrop-blur-sm"
           >
-            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shrink-0">
               <Shield className="w-6 h-6" />
             </div>
             <div>

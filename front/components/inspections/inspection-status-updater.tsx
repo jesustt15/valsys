@@ -22,12 +22,12 @@ export function InspectionStatusUpdater({ inspectionId, currentStatus }: Props) 
   const [state, action, pending] = useActionState(updateInspectionStatusAction, null)
 
   // Hide status updater for terminal statuses — use CertificateCard actions instead
-  if (currentStatus === 'por_programar' || currentStatus === 'cita' || currentStatus === 'certificado') {
+  if (currentStatus === 'cita' || currentStatus === 'certificado') {
     return null
   }
 
   return (
-    <Card className="h-full flex flex-col">
+    <Card className="flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <RefreshCw className="w-5 h-5 text-green-500" />
