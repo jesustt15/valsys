@@ -37,7 +37,7 @@ const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive
   inspeccion_inicial: 'info',
   recalificacion: 'warning',
   por_programar: 'destructive',
-  cita: 'info',
+  cita: 'purple',
   certificado: 'success',
 }
 

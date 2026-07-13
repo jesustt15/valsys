@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useActionState } from 'react'
+import { useState, useActionState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw, PenLine } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,14 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
     updateCylinderStatusAction,
     null
   )
+
+  // Clear editing form after successful update
+  useEffect(() => {
+    if (updateState?.success) {
+      setEditingId(null)
+      setSignature('')
+    }
+  }, [updateState?.success])
 
   return (
     <Card className="flex flex-col">
@@ -168,6 +176,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
             if (currentStatus === 'en_planta') {
               return (
                 <motion.div
+                  key="en-planta-info"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -198,6 +207,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
             if (currentStatus === 'pendiente_reinstalacion') {
               return (
                 <motion.div
+                  key="reinstalacion-form"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -248,6 +258,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
             if (currentStatus === 'condenado') {
               return (
                 <motion.div
+                  key="condenado-info"
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
@@ -278,6 +289,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
             // Default: instalado / reinstalado — show dismount form (no status dropdown)
             return (
               <motion.div
+                key="desmontaje-form"
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}

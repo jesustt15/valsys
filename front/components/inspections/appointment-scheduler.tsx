@@ -79,7 +79,7 @@ export function AppointmentScheduler({
               <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                 Reagendar
               </Button>
-              <Badge variant="info">Cita</Badge>
+              <Badge variant="purple">Cita</Badge>
             </div>
           </motion.div>
         </CardContent>
@@ -118,7 +118,7 @@ export function AppointmentScheduler({
               <CheckCircle className="h-4 w-4" />
               <AlertDescription>
                 La cita fue programada exitosamente para el <strong>{formatted}</strong>.
-                El estado de la inspección cambió a <Badge variant="info" className="ml-1">Cita</Badge>.
+                El estado de la inspección cambió a <Badge variant="purple" className="ml-1">Cita</Badge>.
               </AlertDescription>
             </Alert>
           </motion.div>
