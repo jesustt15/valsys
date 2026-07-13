@@ -116,7 +116,9 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
     setCameraError(true)
     setErrorCount((prev) => {
       const next = prev + 1
-      if (next >= 2 && isMobileRef.current) {
+      // On mobile, show gallery fallback on FIRST failure
+      // (permission denied is permanent, not transient)
+      if (isMobileRef.current) {
         setShowGalleryFallback(true)
       }
       return next
@@ -302,6 +304,15 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
               <p className="text-center text-sm max-w-xs">
                 No se pudo acceder a la cámara. Verificá los permisos e intentá de nuevo.
               </p>
+              {/* iOS-specific help — show on any touch device */}
+              {isMobileRef.current && (
+                <div className="text-xs text-white/50 text-center max-w-xs bg-white/5 rounded-xl px-4 py-3 space-y-1">
+                  <p className="font-medium text-white/70">En iPhone/iPad:</p>
+                  <p>1. Abrí <strong>Configuración → Safari → Cámara</strong></p>
+                  <p>2. Asegurate de que esté en <strong>"Permitir"</strong></p>
+                  <p className="mt-1">Si ya está permitido, el sitio necesita <strong>HTTPS</strong>.</p>
+                </div>
+              )}
               <Button
                 onClick={handleRetry}
                 variant="outline"
