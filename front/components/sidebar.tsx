@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,15 +13,20 @@ import {
   UserCog,
   ChevronLeft,
   ChevronRight,
+  X,
 } from "lucide-react";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface SidebarProps {
   role: string;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-export function Sidebar({ role }: SidebarProps) {
+export function Sidebar({ role, isMobileOpen = false, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(true);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const menuItems = [
     { label: "Inspecciones", href: "/inspections", icon: ClipboardCheck },
@@ -37,12 +42,22 @@ export function Sidebar({ role }: SidebarProps) {
   const isActive = (href: string) => pathname === href;
   const isAdmin = role === "admin";
 
-  return (
-    <motion.aside
-      animate={{ width: isOpen ? 256 : 80 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col"
-    >
+  // Close mobile drawer on Escape key
+  useEffect(() => {
+    if (!isDesktop) {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape" && isMobileOpen) {
+          onMobileClose?.();
+        }
+      };
+      document.addEventListener("keydown", handleKeyDown);
+      return () => document.removeEventListener("keydown", handleKeyDown);
+    }
+  }, [isDesktop, isMobileOpen, onMobileClose]);
+
+  /** Shared nav content — reused by both desktop and mobile modes */
+  const navContent = (
+    <>
       {/* Logo */}
       <div className="p-5 border-b border-sidebar-border flex items-center justify-between">
         <AnimatePresence mode="wait">
@@ -91,6 +106,16 @@ export function Sidebar({ role }: SidebarProps) {
             </motion.div>
           )}
         </AnimatePresence>
+        {/* Close button — only visible on mobile drawer */}
+        {!isDesktop && (
+          <button
+            onClick={onMobileClose}
+            className="p-2 rounded-lg hover:bg-sidebar-accent/20 transition-colors"
+            aria-label="Cerrar menú"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -102,6 +127,7 @@ export function Sidebar({ role }: SidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              onClick={!isDesktop ? onMobileClose : undefined}
               className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden ${
                 active
                   ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
@@ -150,6 +176,7 @@ export function Sidebar({ role }: SidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={!isDesktop ? onMobileClose : undefined}
                   className={`flex items-center gap-3 px-3.5 py-3 rounded-xl transition-all duration-200 ${
                     active
                       ? "bg-sidebar-accent text-sidebar-accent-foreground"
@@ -177,20 +204,65 @@ export function Sidebar({ role }: SidebarProps) {
         )}
       </nav>
 
-      {/* Toggle Button */}
-      <div className="p-4 border-t border-sidebar-border/50">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-center p-2.5 rounded-xl text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground transition-all duration-200"
-          aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
-        >
-          {isOpen ? (
-            <ChevronLeft className="w-5 h-5" />
-          ) : (
-            <ChevronRight className="w-5 h-5" />
-          )}
-        </button>
-      </div>
-    </motion.aside>
+      {/* Toggle Button — desktop only */}
+      {isDesktop && (
+        <div className="p-4 border-t border-sidebar-border/50">
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-full flex items-center justify-center p-2.5 rounded-xl text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground transition-all duration-200"
+            aria-label={isOpen ? "Collapse sidebar" : "Expand sidebar"}
+          >
+            {isOpen ? (
+              <ChevronLeft className="w-5 h-5" />
+            ) : (
+              <ChevronRight className="w-5 h-5" />
+            )}
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  // ── Desktop mode: existing sidebar behavior ───────────────────────────
+  if (isDesktop) {
+    return (
+      <motion.aside
+        animate={{ width: isOpen ? 256 : 80 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col flex-shrink-0"
+      >
+        {navContent}
+      </motion.aside>
+    );
+  }
+
+  // ── Mobile mode: off-canvas drawer ────────────────────────────────────
+  return (
+    <>
+      {/* Backdrop */}
+      <AnimatePresence>
+        {isMobileOpen && (
+          <motion.div
+            key="backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 bg-black/50 z-40"
+            onClick={onMobileClose}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Drawer */}
+      <motion.aside
+        animate={{ x: isMobileOpen ? 0 : -288 }}
+        initial={{ x: -288 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        className="fixed top-0 left-0 z-50 w-72 h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col shadow-2xl"
+      >
+        {navContent}
+      </motion.aside>
+    </>
   );
 }

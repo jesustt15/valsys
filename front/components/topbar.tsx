@@ -6,17 +6,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { NotificationPanel } from '@/components/notification-panel'
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react'
+import { useMediaQuery } from '@/hooks/use-media-query'
+import { User, Settings, LogOut, ChevronDown, Menu } from 'lucide-react'
 
 interface TopbarProps {
   fullName: string
   role: string
   logoutButton: ReactNode
   initialUnreadCount?: number
+  onMenuToggle?: () => void
 }
 
-export function Topbar({ fullName, role, logoutButton, initialUnreadCount }: TopbarProps) {
+export function Topbar({ fullName, role, logoutButton, initialUnreadCount, onMenuToggle }: TopbarProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const isDesktop = useMediaQuery('(min-width: 1024px)')
 
   const initials = fullName
     .split(' ')
@@ -37,8 +40,19 @@ export function Topbar({ fullName, role, logoutButton, initialUnreadCount }: Top
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border h-20 flex items-center py-6 px-6"
+      className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border h-16 md:h-20 flex items-center py-3 md:py-6 px-4 md:px-6"
     >
+      {/* Hamburger — mobile only */}
+      {!isDesktop && (
+        <button
+          onClick={onMenuToggle}
+          className="p-2 rounded-xl hover:bg-secondary transition-colors mr-2"
+          aria-label="Abrir menú"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+
       <div className="flex-1" />
 
       {/* Right side */}

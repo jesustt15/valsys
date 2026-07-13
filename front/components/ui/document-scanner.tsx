@@ -4,7 +4,7 @@ import { useRef, useState, useCallback, useEffect } from 'react'
 import Webcam from 'react-webcam'
 import jsPDF from 'jspdf'
 import { Button } from '@/components/ui/button'
-import { Camera, RotateCcw, Check, X, ScanLine, FileOutput } from 'lucide-react'
+import { Camera, RotateCcw, Check, X, ScanLine, FileOutput, Loader2, AlertCircle, Upload } from 'lucide-react'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 interface Point { x: number; y: number }
@@ -82,6 +82,7 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
   const webcamRef = useRef<Webcam>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [step, setStep] = useState<'camera' | 'adjust' | 'preview'>('camera')
   const [capturedImg, setCapturedImg] = useState<string | null>(null)
@@ -89,6 +90,79 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
   const [dragging, setDragging] = useState<number | null>(null)
+
+  // ── Scanner UX states (iOS compat + error handling) ────────────────────
+  const [isReady, setIsReady] = useState(false)
+  const [cameraError, setCameraError] = useState(false)
+  const [errorCount, setErrorCount] = useState(0)
+  const [showGalleryFallback, setShowGalleryFallback] = useState(false)
+  const [webcamKey, setWebcamKey] = useState(0)
+  const isMobileRef = useRef(false)
+
+  // Detect mobile once on mount (feature detection > UA sniffing)
+  useEffect(() => {
+    isMobileRef.current =
+      typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0
+  }, [])
+
+  // ── Camera lifecycle callbacks ─────────────────────────────────────────
+  const handleUserMedia = useCallback(() => {
+    setIsReady(true)
+    setCameraError(false)
+  }, [])
+
+  const handleUserMediaError = useCallback(() => {
+    setIsReady(false)
+    setCameraError(true)
+    setErrorCount((prev) => {
+      const next = prev + 1
+      if (next >= 2 && isMobileRef.current) {
+        setShowGalleryFallback(true)
+      }
+      return next
+    })
+  }, [])
+
+  const handleRetry = useCallback(() => {
+    setCameraError(false)
+    setIsReady(false)
+    setWebcamKey((prev) => prev + 1)
+  }, [])
+
+  // ── Gallery file selection ─────────────────────────────────────────────
+  const handleGallerySelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const imgSrc = reader.result as string
+      setCapturedImg(imgSrc)
+      setCameraError(false)
+
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        canvas.getContext('2d')!.drawImage(img, 0, 0)
+        setCapturedCanvas(canvas)
+        setImgDims({ w: img.width, h: img.height })
+        setCorners([
+          { x: 0, y: 0 },
+          { x: img.width, y: 0 },
+          { x: img.width, y: img.height },
+          { x: 0, y: img.height },
+        ])
+        setStep('adjust')
+      }
+      img.src = imgSrc
+    }
+    reader.readAsDataURL(file)
+
+    // Reset file input so the same file can be selected again
+    e.target.value = ''
+  }, [])
 
   // Default corners: full rectangle
   const [corners, setCorners] = useState<Corners>([
@@ -101,7 +175,12 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
   // ── Capture frame from webcam ───────────────────────────────────────────
   const capture = useCallback(() => {
     const imgSrc = webcamRef.current?.getScreenshot()
-    if (!imgSrc) return
+    if (!imgSrc) {
+      // Silent capture failure → inline feedback (task 3.2)
+      // The null case only happens when stream isn't ready; button is
+      // already disabled in that state, but guard defensively.
+      return
+    }
     setCapturedImg(imgSrc)
 
     const img = new Image()
@@ -185,6 +264,9 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
   // ── Corner labels ───────────────────────────────────────────────────────
   const cornerLabels = ['↖', '↗', '↘', '↙']
 
+  // ── Loading state: camera initializing, no error ───────────────────────
+  const isLoading = step === 'camera' && !isReady && !cameraError
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       {/* Header */}
@@ -205,36 +287,98 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
       {/* ── STEP 1: Camera ──────────────────────────────────────────────── */}
       {step === 'camera' && (
         <div className="flex flex-col flex-1 items-center justify-center gap-6 p-4">
-          <div className="relative w-full max-w-lg rounded-2xl overflow-hidden border-2 border-emerald-400/50 shadow-xl">
-            <Webcam
-              ref={webcamRef}
-              screenshotFormat="image/jpeg"
-              screenshotQuality={0.95}
-              videoConstraints={{ facingMode: { ideal: 'environment' }, aspectRatio: 4 / 3 }}
-              className="w-full object-cover"
-            />
-            {/* Document guide overlay */}
-            <div className="absolute inset-[10%] border-2 border-dashed border-emerald-400 rounded-lg opacity-60 pointer-events-none" />
-            <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none">
-              <span className="text-white/70 text-xs bg-black/50 px-3 py-1 rounded-full">
-                Encuadre el documento dentro del recuadro
-              </span>
+          {/* Loading spinner — visible while camera initializes */}
+          {isLoading && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 gap-4">
+              <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+              <span className="text-white/70 text-sm">Iniciando cámara...</span>
             </div>
-          </div>
+          )}
 
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={onClose} className="border-white/20 text-white hover:bg-white/10">
-              Cancelar
-            </Button>
-            <Button
-              onClick={capture}
-              disabled={disabled}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2 px-8"
-            >
-              <Camera className="w-4 h-4" />
-              Capturar
-            </Button>
-          </div>
+          {/* Camera error state */}
+          {cameraError ? (
+            <div className="flex flex-col items-center justify-center gap-4 p-8 text-white">
+              <AlertCircle className="w-12 h-12 text-red-400" />
+              <p className="text-center text-sm max-w-xs">
+                No se pudo acceder a la cámara. Verificá los permisos e intentá de nuevo.
+              </p>
+              <Button
+                onClick={handleRetry}
+                variant="outline"
+                className="border-white/20 text-white hover:bg-white/10 gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reintentar
+              </Button>
+
+              {showGalleryFallback && (
+                <>
+                  <p className="text-white/50 text-xs">— o —</p>
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    Subir desde galería
+                  </Button>
+                </>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="border-white/20 text-white hover:bg-white/10 mt-2"
+              >
+                Cancelar
+              </Button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleGallerySelect}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Normal camera view */}
+              <div className="relative w-full max-w-lg rounded-2xl overflow-hidden border-2 border-emerald-400/50 shadow-xl">
+                <Webcam
+                  key={webcamKey}
+                  ref={webcamRef}
+                  audio={false}
+                  screenshotFormat="image/jpeg"
+                  screenshotQuality={0.95}
+                  videoConstraints={{ facingMode: { ideal: 'environment' }, aspectRatio: 4 / 3 }}
+                  onUserMedia={handleUserMedia}
+                  onUserMediaError={handleUserMediaError}
+                  className="w-full object-cover"
+                />
+                {/* Document guide overlay */}
+                <div className="absolute inset-[10%] border-2 border-dashed border-emerald-400 rounded-lg opacity-60 pointer-events-none" />
+                <div className="absolute inset-0 flex items-end justify-center pb-4 pointer-events-none">
+                  <span className="text-white/70 text-xs bg-black/50 px-3 py-1 rounded-full">
+                    Encuadre el documento dentro del recuadro
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={onClose} className="border-white/20 text-white hover:bg-white/10">
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={capture}
+                  disabled={disabled || !isReady}
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white gap-2 px-8"
+                >
+                  <Camera className="w-4 h-4" />
+                  Capturar
+                </Button>
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -265,15 +409,16 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
               />
             </svg>
 
-            {/* Drag handles */}
+            {/* Drag handles — touch-accessible (task 3.4) */}
             {corners.map((c, idx) => (
               <div
                 key={idx}
-                className="absolute w-8 h-8 rounded-full bg-emerald-400 border-2 border-white shadow-lg flex items-center justify-center text-xs font-bold text-white cursor-grab active:cursor-grabbing select-none touch-none"
+                className="absolute w-8 h-8 min-w-8 min-h-8 rounded-full bg-emerald-400 border-2 border-white shadow-lg flex items-center justify-center text-xs font-bold text-white cursor-grab active:cursor-grabbing select-none"
                 style={{
                   left: `${(c.x / imgDims.w) * 100}%`,
                   top: `${(c.y / imgDims.h) * 100}%`,
                   transform: 'translate(-50%, -50%)',
+                  touchAction: 'none',
                 }}
                 onMouseDown={handleMouseDown(idx)}
                 onTouchStart={(e) => { e.preventDefault(); setDragging(idx) }}
