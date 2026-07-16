@@ -1,4 +1,25 @@
 services:
+  # Next.js App
+  valsys:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: valsys_app
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      meilisearch:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - valsys_net
+
   # Base de Datos Relacional
   postgres:
     image: postgres:15-alpine
@@ -12,6 +33,13 @@ services:
       - "5433:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d sistema_valvulas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - valsys_net
 
   # Buscador Ultra-Rápido
   meilisearch:
@@ -25,6 +53,8 @@ services:
       - "7700:7700"
     volumes:
       - meili_data:/meili_data
+    networks:
+      - valsys_net
 
   # Almacenamiento de Fotos y PDFs
   minio:
@@ -36,24 +66,32 @@ services:
       MINIO_ROOT_PASSWORD: password_minio
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"  # Puerto de la API
-      - "9001:9001"  # Puerto del Panel Web
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio_data:/data
+    networks:
+      - valsys_net
 
-  # Túnel Cloudflare Quick Tunnel — exposición sin IP fija ni configuración
+  # Túnel Cloudflare permanente — HTTPS con dominio gratuito fijo
   cloudflared:
     image: cloudflare/cloudflared:latest
     container_name: valvulas_tunnel
     restart: unless-stopped
-    command: tunnel --url http://host.docker.internal:3000 --no-autoupdate
+    command: tunnel --token ${CLOUDFLARE_TUNNEL_TOKEN} run
     dns:
       - 8.8.8.8
       - 1.1.1.1
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # Acceso al host
+    depends_on:
+      - valsys
+    networks:
+      - valsys_net
 
 volumes:
   pg_data:
   meili_data:
   minio_data:
+
+networks:
+  valsys_net:
+    driver: bridge
