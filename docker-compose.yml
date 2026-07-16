@@ -78,7 +78,9 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: valvulas_tunnel
     restart: unless-stopped
-    command: tunnel --token ${CLOUDFLARE_TUNNEL_TOKEN} run
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     dns:
       - 8.8.8.8
       - 1.1.1.1
