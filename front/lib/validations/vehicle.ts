@@ -6,6 +6,11 @@ const PLATE_RE = /^[A-Z][A-Z0-9]{5,6}$/
 export const createVehicleSchema = z.object({
   ownerId: z.string().uuid('Seleccioná un dueño válido'),
 
+  vinSerial: z
+    .string()
+    .min(1, 'El serial VIN es obligatorio')
+    .max(50, 'El serial VIN no puede exceder 50 caracteres'),
+
   codigoUnicoGnc: z
     .string()
     .toUpperCase()

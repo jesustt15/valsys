@@ -19,6 +19,7 @@ export async function createVehicle(
   // Validar
   const parsed = createVehicleSchema.safeParse({
     ownerId: formData.get('ownerId'),
+    vinSerial: formData.get('vinSerial'),
     codigoUnicoGnc: formData.get('codigoUnicoGnc') || undefined,
     licensePlate: formData.get('licensePlate'),
     vehicleType: formData.get('vehicleType'),
@@ -32,7 +33,18 @@ export async function createVehicle(
     return { error: firstError }
   }
 
-  const { codigoUnicoGnc, licensePlate } = parsed.data
+  const { vinSerial, codigoUnicoGnc, licensePlate } = parsed.data
+
+  // Check vinSerial duplicado
+  const existingVin = await db
+    .select({ id: vehicles.id })
+    .from(vehicles)
+    .where(eq(vehicles.vinSerial, vinSerial))
+    .limit(1)
+
+  if (existingVin.length > 0) {
+    return { error: `Ya existe un vehículo con Serial VIN ${vinSerial}` }
+  }
 
   // Check codigoUnicoGnc duplicado
   if (codigoUnicoGnc) {

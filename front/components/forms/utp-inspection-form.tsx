@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   FRONT_QUESTIONS,
   REAR_QUESTIONS,
+  UTP_FRONT_QUESTIONS,
+  UTP_REAR_QUESTIONS,
   type ChecklistQuestion,
 } from "@/lib/checklist";
 import {
@@ -65,6 +67,7 @@ interface CylinderEntry {
   brand: string;
   capacity: string;
   initialSerial: string;
+  manufactureDate: string;
   location: string;
   status: "instalado";
 }
@@ -100,6 +103,7 @@ export function UtpInspectionForm({
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
 
   // ── Vehicle State ───────────────────────────────────────────
+  const [vinSerial, setVinSerial] = useState("");
   const [codigoUnicoGnc, setCodigoUnicoGnc] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
   const [vehicleType, setVehicleType] = useState("sedan");
@@ -108,6 +112,7 @@ export function UtpInspectionForm({
   const [marcaKit, setMarcaKit] = useState("");
   const [foundVehicle, setFoundVehicle] = useState<{
     id: string;
+    vinSerial: string | null;
     codigoUnicoGnc: string | null;
     licensePlate: string;
     vehicleType: string;
@@ -131,7 +136,7 @@ export function UtpInspectionForm({
   // ── Checklist ───────────────────────────────────────────────
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() => {
     const map = new Map<string, AnswerState>();
-    for (const q of [...FRONT_QUESTIONS, ...REAR_QUESTIONS]) {
+    for (const q of [...UTP_FRONT_QUESTIONS, ...UTP_REAR_QUESTIONS]) {
       map.set(q.key, { answer: undefined, observations: "" });
     }
     return map;
@@ -181,6 +186,7 @@ export function UtpInspectionForm({
   const applyVehicle = (vehicle: VehicleRecord) => {
     setFoundVehicle({
       id: vehicle.id,
+      vinSerial: vehicle.vinSerial || null,
       codigoUnicoGnc: vehicle.codigoUnicoGnc,
       licensePlate: vehicle.licensePlate,
       vehicleType: vehicle.vehicleType,
@@ -189,6 +195,7 @@ export function UtpInspectionForm({
       marcaKit: vehicle.marcaKit,
       owner: null,
     });
+    setVinSerial(vehicle.vinSerial || "");
     setCodigoUnicoGnc(vehicle.codigoUnicoGnc || "");
     setLicensePlate(vehicle.licensePlate);
     setVehicleType(vehicle.vehicleType);
@@ -222,6 +229,7 @@ export function UtpInspectionForm({
   const clearVehicleLookup = () => {
     setSelectedVehicleId("");
     setFoundVehicle(null);
+    setVinSerial("");
     setCodigoUnicoGnc("");
     setLicensePlate("");
     setVehicleType("sedan");
@@ -257,6 +265,7 @@ export function UtpInspectionForm({
         brand: "",
         capacity: "",
         initialSerial: "",
+        manufactureDate: "",
         location: "",
         status: "instalado",
       },
@@ -325,7 +334,7 @@ export function UtpInspectionForm({
     }
 
     // UTP always requires complete checklist
-    const unanswered = [...FRONT_QUESTIONS, ...REAR_QUESTIONS].filter(
+    const unanswered = [...UTP_FRONT_QUESTIONS, ...UTP_REAR_QUESTIONS].filter(
       (q) => answers.get(q.key)?.answer === undefined,
     );
     if (unanswered.length > 0) {
@@ -343,7 +352,7 @@ export function UtpInspectionForm({
 
     // Cylinder completeness (if any are present)
     const incompleteCyl = cylinders.some(
-      (c) => !c.brand || !c.capacity || !c.initialSerial || !c.location,
+      (c) => !c.brand || !c.capacity || !c.initialSerial || !c.manufactureDate || !c.location,
     );
     if (incompleteCyl) {
       setFormError("Complete todos los campos de los cilindros o elimínelos");
@@ -376,6 +385,7 @@ export function UtpInspectionForm({
     if (foundVehicle) {
       submitData.set("existingLicensePlate", foundVehicle.licensePlate);
     }
+    submitData.set("vinSerial", vinSerial);
     if (codigoUnicoGnc) submitData.set("codigoUnicoGnc", codigoUnicoGnc);
     submitData.set("licensePlate", licensePlate);
     submitData.set("vehicleType", vehicleType);
@@ -388,7 +398,7 @@ export function UtpInspectionForm({
     if (observations) submitData.set("observations", observations);
 
     // Answers (always required in UTP)
-    const allQuestions = [...FRONT_QUESTIONS, ...REAR_QUESTIONS];
+    const allQuestions = [...UTP_FRONT_QUESTIONS, ...UTP_REAR_QUESTIONS];
     const answersArray = allQuestions.map((q) => ({
       section: q.section,
       questionKey: q.key,
@@ -703,7 +713,7 @@ export function UtpInspectionForm({
             </div>
           </div>
 
-          {/* Contenedor Placa y Código Único GNC */}
+          {/* Contenedor Placa, Código Único GNC y VIN */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Placa */}
             <div className="space-y-2">
@@ -737,6 +747,21 @@ export function UtpInspectionForm({
                 placeholder="Código Único GNC (Opcional)"
               />
             </div>
+          </div>
+
+          {/* Serial VIN */}
+          <div className="space-y-2">
+            <Label htmlFor="vinSerial">Serial VIN</Label>
+            <Input
+              id="vinSerial"
+              name="vinSerial"
+              value={vinSerial}
+              onChange={(e) => setVinSerial(e.target.value.toUpperCase())}
+              maxLength={50}
+              disabled={pending || !!foundVehicle}
+              placeholder="Ej: 1HGBH41JXMN109186"
+            />
+            <p className="text-xs text-muted-foreground">17 caracteres alfanuméricos (obligatorio)</p>
           </div>
 
           {/* Marca de KIT GNC */}
@@ -812,7 +837,7 @@ export function UtpInspectionForm({
       <Card>
         <ChecklistSection
           title="Checklist - Frente"
-          questions={FRONT_QUESTIONS}
+          questions={UTP_FRONT_QUESTIONS}
           answers={answers}
           setAnswer={setAnswer}
           setObservation={setObservation}
@@ -824,7 +849,7 @@ export function UtpInspectionForm({
       <Card>
         <ChecklistSection
           title="Checklist - Parte Trasera"
-          questions={REAR_QUESTIONS}
+          questions={UTP_REAR_QUESTIONS}
           answers={answers}
           setAnswer={setAnswer}
           setObservation={setObservation}
@@ -934,11 +959,22 @@ export function UtpInspectionForm({
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>N° Serie</Label>
+                      <Label>Nº Serial</Label>
                       <Input
                         value={cyl.initialSerial}
                         onChange={(e) =>
                           updateCylinder(idx, "initialSerial", e.target.value)
+                        }
+                        disabled={pending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fecha de Prueba</Label>
+                      <Input
+                        type="date"
+                        value={cyl.manufactureDate}
+                        onChange={(e) =>
+                          updateCylinder(idx, "manufactureDate", e.target.value)
                         }
                         disabled={pending}
                       />

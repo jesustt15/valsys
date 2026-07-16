@@ -49,6 +49,7 @@ export async function createUtpInspectionAction(
     fullName: formData.get('fullName') as string || undefined,
     phone: formData.get('phone') as string || undefined,
     email: formData.get('email') as string || undefined,
+    vinSerial: formData.get('vinSerial') as string || undefined,
     codigoUnicoGnc: formData.get('codigoUnicoGnc') as string || undefined,
     licensePlate: formData.get('licensePlate') as string || undefined,
     vehicleType: formData.get('vehicleType') as string || undefined,
@@ -204,10 +205,21 @@ export async function createUtpInspectionAction(
             }
           }
 
+          const dupVin = await tx
+            .select({ id: vehicles.id })
+            .from(vehicles)
+            .where(eq(vehicles.vinSerial, data.vinSerial))
+            .limit(1)
+
+          if (dupVin.length > 0) {
+            throw new Error(`Ya existe un vehículo con Serial VIN ${data.vinSerial}`)
+          }
+
           const [created] = await tx
             .insert(vehicles)
             .values({
               ownerId,
+              vinSerial: data.vinSerial,
               codigoUnicoGnc: data.codigoUnicoGnc || null,
               licensePlate: plate,
               vehicleType: data.vehicleType || 'sedan',
@@ -273,6 +285,7 @@ export async function createUtpInspectionAction(
             brand: c.brand,
             capacity: c.capacity,
             initialSerial: c.initialSerial,
+            manufactureDate: c.manufactureDate || null,
             location: c.location,
             status: 'instalado' as const,
             updatedBy: session.sub,

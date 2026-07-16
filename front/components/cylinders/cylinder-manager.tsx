@@ -21,6 +21,7 @@ interface Cylinder {
   actualSerial: string | null
   status: string
   location: string
+  manufactureDate: string | null
   recalificationDate: string | null
 }
 
@@ -80,7 +81,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                 <input type="hidden" name="vehicleId" value={vehicleId} />
                 <input type="hidden" name="inspectionId" value={inspectionId} />
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="brand" required>Marca</Label>
                     <Input id="brand" name="brand" required disabled={createPending} />
@@ -90,8 +91,12 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <Input id="capacity" name="capacity" required disabled={createPending} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="initialSerial" required>Nº Serie</Label>
+                    <Label htmlFor="initialSerial" required>Nº Serial</Label>
                     <Input id="initialSerial" name="initialSerial" required disabled={createPending} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manufactureDate" required>Fecha de Prueba</Label>
+                    <Input id="manufactureDate" name="manufactureDate" type="date" required disabled={createPending} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="location" required>Ubicación</Label>
@@ -125,7 +130,8 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                 <tr>
                   <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Marca</th>
                   <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Capacidad</th>
-                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Serie</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Serial</th>
+                  <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Fecha Prueba</th>
                   <th className="text-left px-4 py-2 text-xs font-medium text-muted-foreground">Estado</th>
                   <th className="text-right px-4 py-2 text-xs font-medium text-muted-foreground">Acciones</th>
                 </tr>
@@ -136,6 +142,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <td className="px-4 py-3 text-sm">{cyl.brand}</td>
                     <td className="px-4 py-3 text-sm">{cyl.capacity}</td>
                     <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
+                    <td className="px-4 py-3 text-sm">{cyl.manufactureDate ? new Date(cyl.manufactureDate).toLocaleDateString() : '—'}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={
                         cyl.status === 'desmontado' ? 'warning'

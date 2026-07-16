@@ -74,7 +74,7 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
             )}
           </div>
 
-          {/* Código Único GNC y Patente */}
+          {/* Código Único GNC, Patente y VIN */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Código Único GNC */}
             <div className="space-y-2">
@@ -114,6 +114,25 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
               />
               <p className="text-xs text-muted-foreground">6 a 7 caracteres alfanuméricos (debe comenzar con letra)</p>
             </div>
+          </div>
+
+          {/* Serial VIN */}
+          <div className="space-y-2">
+            <Label htmlFor="vinSerial" required>Serial VIN</Label>
+            <Input
+              id="vinSerial"
+              name="vinSerial"
+              type="text"
+              required
+              maxLength={50}
+              placeholder="Ej: 1HGBH41JXMN109186"
+              className="h-12 text-base font-mono uppercase"
+              disabled={pending}
+              onInput={(e) => {
+                e.currentTarget.value = e.currentTarget.value.toUpperCase()
+              }}
+            />
+            <p className="text-xs text-muted-foreground">17 caracteres alfanuméricos (obligatorio)</p>
           </div>
 
           {/* Tipo, Marca, Modelo, Marca Kit */}

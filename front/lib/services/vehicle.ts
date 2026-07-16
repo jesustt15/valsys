@@ -52,6 +52,7 @@ export async function countVehicles(): Promise<number> {
 }
 
 export type UpdateVehicleData = Partial<{
+  vinSerial: string
   codigoUnicoGnc: string | null
   licensePlate: string
   vehicleType: string
@@ -63,6 +64,18 @@ export type UpdateVehicleData = Partial<{
 
 export async function updateVehicle(id: string, data: UpdateVehicleData): Promise<{ success: true; vehicle: typeof vehicles.$inferSelect } | { success: false; error: string }> {
   // Uniqueness checks (exclude self)
+  if (data.vinSerial) {
+    const dup = await db
+      .select({ id: vehicles.id })
+      .from(vehicles)
+      .where(and(eq(vehicles.vinSerial, data.vinSerial), ne(vehicles.id, id)))
+      .limit(1)
+
+    if (dup.length > 0) {
+      return { success: false, error: `Ya existe otro vehículo con Serial VIN ${data.vinSerial}` }
+    }
+  }
+
   if (data.codigoUnicoGnc) {
     const dup = await db
       .select({ id: vehicles.id })

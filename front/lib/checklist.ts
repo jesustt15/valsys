@@ -5,15 +5,11 @@ export interface ChecklistQuestion {
 }
 
 export const FRONT_QUESTIONS: ChecklistQuestion[] = [
-  { section: 'front', key: 'Selector de Combustible', label: 'Selector de Combustible' },
-  { section: 'front', key: 'ECU (Fijación y Funcionamiento)', label: 'ECU (Fijación y Funcionamiento)' },
   { section: 'front', key: 'Regulador (Fijación y Funcionamiento)', label: 'Regulador (Fijación y Funcionamiento)' },
-  { section: 'front', key: 'Inyectores (Fijación y Funcionamiento)', label: 'Inyectores (Fijación y Funcionamiento)' },
   { section: 'front', key: 'Pico de Carga (Fijación y Funcionamiento)', label: 'Pico de Carga (Fijación y Funcionamiento)' },
   { section: 'front', key: 'Manómetro (Funcionamiento y Fijación)', label: 'Manómetro (Funcionamiento y Fijación)' },
   { section: 'front', key: 'Tubería en Acero Inoxidable', label: 'Tubería en Acero Inoxidable' },
   { section: 'front', key: 'Cédula y Título del Vehículo', label: 'Cédula y Título del Vehículo' },
-  { section: 'front', key: 'Revisión de Rosca de Cada Válvula', label: 'Revisión de Rosca de Cada Válvula' },
   { section: 'front', key: 'Revisión de Rosca de Cada Conexión', label: 'Revisión de Rosca de Cada Conexión' },
 ]
 
@@ -27,5 +23,16 @@ export const REAR_QUESTIONS: ChecklistQuestion[] = [
   { section: 'rear', key: 'Flejes sin soldadura y con aislante 360° del cilindro', label: 'Flejes sin soldadura y con aislante 360° del cilindro' },
   { section: 'rear', key: 'Tubería (rabo de cochino y grapas cada 60 cm)', label: 'Tubería (rabo de cochino y grapas cada 60 cm)' },
 ]
+
+// Items that do NOT apply to UTP inspections (no se aceptan válvulas viejas)
+export const UTP_EXCLUDED_KEYS = [
+  'Selector de Combustible',
+  'ECU (Fijación y Funcionamiento)',
+  'Inyectores (Fijación y Funcionamiento)',
+  'Revisión de Rosca de Cada Válvula',
+]
+
+export const UTP_FRONT_QUESTIONS = FRONT_QUESTIONS.filter(q => !UTP_EXCLUDED_KEYS.includes(q.key))
+export const UTP_REAR_QUESTIONS = REAR_QUESTIONS
 
 export const ALL_QUESTIONS: ChecklistQuestion[] = [...FRONT_QUESTIONS, ...REAR_QUESTIONS]

@@ -4,7 +4,8 @@ export const createCylinderSchema = z.object({
   vehicleId: z.string().uuid(),
   brand: z.string().min(1, 'La marca es obligatoria'),
   capacity: z.string().min(1, 'La capacidad es obligatoria'),
-  initialSerial: z.string().min(1, 'El número de serie inicial es obligatorio'),
+  initialSerial: z.string().min(1, 'El número de serial es obligatorio'),
+  manufactureDate: z.string().min(1, 'La fecha de prueba es obligatoria'),
   location: z.string().min(1, 'La ubicación es obligatoria'),
 })
 
