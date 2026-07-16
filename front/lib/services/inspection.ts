@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates } from '@/db/schema'
-import { eq, inArray, count, sql, asc } from 'drizzle-orm'
+import { eq, and, inArray, count, sql, asc } from 'drizzle-orm'
 
 export interface StatusCounts {
   inspeccion_inicial: number
@@ -45,6 +45,7 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
     })
     .from(inspections)
     .leftJoin(certificates, eq(certificates.inspectionId, inspections.id))
+    .where(eq(inspections.source, 'gnc'))
     .orderBy(inspections.inspectionDate)
 
   if (records.length === 0) return []
@@ -94,7 +95,7 @@ export async function getInspectionById(id: string) {
   const [inspection] = await db
     .select()
     .from(inspections)
-    .where(eq(inspections.id, id))
+    .where(and(eq(inspections.id, id), eq(inspections.source, 'gnc')))
 
   if (!inspection) return null
 
@@ -154,6 +155,7 @@ export async function countInspectionsByStatus(): Promise<StatusCounts> {
       count: count(inspections.id),
     })
     .from(inspections)
+    .where(eq(inspections.source, 'gnc'))
     .groupBy(inspections.status)
 
   const result: StatusCounts = {
@@ -177,7 +179,9 @@ export async function countInspectionsToday(): Promise<number> {
   const [row] = await db
     .select({ count: count(inspections.id) })
     .from(inspections)
-    .where(sql`DATE(${inspections.inspectionDate}) = CURRENT_DATE`)
+    .where(
+      sql`DATE(${inspections.inspectionDate}) = CURRENT_DATE AND ${inspections.source} = 'gnc'`,
+    )
 
   return Number(row?.count ?? 0)
 }
@@ -194,6 +198,7 @@ export async function getRecentInspectionsWithOwner(limit = 5): Promise<RecentIn
     .from(inspections)
     .leftJoin(vehicles, eq(inspections.vehicleId, vehicles.id))
     .leftJoin(owners, eq(vehicles.ownerId, owners.id))
+    .where(eq(inspections.source, 'gnc'))
     .orderBy(sql`${inspections.createdAt} DESC`)
     .limit(limit)
 

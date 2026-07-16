@@ -16,5 +16,12 @@
       "tag": "0001_add_desmontado_and_align",
       "breakpoints": true
     },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784216099086,
+      "tag": "0002_shiny_storm",
+      "breakpoints": true
+    }
   ]
 }

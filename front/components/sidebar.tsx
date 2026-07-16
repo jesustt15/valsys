@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  FileBadge,
 } from "lucide-react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -30,6 +31,7 @@ export function Sidebar({ role, isMobileOpen = false, onMobileClose }: SidebarPr
 
   const menuItems = [
     { label: "Inspecciones", href: "/inspections", icon: ClipboardCheck },
+    { label: "UTP", href: "/utp", icon: FileBadge },
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Dueños", href: "/owners", icon: Users },
     { label: "Vehículos", href: "/vehicles", icon: Truck },
@@ -229,7 +231,7 @@ export function Sidebar({ role, isMobileOpen = false, onMobileClose }: SidebarPr
       <motion.aside
         animate={{ width: isOpen ? 256 : 80 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen flex flex-col flex-shrink-0"
+        className="bg-sidebar text-sidebar-foreground border-r border-sidebar-border h-screen sticky top-0 flex flex-col flex-shrink-0"
       >
         {navContent}
       </motion.aside>

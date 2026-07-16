@@ -38,6 +38,12 @@ export const inspectionStatus = pgEnum('inspection_status', [
   'por_programar',
   'cita',
   'certificado',
+  'standby',     // UTP: inspección en espera por items no conformes
+]);
+
+export const inspectionSource = pgEnum('inspection_source', [
+  'gnc',         // inspección GNC completa con recertificación
+  'utp',         // inspección UTP simplificada sin recertificación
 ]);
 
 export const userRole = pgEnum('user_role', ['admin', 'operator', 'viewer']);
@@ -123,6 +129,7 @@ export const inspections = pgTable('inspections', {
   operatorId: uuid('operator_id').references(() => users.id, { onDelete: 'set null' }),
   ownerSignatureId: uuid('owner_signature_id').references(() => signatures.id, { onDelete: 'set null' }),
   status: inspectionStatus('status').default('inspeccion_inicial'),
+  source: inspectionSource('source').default('gnc').notNull(),
   kmCurrent: integer('km_current'),
   inspectionDate: timestamp('inspection_date').defaultNow(),
   observations: text('observations'),
@@ -132,6 +139,7 @@ export const inspections = pgTable('inspections', {
 }, (table) => ({
   vehicleIdx: index('idx_inspections_vehicle').on(table.vehicleId),
   statusIdx: index('idx_inspections_status').on(table.status),
+  sourceIdx: index('idx_inspections_source').on(table.source),
 }));
 
 // ─── 6. Inspection Answers (checklist) ──────────────────────────
