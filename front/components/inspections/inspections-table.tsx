@@ -33,7 +33,7 @@ const STATUS_LABELS: Record<string, string> = {
   certificado: 'Certificado',
 }
 
-const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive'> = {
+const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive' | 'purple'> = {
   inspeccion_inicial: 'info',
   recalificacion: 'warning',
   por_programar: 'destructive',
