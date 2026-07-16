@@ -17,6 +17,7 @@
   "dependencies": {
     "@esbuild-kit/core-utils": "^3.3.2",
     "@vercel/analytics": "^2.0.1",
+    "@node-rs/bcrypt": "^1.10.7",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
