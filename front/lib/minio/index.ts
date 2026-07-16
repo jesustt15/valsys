@@ -8,6 +8,19 @@ const minioClient = new Client({
   secretKey: process.env.MINIO_SECRET_KEY || 'password_minio',
 })
 
+function createUrlClient(): Client {
+  const publicUrl = process.env.MINIO_PUBLIC_URL
+  if (!publicUrl) return minioClient
+  const url = new URL(publicUrl)
+  return new Client({
+    endPoint: url.hostname,
+    port: Number(url.port) || (url.protocol === 'https:' ? 443 : 9000),
+    useSSL: url.protocol === 'https:',
+    accessKey: process.env.MINIO_ACCESS_KEY || 'admin_minio',
+    secretKey: process.env.MINIO_SECRET_KEY || 'password_minio',
+  })
+}
+
 const BUCKET = process.env.MINIO_BUCKET || 'valsys'
 
 export async function ensureBucket() {
@@ -31,5 +44,6 @@ export async function getObject(key: string) {
 }
 
 export async function getObjectUrl(key: string) {
-  return minioClient.presignedGetObject(BUCKET, key, 60 * 60) // 1 hour
+  const urlClient = createUrlClient()
+  return urlClient.presignedGetObject(BUCKET, key, 60 * 60) // 1 hour
 }
