@@ -50,6 +50,7 @@ const ownerFieldsShape = {
 } as const
 
 const vehicleFieldsShape = {
+  vinSerial: z.string().min(1, 'El serial VIN es obligatorio').max(50),
   codigoUnicoGnc: z.string().toUpperCase().optional().or(z.literal('')),
   licensePlate: z
     .string()
@@ -69,7 +70,8 @@ export const cylinderInputSchema = z.object({
   capacity: z.enum(['27', '40', '50', '57', '60', '80', '90', '115'], {
     message: 'Seleccione una capacidad',
   }),
-  initialSerial: z.string().min(1, 'Número de serie es requerido'),
+  initialSerial: z.string().min(1, 'Número de serial es requerido'),
+  manufactureDate: z.string().min(1, 'La fecha de prueba es requerida'),
   location: z.string().min(1, 'Ubicación es requerida'),
   status: z.literal('desmontado').optional(),
 })

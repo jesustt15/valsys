@@ -70,6 +70,7 @@ interface CylinderEntry {
   brand: string;
   capacity: string;
   initialSerial: string;
+  manufactureDate: string;
   location: string;
   status: "desmontado";
 }
@@ -106,6 +107,7 @@ export function UnifiedInspectionForm({
   const [selectedOwnerId, setSelectedOwnerId] = useState("");
 
   // ── Vehicle State ───────────────────────────────────────────
+  const [vinSerial, setVinSerial] = useState("");
   const [codigoUnicoGnc, setCodigoUnicoGnc] = useState("");
   const [licensePlate, setLicensePlate] = useState("");
   const [vehicleType, setVehicleType] = useState("sedan");
@@ -114,6 +116,7 @@ export function UnifiedInspectionForm({
   const [marcaKit, setMarcaKit] = useState("");
   const [foundVehicle, setFoundVehicle] = useState<{
     id: string;
+    vinSerial: string | null;
     codigoUnicoGnc: string | null;
     licensePlate: string;
     vehicleType: string;
@@ -197,6 +200,7 @@ export function UnifiedInspectionForm({
   const applyVehicle = (vehicle: VehicleRecord) => {
     setFoundVehicle({
       id: vehicle.id,
+      vinSerial: vehicle.vinSerial || null,
       codigoUnicoGnc: vehicle.codigoUnicoGnc,
       licensePlate: vehicle.licensePlate,
       vehicleType: vehicle.vehicleType,
@@ -205,6 +209,7 @@ export function UnifiedInspectionForm({
       marcaKit: vehicle.marcaKit,
       owner: null,
     });
+    setVinSerial(vehicle.vinSerial || "");
     setCodigoUnicoGnc(vehicle.codigoUnicoGnc || "");
     setLicensePlate(vehicle.licensePlate);
     setVehicleType(vehicle.vehicleType);
@@ -238,6 +243,7 @@ export function UnifiedInspectionForm({
   const clearVehicleLookup = () => {
     setSelectedVehicleId("");
     setFoundVehicle(null);
+    setVinSerial("");
     setCodigoUnicoGnc("");
     setLicensePlate("");
     setVehicleType("sedan");
@@ -273,6 +279,7 @@ export function UnifiedInspectionForm({
         brand: "",
         capacity: "",
         initialSerial: "",
+        manufactureDate: "",
         location: "",
         status: "desmontado",
       },
@@ -363,7 +370,7 @@ export function UnifiedInspectionForm({
 
     // Cylinder completeness
     const incompleteCyl = cylinders.some(
-      (c) => !c.brand || !c.capacity || !c.initialSerial || !c.location,
+      (c) => !c.brand || !c.capacity || !c.initialSerial || !c.manufactureDate || !c.location,
     );
     if (incompleteCyl) {
       setFormError("Complete todos los campos de los cilindros o elimínelos");
@@ -399,6 +406,7 @@ export function UnifiedInspectionForm({
     if (foundVehicle) {
       submitData.set("existingLicensePlate", foundVehicle.licensePlate);
     }
+    submitData.set("vinSerial", vinSerial);
     if (codigoUnicoGnc) submitData.set("codigoUnicoGnc", codigoUnicoGnc);
     submitData.set("licensePlate", licensePlate);
     submitData.set("vehicleType", vehicleType);
@@ -843,6 +851,21 @@ export function UnifiedInspectionForm({
             </div>
           </div>
 
+          {/* Serial VIN */}
+          <div className="space-y-2">
+            <Label htmlFor="vinSerial">Serial VIN</Label>
+            <Input
+              id="vinSerial"
+              name="vinSerial"
+              value={vinSerial}
+              onChange={(e) => setVinSerial(e.target.value.toUpperCase())}
+              maxLength={50}
+              disabled={pending || !!foundVehicle}
+              placeholder="Ej: 1HGBH41JXMN109186"
+            />
+            <p className="text-xs text-muted-foreground">17 caracteres alfanuméricos (obligatorio)</p>
+          </div>
+
           {/* Marca de KIT GNC */}
           <div className="space-y-2">
             <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
@@ -1049,6 +1072,17 @@ export function UnifiedInspectionForm({
                         value={cyl.initialSerial}
                         onChange={(e) =>
                           updateCylinder(idx, "initialSerial", e.target.value)
+                        }
+                        disabled={pending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Fecha de Prueba</Label>
+                      <Input
+                        type="date"
+                        value={cyl.manufactureDate}
+                        onChange={(e) =>
+                          updateCylinder(idx, "manufactureDate", e.target.value)
                         }
                         disabled={pending}
                       />

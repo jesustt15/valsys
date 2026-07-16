@@ -153,6 +153,7 @@ export async function createInspectionAction(
             brand: String(c.brand),
             capacity: String(c.capacity),
             initialSerial: String(c.initialSerial),
+            manufactureDate: c.manufactureDate ? String(c.manufactureDate) : null,
             location: String(c.location),
             status: 'instalado' as const,
             updatedBy: session.sub,
@@ -468,6 +469,7 @@ export async function createUnifiedInspectionAction(
     fullName: formData.get('fullName') as string || undefined,
     phone: formData.get('phone') as string || undefined,
     email: formData.get('email') as string || undefined,
+    vinSerial: formData.get('vinSerial') as string || undefined,
     codigoUnicoGnc: formData.get('codigoUnicoGnc') as string || undefined,
     licensePlate: formData.get('licensePlate') as string || undefined,
     vehicleType: formData.get('vehicleType') as string || undefined,
@@ -635,6 +637,7 @@ export async function createUnifiedInspectionAction(
             .insert(vehicles)
             .values({
               ownerId,
+              vinSerial: data.vinSerial,
               codigoUnicoGnc: data.codigoUnicoGnc || null,
               licensePlate: plate,
               vehicleType: data.vehicleType || 'sedan',
@@ -699,6 +702,7 @@ export async function createUnifiedInspectionAction(
             brand: c.brand,
             capacity: c.capacity,
             initialSerial: c.initialSerial,
+            manufactureDate: c.manufactureDate || null,
             location: c.location,
             status: data.branch === 'montados' ? ('instalado' as const) : ('desmontado' as const),
             updatedBy: session.sub,
