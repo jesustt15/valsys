@@ -67,6 +67,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
 
   const [vehicleId, setVehicleId] = useState('')
   const [kmCurrent, setKmCurrent] = useState('')
+  const [kmNoMarca, setKmNoMarca] = useState(false)
   const [observations, setObservations] = useState('')
   const [signature, setSignature] = useState('')
 
@@ -95,7 +96,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
           setStepError('Seleccione un vehículo')
           return false
         }
-        if (kmCurrent !== '') {
+        if (!kmNoMarca && kmCurrent !== '') {
           const km = Number(kmCurrent)
           if (Number.isNaN(km) || km <= 0) {
             setStepError('Ingrese los kilómetros actuales (mayor a 0)')
@@ -135,7 +136,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
 
       return true
     },
-    [vehicleId, kmCurrent, answers, newCylinders],
+    [vehicleId, kmCurrent, kmNoMarca, answers, newCylinders],
   )
 
   const nextStep = (e?: React.MouseEvent) => {
@@ -185,7 +186,7 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
     }
 
     formData.set('vehicleId', vehicleId)
-    formData.set('kmCurrent', kmCurrent)
+    if (!kmNoMarca) formData.set('kmCurrent', kmCurrent)
     formData.set('observations', observations)
     formData.set('category', 'initial')
     formData.set('signature', signature)
@@ -348,19 +349,34 @@ export function InspectionForm({ vehicles }: InspectionFormProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="kmCurrent">Kilómetros actuales</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="kmCurrent">Kilómetros actuales</Label>
+                      <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={kmNoMarca}
+                          onChange={(e) => {
+                            setKmNoMarca(e.target.checked);
+                            if (e.target.checked) setKmCurrent("");
+                          }}
+                          disabled={pending}
+                          className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                        />
+                        No marca
+                      </label>
+                    </div>
                     <Input
                       id="kmCurrent"
                       name="kmCurrent"
                       type="number"
                       min={1}
-                      value={kmCurrent}
+                      value={kmNoMarca ? "" : kmCurrent}
                       onChange={(e) => setKmCurrent(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') e.preventDefault()
                       }}
-                      disabled={pending}
-                      placeholder="Ej: 45000 (Opcional)"
+                      disabled={pending || kmNoMarca}
+                      placeholder={kmNoMarca ? "No marca (N/M)" : "Ej: 45000 (Opcional)"}
                       className="h-12 text-base"
                     />
                     <p className="text-xs text-muted-foreground">Opcional</p>

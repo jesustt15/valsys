@@ -35,6 +35,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertCircle,
@@ -131,6 +132,7 @@ export function UtpInspectionForm({
 
   // ── Inspection ──────────────────────────────────────────────
   const [kmCurrent, setKmCurrent] = useState("");
+  const [kmNoMarca, setKmNoMarca] = useState(false);
   const [observations, setObservations] = useState("");
 
   // ── Checklist ───────────────────────────────────────────────
@@ -326,6 +328,7 @@ export function UtpInspectionForm({
     }
 
     if (
+      !kmNoMarca &&
       kmCurrent !== "" &&
       (Number.isNaN(Number(kmCurrent)) || Number(kmCurrent) <= 0)
     ) {
@@ -394,7 +397,7 @@ export function UtpInspectionForm({
     submitData.set("marcaKit", marcaKit);
 
     // Inspection
-    submitData.set("kmCurrent", kmCurrent);
+    if (!kmNoMarca) submitData.set("kmCurrent", kmCurrent);
     if (observations) submitData.set("observations", observations);
 
     // Answers (always required in UTP)
@@ -595,7 +598,8 @@ export function UtpInspectionForm({
             <Input
               id="email"
               name="email"
-              type="email"
+              type="text"
+              inputMode="email"
               value={ownerEmail}
               onChange={(e) => setOwnerEmail(e.target.value)}
               disabled={pending || !!foundOwner}
@@ -804,16 +808,31 @@ export function UtpInspectionForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="kmCurrent">Kilómetros Actuales</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="kmCurrent">Kilómetros Actuales</Label>
+              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={kmNoMarca}
+                  onChange={(e) => {
+                    setKmNoMarca(e.target.checked);
+                    if (e.target.checked) setKmCurrent("");
+                  }}
+                  disabled={pending}
+                  className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                />
+                No marca
+              </label>
+            </div>
             <Input
               id="kmCurrent"
               name="kmCurrent"
               type="number"
               min={1}
-              value={kmCurrent}
+              value={kmNoMarca ? "" : kmCurrent}
               onChange={(e) => setKmCurrent(e.target.value)}
-              disabled={pending}
-              placeholder="Ej: 45000 (Opcional)"
+              disabled={pending || kmNoMarca}
+              placeholder={kmNoMarca ? "No marca (N/M)" : "Ej: 45000 (Opcional)"}
             />
             <p className="text-xs text-muted-foreground">Opcional</p>
           </div>
@@ -970,11 +989,10 @@ export function UtpInspectionForm({
                     </div>
                     <div className="space-y-2">
                       <Label>Fecha de Prueba</Label>
-                      <Input
-                        type="date"
+                      <MonthYearPicker
                         value={cyl.manufactureDate}
-                        onChange={(e) =>
-                          updateCylinder(idx, "manufactureDate", e.target.value)
+                        onChange={(val) =>
+                          updateCylinder(idx, "manufactureDate", val)
                         }
                         disabled={pending}
                       />

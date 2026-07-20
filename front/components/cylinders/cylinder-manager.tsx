@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { PhotoUpload } from '@/components/inspections/photo-upload'
 import { SignaturePad } from '@/components/inspections/signature-pad'
+import { MonthYearPicker } from '@/components/ui/month-year-picker'
 import { createCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
 
 interface Cylinder {
@@ -95,8 +96,13 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <Input id="initialSerial" name="initialSerial" required disabled={createPending} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="manufactureDate" required>Fecha de Prueba</Label>
-                    <Input id="manufactureDate" name="manufactureDate" type="date" required disabled={createPending} />
+                    <Label required>Fecha de Prueba</Label>
+                    <MonthYearPicker
+                      name="manufactureDate"
+                      onChange={() => {}}
+                      disabled={createPending}
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="location" required>Ubicación</Label>
@@ -142,7 +148,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <td className="px-4 py-3 text-sm">{cyl.brand}</td>
                     <td className="px-4 py-3 text-sm">{cyl.capacity}</td>
                     <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
-                    <td className="px-4 py-3 text-sm">{cyl.manufactureDate ? new Date(cyl.manufactureDate).toLocaleDateString() : '—'}</td>
+                    <td className="px-4 py-3 text-sm">{cyl.manufactureDate ? (() => { const m = cyl.manufactureDate.match(/^(\d{4})-(\d{2})/); return m ? `${m[2]}/${m[1]}` : '—' })() : '—'}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={
                         cyl.status === 'desmontado' ? 'warning'

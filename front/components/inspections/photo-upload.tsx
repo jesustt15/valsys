@@ -160,12 +160,20 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
               <button
                 type="button"
                 onClick={() => removePhoto(index)}
-                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                className={
+                  isTouch
+                    ? 'absolute top-1 right-1 w-7 h-7 rounded-full bg-red-500/80 text-white flex items-center justify-center text-xs'
+                    : 'absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs'
+                }
                 aria-label="Eliminar foto"
               >
                 ✕
               </button>
-              <span className="absolute bottom-1 left-1 text-[10px] text-white bg-black/40 px-1.5 py-0.5 rounded">
+              <span className={
+                isTouch
+                  ? 'absolute bottom-1 left-1 text-[11px] text-white bg-black/50 px-1.5 py-0.5 rounded'
+                  : 'absolute bottom-1 left-1 text-[10px] text-white bg-black/40 px-1.5 py-0.5 rounded'
+              }>
                 {index + 1}
               </span>
             </div>
