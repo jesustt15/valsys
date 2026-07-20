@@ -8,7 +8,7 @@ export const checklistAnswerSchema = z.object({
   observations: z.string().optional(),
 })
 
-export const checklistAnswersSchema = z.array(checklistAnswerSchema).min(18)
+export const checklistAnswersSchema = z.array(checklistAnswerSchema).min(14)
 
 // ─── Create Inspection ──────────────────────────────────────
 export const createInspectionSchema = z.object({
@@ -87,7 +87,7 @@ const montadosSchema = z.object({
     z.number().min(1, 'Kilómetros deben ser mayor a 0').nullable().optional()
   ),
   observations: z.string().optional(),
-  answers: z.array(checklistAnswerSchema).min(18, 'Todas las preguntas del checklist son requeridas'),
+  answers: z.array(checklistAnswerSchema).min(14, 'Todas las preguntas del checklist son requeridas'),
   signature: z.string().min(1, 'La firma del propietario es obligatoria'),
   cylinders: z.array(cylinderInputSchema).optional(),
 })

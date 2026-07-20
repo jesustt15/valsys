@@ -24,15 +24,10 @@ export const REAR_QUESTIONS: ChecklistQuestion[] = [
   { section: 'rear', key: 'Tubería (rabo de cochino y grapas cada 60 cm)', label: 'Tubería (rabo de cochino y grapas cada 60 cm)' },
 ]
 
-// Items that do NOT apply to UTP inspections (no se aceptan válvulas viejas)
-export const UTP_EXCLUDED_KEYS = [
-  'Selector de Combustible',
-  'ECU (Fijación y Funcionamiento)',
-  'Inyectores (Fijación y Funcionamiento)',
-  'Revisión de Rosca de Cada Válvula',
-]
-
-export const UTP_FRONT_QUESTIONS = FRONT_QUESTIONS.filter(q => !UTP_EXCLUDED_KEYS.includes(q.key))
+// UTP inspections use the same checklist as regular inspections.
+// Previously excluded items (Selector de Combustible, ECU, Inyectores,
+// Revisión de Rosca de Cada Válvula) were removed from FRONT_QUESTIONS entirely.
+export const UTP_FRONT_QUESTIONS = FRONT_QUESTIONS
 export const UTP_REAR_QUESTIONS = REAR_QUESTIONS
 
 export const ALL_QUESTIONS: ChecklistQuestion[] = [...FRONT_QUESTIONS, ...REAR_QUESTIONS]
