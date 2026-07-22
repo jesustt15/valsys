@@ -30,7 +30,7 @@ const vehicleFieldsShape = {
   licensePlate: z
     .string()
     .toUpperCase()
-    .regex(/^[A-Z][A-Z0-9]{5,6}$/, 'La placa debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos'),
+    .regex(/^[A-Z0-9][A-Z0-9]{5,6}$/, 'La placa debe comenzar con una letra o número y tener entre 6 y 7 caracteres alfanuméricos'),
   vehicleType: z.enum(['sedan', 'autobus', 'camion', 'pickup', 'camioneta', 'van']),
   brand: z.string().min(2).max(50),
   model: z.string().min(1).max(50),

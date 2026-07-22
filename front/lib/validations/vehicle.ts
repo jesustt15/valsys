@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 // ─── Regex ────────────────────────────────────────────────
-const PLATE_RE = /^[A-Z][A-Z0-9]{5,6}$/
+const PLATE_RE = /^[A-Z0-9][A-Z0-9]{5,6}$/
 
 export const createVehicleSchema = z.object({
   ownerId: z.string().uuid('Seleccioná un dueño válido'),
@@ -22,7 +22,7 @@ export const createVehicleSchema = z.object({
     .toUpperCase()
     .min(6, 'La placa debe tener al menos 6 caracteres')
     .max(7, 'La placa no puede exceder 7 caracteres')
-    .regex(PLATE_RE, 'La placa debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos'),
+    .regex(PLATE_RE, 'La placa debe comenzar con una letra o número y tener entre 6 y 7 caracteres alfanuméricos'),
 
   vehicleType: z.enum(['sedan', 'autobus', 'camion', 'pickup', 'camioneta', 'van'], {
     message: 'Seleccioná un tipo de vehículo válido',
