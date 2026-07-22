@@ -558,22 +558,6 @@ export function UnifiedInspectionForm({
         </CardContent>
       </Card>
 
-      {/* ── Error Messages ──────────────────────────────────── */}
-      <AnimatePresence>
-        {(state?.error || formError) && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{state?.error ?? formError}</AlertDescription>
-            </Alert>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* ── Owner Section ────────────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -1311,6 +1295,22 @@ export function UnifiedInspectionForm({
           disabled={pending}
         />
       )}
+
+      {/* ── Error Messages (above submit) ──────────────────────── */}
+      <AnimatePresence>
+        {(state?.error || formError) && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{state?.error ?? formError}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Submit  ────────────────────────────────────────────── */}
       <div className="flex items-center justify-end gap-4">

@@ -14,6 +14,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024
 export function PhotoUpload({ category, label }: PhotoUploadProps) {
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
   const isTouch = useMediaQuery('(pointer: coarse)')
@@ -155,7 +156,8 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
               <img
                 src={preview.url}
                 alt={`Foto ${index + 1}`}
-                className="w-full h-24 object-cover rounded-lg border border-border"
+                className="w-full h-24 object-cover rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => setPreviewImage(preview.url)}
               />
               <button
                 type="button"
@@ -178,6 +180,30 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ── Image Preview Modal ───────────────────────────────── */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            <img
+              src={previewImage}
+              alt="Vista previa"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewImage(null)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-black flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors text-lg font-bold"
+              aria-label="Cerrar vista previa"
+            >
+              ✕
+            </button>
+          </div>
         </div>
       )}
 

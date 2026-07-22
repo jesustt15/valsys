@@ -12,6 +12,7 @@ import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
 import { CylinderManager } from '@/components/cylinders/cylinder-manager'
 import { CylinderFatePanel } from '@/components/cylinders/cylinder-fate-panel'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
+import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { CertificateCard } from '@/components/certificates/certificate-card'
 import { getPendingSummary } from '@/lib/services/inspection-pending'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -437,6 +438,20 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                   })}
                 </div>
               )}
+
+              {/* Uploaders — always available to add/replace documents */}
+              <div className="mt-6 space-y-4">
+                <VehicleDocumentUploader
+                  vehicleId={inspection.vehicle.id}
+                  type="cedula"
+                  label="Cédula de Identidad"
+                />
+                <VehicleDocumentUploader
+                  vehicleId={inspection.vehicle.id}
+                  type="carnet"
+                  label="Carnet de Circulación"
+                />
+              </div>
             </CardContent>
           </Card>
 
