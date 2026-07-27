@@ -126,32 +126,41 @@ export async function updateCylinderStatusAction(
       .where(eq(gncCylinders.id, parsed.data.id))
 
     // Handle signature when dismounting (en_planta transition)
+    // Only require signature if the inspection doesn't already have one
     const signatureData = formData.get('signature') as string
 
     if (parsed.data.status === 'en_planta' && inspectionId) {
-      if (!signatureData || !signatureData.startsWith('data:image')) {
-        return { error: 'La firma del propietario es obligatoria para desmontar cilindros.' }
-      }
-      try {
-        const base64Data = signatureData.split(',')[1]
-        const buffer = Buffer.from(base64Data, 'base64')
-        const timestamp = Date.now()
-        const minioKey = `signatures/${timestamp}.png`
+      const [existingInsp] = await db
+        .select({ ownerSignatureId: inspections.ownerSignatureId })
+        .from(inspections)
+        .where(eq(inspections.id, inspectionId))
+        .limit(1)
 
-        await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
+      if (!existingInsp?.ownerSignatureId) {
+        if (!signatureData || !signatureData.startsWith('data:image')) {
+          return { error: 'La firma del propietario es obligatoria para desmontar cilindros.' }
+        }
+        try {
+          const base64Data = signatureData.split(',')[1]
+          const buffer = Buffer.from(base64Data, 'base64')
+          const timestamp = Date.now()
+          const minioKey = `signatures/${timestamp}.png`
 
-        const [sig] = await db
-          .insert(signatures)
-          .values({ minioKey })
-          .returning({ id: signatures.id })
+          await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
 
-        await db
-          .update(inspections)
-          .set({ ownerSignatureId: sig.id, updatedAt: new Date() })
-          .where(eq(inspections.id, inspectionId))
-      } catch (e) {
-        console.error('Error saving signature during dismount:', e)
-        // Non-fatal: cylinder status already updated
+          const [sig] = await db
+            .insert(signatures)
+            .values({ minioKey })
+            .returning({ id: signatures.id })
+
+          await db
+            .update(inspections)
+            .set({ ownerSignatureId: sig.id, updatedAt: new Date() })
+            .where(eq(inspections.id, inspectionId))
+        } catch (e) {
+          console.error('Error saving signature during dismount:', e)
+          return { success: true, error: 'Cilindro desmontado pero hubo un error al guardar la firma. Puede capturarla luego desde el expediente.' }
+        }
       }
     }
 

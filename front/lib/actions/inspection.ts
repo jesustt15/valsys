@@ -164,6 +164,14 @@ export async function createInspectionAction(
       console.error('Error parsing/inserting cylinders:', e)
       // Non-fatal, let it continue
     }
+
+    // Auto-transition cylinders instalado → desmontado
+    try {
+      await autoTransitionCylinders(vid, 'inspeccion_inicial')
+    } catch (e) {
+      console.error('Failed to auto-transition cylinders after creation:', e)
+      // Non-fatal — cylinder status can be updated manually
+    }
   }
 
   // Upload photos (graceful failure — inspection + answers already persisted)
@@ -237,7 +245,7 @@ export async function updateInspectionStatusAction(
     // Auto-transition cylinders based on status change
     if (currentInspection?.vehicleId) {
       try {
-        if (parsed.data === 'recalificacion' && currentInspection.status === 'inspeccion_inicial') {
+        if (currentInspection.status === 'inspeccion_inicial' && (parsed.data === 'recalificacion' || parsed.data === 'por_programar')) {
           await autoTransitionCylinders(currentInspection.vehicleId, 'recalificacion')
         }
       } catch (e) {

@@ -8,7 +8,7 @@ interface PhotoUploadProps {
   label: string
 }
 
-const MAX_PHOTOS = 10
+const MAX_PHOTOS = 25
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 
 export function PhotoUpload({ category, label }: PhotoUploadProps) {

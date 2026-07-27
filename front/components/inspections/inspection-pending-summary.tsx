@@ -52,7 +52,7 @@ export function InspectionPendingSummary({ pending, status }: Props) {
     {
       label: 'Firma del titular',
       ok: pending.hasSignature,
-      blocking: status === 'recalificacion' || status === 'por_programar',
+      blocking: false,
     },
     {
       label: 'Fotos post-montaje',

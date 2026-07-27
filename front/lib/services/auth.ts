@@ -29,7 +29,13 @@ export async function authenticateUser(
       return { error: 'Usuario o contraseña incorrectos' }
     }
 
-    const passwordValid = await bcrypt.compare(password, user.passwordHash)
+    // Fix bcrypt $2y$ vs $2b$ compatibility
+    let passwordHash = user.passwordHash
+    if (passwordHash.startsWith('$2y$')) {
+      passwordHash = passwordHash.replace('$2y$', '$2a$')
+    }
+    
+    const passwordValid = await bcrypt.compare(password, passwordHash)
 
     if (!passwordValid) {
       return { error: 'Usuario o contraseña incorrectos' }
@@ -38,7 +44,8 @@ export async function authenticateUser(
     const token = await createSession(user.id, user.role ?? 'operator', user.fullName)
 
     return { user, token }
-  } catch {
+  } catch (e) {
+    console.error('[auth] authenticateUser error:', e)
     return { error: 'Error interno del servidor. Intenta nuevamente.' }
   }
 }

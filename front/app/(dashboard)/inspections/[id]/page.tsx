@@ -210,17 +210,6 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             </Card>
           </div>
 
-          {/* Cylinder Manager */}
-          <CylinderManager
-            inspectionId={resolvedParams.id}
-            vehicleId={inspection.vehicle.id}
-            cylinders={cylinders.map((c) => ({
-              ...c,
-              status: c.status ?? 'instalado',
-              recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null,
-            }))}
-          />
-
           {/* Cylinder Fate Panel */}
           {showFatePanel && (
             <CylinderFatePanel
@@ -232,6 +221,17 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
               }))}
             />
           )}
+
+          {/* Cylinder Manager */}
+          <CylinderManager
+            inspectionId={resolvedParams.id}
+            vehicleId={inspection.vehicle.id}
+            cylinders={cylinders.map((c) => ({
+              ...c,
+              status: c.status ?? 'instalado',
+              recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null,
+            }))}
+          />
 
           {/* Checklist Summary */}
           <Card>

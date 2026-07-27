@@ -2,15 +2,13 @@
 
 import { useState, useActionState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw, PenLine } from 'lucide-react'
+import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { PhotoUpload } from '@/components/inspections/photo-upload'
-import { SignaturePad } from '@/components/inspections/signature-pad'
 import { MonthYearPicker } from '@/components/ui/month-year-picker'
 import { createCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
 
@@ -35,8 +33,6 @@ interface Props {
 export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [signature, setSignature] = useState('')
-  const [selectedStatus, setSelectedStatus] = useState<string>('')
 
   const [createState, createFormAction, createPending] = useActionState<CylinderFormState | null, FormData>(
     createCylinderAction,
@@ -52,7 +48,6 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   useEffect(() => {
     if (updateState?.success) {
       setEditingId(null)
-      setSignature('')
     }
   }, [updateState?.success])
 
@@ -169,9 +164,11 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === cyl.id ? null : cyl.id)}>
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
+                      {cyl.status !== 'instalado' && (
+                        <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === cyl.id ? null : cyl.id)}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -326,27 +323,9 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                         Serial: <code className="font-mono">{cyl?.actualSerial || cyl?.initialSerial}</code>
                       </p>
                       <p className="text-amber-700 dark:text-amber-400 mt-1">
-                        El cilindro pasará a estado <strong>En Planta</strong>. Capture fotos de evidencia y la firma del propietario.
+                        El cilindro pasará a estado <strong>En Planta</strong>.
                       </p>
                     </div>
-                  </div>
-
-                  {/* Firma del propietario — obligatoria al desmontaje */}
-                  <div className="space-y-2 pt-2">
-                    <Label className="flex items-center gap-2">
-                      <PenLine className="w-4 h-4 text-violet-500" />
-                      Firma del Propietario <span className="text-red-500">*</span>
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      El titular firma confirmando el retiro de los cilindros.
-                    </p>
-                    <SignaturePad onChange={setSignature} disabled={updatePending} />
-                    <input type="hidden" name="signature" value={signature} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Fotos de Evidencia</Label>
-                    <PhotoUpload category="removal" label="Fotos del cilindro/desmontaje" />
                   </div>
 
                   {updateState?.error && (
