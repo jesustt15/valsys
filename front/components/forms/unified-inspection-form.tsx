@@ -319,10 +319,10 @@ export function UnifiedInspectionForm({
     if (
       !foundVehicle &&
       licensePlate.trim() &&
-      !/^[A-Z][A-Z0-9]{5,6}$/.test(licensePlate.trim())
+      !/^[A-Z0-9][A-Z0-9]{5,6}$/.test(licensePlate.trim())
     ) {
       setFormError(
-        "La placa debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos",
+        "La placa debe comenzar con una letra o número y tener entre 6 y 7 caracteres alfanuméricos",
       );
       return false;
     }
