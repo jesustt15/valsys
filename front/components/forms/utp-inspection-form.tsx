@@ -89,8 +89,23 @@ export function UtpInspectionForm({
     FormData
   >(createUtpInspectionAction, null);
 
-  // ── Form Error ──────────────────────────────────────────────
-  const [formError, setFormError] = useState<string | null>(null);
+  // ── Field Errors ──────────────────────────────────────────
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const setFieldError = (field: string, msg: string) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: msg }))
+  }
+
+  const clearFieldErrors = () => setFieldErrors({})
+
+  const clearError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev
+      const next = { ...prev }
+      delete next[field]
+      return next
+    })
+  }
 
   // ── Owner State ─────────────────────────────────────────────
   const [ownerDocumentType, setOwnerDocumentType] = useState("V");
@@ -180,7 +195,7 @@ export function UtpInspectionForm({
     }
     const owner = owners.find((o) => o.id === id);
     if (owner) {
-      setFormError(null);
+      clearFieldErrors();
       applyOwner(owner);
     }
   };
@@ -234,7 +249,7 @@ export function UtpInspectionForm({
     }
     const vehicle = vehicles.find((v) => v.id === id);
     if (vehicle) {
-      setFormError(null);
+      clearFieldErrors();
       applyVehicle(vehicle);
     }
   };
@@ -253,6 +268,8 @@ export function UtpInspectionForm({
 
   // ── Checklist Handlers ──────────────────────────────────────
   const setAnswer = (key: string, answer: boolean | null) => {
+    clearError("checklistFront")
+    clearError("checklistRear")
     setAnswers((prev) => {
       const next = new Map(prev);
       const existing = next.get(key) ?? { answer: undefined, observations: "" };
@@ -272,6 +289,7 @@ export function UtpInspectionForm({
 
   // ── Cylinder Handlers ───────────────────────────────────────
   const addCylinder = () => {
+    clearError("cylinders")
     setCylinders([
       ...cylinders,
       {
@@ -290,31 +308,32 @@ export function UtpInspectionForm({
     field: keyof CylinderEntry,
     value: string,
   ) => {
+    clearError("cylinders")
     setCylinders((prev) =>
       prev.map((cyl, i) => (i === idx ? { ...cyl, [field]: value } : cyl)),
     );
   };
 
   const removeCylinder = (idx: number) => {
+    clearError("cylinders")
     setCylinders(cylinders.filter((_, i) => i !== idx));
   };
 
   // ── Pre-submit validation ───────────────────────────────────
   const validate = (): boolean => {
-    setFormError(null);
+    clearFieldErrors()
+    let valid = true
 
     // Owner validation
     if (!foundOwner && !ownerFullName.trim()) {
-      setFormError(
-        "Debe proporcionar un propietario (buscar existente o crear nuevo)",
-      );
-      return false;
+      setFieldError("owner", "Debe proporcionar un propietario (buscar existente o crear nuevo)")
+      valid = false
     }
 
     // Vehicle validation
     if (!foundVehicle && !licensePlate.trim()) {
-      setFormError("Debe proporcionar la placa del vehículo");
-      return false;
+      setFieldError("plate", "Debe proporcionar la placa del vehículo")
+      valid = false
     }
 
     if (
@@ -322,20 +341,18 @@ export function UtpInspectionForm({
       licensePlate.trim() &&
       !/^[A-Z0-9][A-Z0-9]{5,6}$/.test(licensePlate.trim())
     ) {
-      setFormError(
-        "La placa debe comenzar con una letra o número y tener entre 6 y 7 caracteres alfanuméricos",
-      );
-      return false;
+      setFieldError("plate", "La placa debe comenzar con una letra o número y tener entre 6 y 7 caracteres alfanuméricos")
+      valid = false
     }
 
     if (!foundVehicle && brand.trim() && brand.trim().length < 2) {
-      setFormError("La marca debe tener al menos 2 caracteres");
-      return false;
+      setFieldError("brand", "La marca debe tener al menos 2 caracteres")
+      valid = false
     }
 
     if (!foundVehicle && model.trim() && model.trim().length < 1) {
-      setFormError("El modelo es requerido");
-      return false;
+      setFieldError("model", "El modelo es requerido")
+      valid = false
     }
 
     if (
@@ -343,43 +360,48 @@ export function UtpInspectionForm({
       kmCurrent !== "" &&
       (Number.isNaN(Number(kmCurrent)) || Number(kmCurrent) <= 0)
     ) {
-      setFormError("Los kilómetros deben ser mayores a 0");
-      return false;
+      setFieldError("kmCurrent", "Los kilómetros deben ser mayores a 0")
+      valid = false
     }
 
     // UTP always requires complete checklist
-    const unanswered = [...UTP_FRONT_QUESTIONS, ...UTP_REAR_QUESTIONS].filter(
+    const unansweredFront = UTP_FRONT_QUESTIONS.filter(
       (q) => answers.get(q.key)?.answer === undefined,
-    );
-    if (unanswered.length > 0) {
-      setFormError(
-        `Faltan responder ${unanswered.length} preguntas del checklist`,
-      );
-      return false;
+    )
+    const unansweredRear = UTP_REAR_QUESTIONS.filter(
+      (q) => answers.get(q.key)?.answer === undefined,
+    )
+    if (unansweredFront.length > 0) {
+      setFieldError("checklistFront", `Faltan responder ${unansweredFront.length} pregunta(s) en esta sección`)
+      valid = false
+    }
+    if (unansweredRear.length > 0) {
+      setFieldError("checklistRear", `Faltan responder ${unansweredRear.length} pregunta(s) en esta sección`)
+      valid = false
     }
 
     // Signature required
     if (!signature) {
-      setFormError("La firma del propietario es obligatoria");
-      return false;
+      setFieldError("signature", "La firma del propietario es obligatoria")
+      valid = false
     }
 
     // Cylinder completeness (if any are present)
     const incompleteCyl = cylinders.some(
       (c) => !c.brand || !c.capacity || !c.initialSerial || !c.manufactureDate || !c.location,
-    );
+    )
     if (incompleteCyl) {
-      setFormError("Complete todos los campos de los cilindros o elimínelos");
-      return false;
+      setFieldError("cylinders", "Complete todos los campos de los cilindros o elimínelos")
+      valid = false
     }
 
-    return true;
+    return valid
   };
 
   // ── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (formData: FormData) => {
     if (!validate()) {
-      return; // formError is set by validate()
+      return
     }
 
     // Create a fresh FormData to ensure we control exactly what's sent
@@ -471,9 +493,9 @@ export function UtpInspectionForm({
 
   return (
     <form action={handleSubmit} className="space-y-6" noValidate>
-      {/* ── Error Messages ──────────────────────────────────── */}
+      {/* ── Server Error ───────────────────────────────────── */}
       <AnimatePresence>
-        {(state?.error || formError) && (
+        {state?.error && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -481,7 +503,19 @@ export function UtpInspectionForm({
           >
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{state?.error ?? formError}</AlertDescription>
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+        {state?.photoError && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="warning">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{state.photoError}</AlertDescription>
             </Alert>
           </motion.div>
         )}
@@ -552,7 +586,7 @@ export function UtpInspectionForm({
               id="fullName"
               name="fullName"
               value={ownerFullName}
-              onChange={(e) => setOwnerFullName(e.target.value)}
+              onChange={(e) => { setOwnerFullName(e.target.value); clearError("owner") }}
               disabled={pending || !!foundOwner}
               placeholder="Nombre y apellido"
             />
@@ -621,6 +655,10 @@ export function UtpInspectionForm({
               placeholder="correo@ejemplo.com"
             />
           </div>
+
+          {fieldErrors.owner && (
+            <p className="text-sm text-destructive font-medium">{fieldErrors.owner}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -712,10 +750,13 @@ export function UtpInspectionForm({
                 id="brand"
                 name="brand"
                 value={brand}
-                onChange={(e) => setBrand(e.target.value)}
+                onChange={(e) => { setBrand(e.target.value); clearError("brand") }}
                 disabled={pending || !!foundVehicle}
                 placeholder="Marca"
               />
+              {fieldErrors.brand && (
+                <p className="text-sm text-destructive font-medium">{fieldErrors.brand}</p>
+              )}
             </div>
 
             {/* Modelo */}
@@ -725,10 +766,13 @@ export function UtpInspectionForm({
                 id="model"
                 name="model"
                 value={model}
-                onChange={(e) => setModel(e.target.value)}
+                onChange={(e) => { setModel(e.target.value); clearError("model") }}
                 disabled={pending || !!foundVehicle}
                 placeholder="Modelo"
               />
+              {fieldErrors.model && (
+                <p className="text-sm text-destructive font-medium">{fieldErrors.model}</p>
+              )}
             </div>
           </div>
 
@@ -741,7 +785,7 @@ export function UtpInspectionForm({
                 id="licensePlate"
                 name="licensePlate"
                 value={licensePlate}
-                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
+                onChange={(e) => { setLicensePlate(e.target.value.toUpperCase()); clearError("plate") }}
                 disabled={pending || !!foundVehicle}
                 maxLength={7}
                 placeholder="Ej: A123BC4 o AB123C"
@@ -749,6 +793,9 @@ export function UtpInspectionForm({
               <p className="text-xs text-muted-foreground">
                 6 a 7 caracteres alfanuméricos (comienza con letra)
               </p>
+              {fieldErrors.plate && (
+                <p className="text-sm text-destructive font-medium">{fieldErrors.plate}</p>
+              )}
             </div>
 
             {/* Código Único GNC */}
@@ -846,11 +893,14 @@ export function UtpInspectionForm({
               type="number"
               min={1}
               value={kmNoMarca ? "" : kmCurrent}
-              onChange={(e) => setKmCurrent(e.target.value)}
+              onChange={(e) => { setKmCurrent(e.target.value); clearError("kmCurrent") }}
               disabled={pending || kmNoMarca}
               placeholder={kmNoMarca ? "No marca (N/M)" : "Ej: 45000 (Opcional)"}
             />
             <p className="text-xs text-muted-foreground">Opcional</p>
+            {fieldErrors.kmCurrent && (
+              <p className="text-sm text-destructive font-medium">{fieldErrors.kmCurrent}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="observations">Observaciones</Label>
@@ -878,6 +928,11 @@ export function UtpInspectionForm({
           setObservation={setObservation}
           disabled={pending}
         />
+        {fieldErrors.checklistFront && (
+          <div className="px-6 pb-4">
+            <p className="text-sm text-destructive font-medium">{fieldErrors.checklistFront}</p>
+          </div>
+        )}
       </Card>
 
       {/* Rear Questions */}
@@ -890,6 +945,11 @@ export function UtpInspectionForm({
           setObservation={setObservation}
           disabled={pending}
         />
+        {fieldErrors.checklistRear && (
+          <div className="px-6 pb-4">
+            <p className="text-sm text-destructive font-medium">{fieldErrors.checklistRear}</p>
+          </div>
+        )}
       </Card>
 
       {/* ── Cylinders ──────────────────────────────────────────── */}
@@ -1039,6 +1099,9 @@ export function UtpInspectionForm({
                 </div>
               ))}
             </div>
+          )}
+          {fieldErrors.cylinders && (
+            <p className="text-sm text-destructive font-medium mt-2">{fieldErrors.cylinders}</p>
           )}
         </CardContent>
       </Card>
@@ -1208,10 +1271,13 @@ export function UtpInspectionForm({
           </div>
         </CardHeader>
         <CardContent>
-          <SignaturePad onChange={setSignature} disabled={pending} />
+          <SignaturePad onChange={(sig) => { setSignature(sig); clearError("signature") }} disabled={pending} />
           <p className="text-xs text-muted-foreground mt-2">
             Esta firma quedará registrada como constancia de la inspección.
           </p>
+          {fieldErrors.signature && (
+            <p className="text-sm text-destructive font-medium mt-1">{fieldErrors.signature}</p>
+          )}
         </CardContent>
       </Card>
 

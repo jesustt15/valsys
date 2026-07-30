@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useMediaQuery } from '@/hooks/use-media-query'
 
 interface PhotoUploadProps {
@@ -10,62 +10,118 @@ interface PhotoUploadProps {
 
 const MAX_PHOTOS = 25
 const MAX_FILE_SIZE = 5 * 1024 * 1024
+const CAMERA_TIMEOUT_MS = 120_000
 
 export function PhotoUpload({ category, label }: PhotoUploadProps) {
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([])
   const [error, setError] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [isMultiShot, setIsMultiShot] = useState(false)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const multiShotRef = useRef(false)
+  const cameraTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isTouch = useMediaQuery('(pointer: coarse)')
 
-  const addFiles = (files: FileList | null, source: 'camera' | 'gallery') => {
-    setError(null)
-    if (!files) return
-
-    const fileArray = Array.from(files)
-
-    if (previews.length + fileArray.length > MAX_PHOTOS) {
-      setError(`Máximo ${MAX_PHOTOS} fotos permitidas (ya tenés ${previews.length})`)
-      return
+  const stopMultiShot = useCallback(() => {
+    setIsMultiShot(false)
+    multiShotRef.current = false
+    if (cameraTimeoutRef.current) {
+      clearTimeout(cameraTimeoutRef.current)
+      cameraTimeoutRef.current = null
     }
+  }, [])
 
-    const valid: { file: File; url: string }[] = []
+  const triggerCamera = useCallback(() => {
+    if (cameraRef.current) {
+      cameraRef.current.value = ''
+      cameraRef.current.click()
+      cameraTimeoutRef.current = setTimeout(() => {
+        stopMultiShot()
+      }, CAMERA_TIMEOUT_MS)
+    }
+  }, [stopMultiShot])
 
-    for (const file of fileArray) {
-      if (!file.type.startsWith('image/')) {
-        setError('Solo se permiten imágenes')
+  const addFiles = useCallback(
+    (files: FileList | null) => {
+      setError(null)
+      if (!files) return
+
+      const fileArray = Array.from(files)
+
+      if (previews.length + fileArray.length > MAX_PHOTOS) {
+        setError(`Máximo ${MAX_PHOTOS} fotos permitidas (ya tenés ${previews.length})`)
         return
       }
 
-      if (file.size > MAX_FILE_SIZE) {
-        setError(`La imagen "${file.name}" supera los 5MB`)
+      const valid: { file: File; url: string }[] = []
+
+      for (const file of fileArray) {
+        if (!file.type.startsWith('image/')) {
+          setError('Solo se permiten imágenes')
+          return
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+          setError(`La imagen "${file.name}" supera los 5MB`)
+          return
+        }
+
+        valid.push({ file, url: URL.createObjectURL(file) })
+      }
+
+      setPreviews((prev) => [...prev, ...valid])
+    },
+    [previews.length],
+  )
+
+  const handleCameraCapture = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (cameraTimeoutRef.current) {
+        clearTimeout(cameraTimeoutRef.current)
+        cameraTimeoutRef.current = null
+      }
+
+      const files = e.target.files
+      if (cameraRef.current) cameraRef.current.value = ''
+
+      if (!files || files.length === 0) {
+        stopMultiShot()
         return
       }
 
-      valid.push({ file, url: URL.createObjectURL(file) })
-    }
+      addFiles(files)
 
-    setPreviews((prev) => [...prev, ...valid])
-  }
+      if (multiShotRef.current) {
+        const timer = setTimeout(() => {
+          if (multiShotRef.current) triggerCamera()
+        }, 400)
+        cameraTimeoutRef.current = timer
+      }
+    },
+    [addFiles, stopMultiShot, triggerCamera],
+  )
 
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files, 'camera')
-    // Reset so the same file can be picked again
-    if (cameraRef.current) cameraRef.current.value = ''
-  }
+  const startMultiShot = useCallback(() => {
+    setIsMultiShot(true)
+    multiShotRef.current = true
+    triggerCamera()
+  }, [triggerCamera])
 
-  const handleGallerySelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    addFiles(e.target.files, 'gallery')
-    if (galleryRef.current) galleryRef.current.value = ''
-  }
+  const handleGallerySelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      addFiles(e.target.files)
+      if (galleryRef.current) galleryRef.current.value = ''
+    },
+    [addFiles],
+  )
 
-  const removePhoto = (index: number) => {
+  const removePhoto = useCallback((index: number) => {
     setPreviews((prev) => {
       URL.revokeObjectURL(prev[index].url)
       return prev.filter((_, i) => i !== index)
     })
-  }
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -73,62 +129,95 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
     }
   }, [previews])
 
+  useEffect(() => {
+    return () => {
+      if (cameraTimeoutRef.current) clearTimeout(cameraTimeoutRef.current)
+    }
+  }, [])
+
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-foreground">{label}</label>
 
+      {/* Hidden inputs — shared by both mobile and desktop */}
+      <input
+        ref={cameraRef}
+        name="photos"
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCameraCapture}
+        className="hidden"
+      />
+      <input
+        ref={galleryRef}
+        name="photos"
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleGallerySelect}
+        className="hidden"
+      />
+
       {isTouch ? (
-        /* ── Mobile: two buttons (camera + gallery) ────────────────── */
         <div className="flex flex-wrap gap-2">
-          {/* Camera button — single shot */}
-          <input
-            ref={cameraRef}
-            name="photos"
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleCameraCapture}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => cameraRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-          >
-            📷 Tomar foto
-          </button>
+          {isMultiShot ? (
+            <>
+              <div className="flex items-center gap-2 w-full">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/30 px-3 py-1 text-xs font-medium text-green-800 dark:text-green-300">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  </span>
+                  {previews.length} / {MAX_PHOTOS}
+                </span>
+                <button
+                  type="button"
+                  onClick={stopMultiShot}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/40 transition-colors"
+                >
+                  ✕ Finalizar
+                </button>
+              </div>
+              <p className="w-full text-xs text-muted-foreground">
+                La cámara se reabre automáticamente. Presioná &quot;Finalizar&quot; o cancelá en la cámara para detener.
+              </p>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={startMultiShot}
+                disabled={previews.length >= MAX_PHOTOS}
+                className="inline-flex items-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                📷 Tomar fotos
+              </button>
 
-          {/* Gallery button — multi-select */}
-          <input
-            ref={galleryRef}
-            name="photos"
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleGallerySelect}
-            className="hidden"
-          />
-          <button
-            type="button"
-            onClick={() => galleryRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-xl border border-dashed border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
-          >
-            📁 Elegir varias
-          </button>
+              <button
+                type="button"
+                onClick={() => galleryRef.current?.click()}
+                disabled={previews.length >= MAX_PHOTOS}
+                className="inline-flex items-center gap-2 rounded-xl border border-dashed border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                📁 Elegir de galería
+              </button>
 
-          <p className="w-full text-xs text-muted-foreground">
-            La cámara toma una foto por vez. Usá &quot;Elegir varias&quot; para seleccionar varias de la galería.
-          </p>
+              <p className="w-full text-xs text-muted-foreground">
+                La cámara se reabre automáticamente después de cada foto. Presioná &quot;Finalizar&quot; o cancelá para detener.
+              </p>
+            </>
+          )}
         </div>
       ) : (
-        /* ── Desktop: single file input with multi-select ────────── */
+        /* ── Desktop: standard multi-file picker ────────── */
         <>
           <input
             name="photos"
             type="file"
             accept="image/*"
             multiple
-            onChange={(e) => addFiles(e.target.files, 'gallery')}
+            onChange={(e) => addFiles(e.target.files)}
             className="block w-full text-sm text-muted-foreground
                        file:mr-4 file:py-2 file:px-4
                        file:rounded-lg file:border-0
