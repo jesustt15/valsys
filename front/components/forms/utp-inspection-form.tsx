@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState } from "react";
+import { useState, useActionState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions/utp";
 import { PhotoUpload } from "@/components/inspections/photo-upload";
 import { SignaturePad } from "@/components/inspections/signature-pad";
+import { DocumentScanner } from "@/components/ui/document-scanner";
 import {
   Card,
   CardContent,
@@ -48,6 +49,9 @@ import {
   Camera,
   PenLine,
   Database,
+  FileText,
+  ScanLine,
+  X,
 } from "lucide-react";
 import type { OwnerRecord } from "@/lib/services/owner";
 import type { VehicleRecord } from "@/lib/services/vehicle";
@@ -143,6 +147,13 @@ export function UtpInspectionForm({
     }
     return map;
   });
+
+  // ── Vehicle Documents ───────────────────────────────────────
+  const [cedulaFile, setCedulaFile] = useState<File | null>(null);
+  const [carnetFile, setCarnetFile] = useState<File | null>(null);
+  const cedulaInputRef = useRef<HTMLInputElement>(null);
+  const carnetInputRef = useRef<HTMLInputElement>(null);
+  const [scannerOpen, setScannerOpen] = useState<"cedula" | "carnet" | null>(null);
 
   // ── Signature ───────────────────────────────────────────────
   const [signature, setSignature] = useState("");
@@ -412,6 +423,10 @@ export function UtpInspectionForm({
 
     // Signature
     submitData.set("signature", signature);
+
+    // Vehicle Documents
+    if (cedulaFile) submitData.set("cedula", cedulaFile);
+    if (carnetFile) submitData.set("carnet", carnetFile);
 
     // Cylinders
     if (cylinders.length > 0) {
@@ -782,9 +797,10 @@ export function UtpInspectionForm({
                 <SelectItem value="Landi Renzo">Landi Renzo</SelectItem>
                 <SelectItem value="Tomasetto">Tomasetto</SelectItem>
                 <SelectItem value="BRC">BRC</SelectItem>
-                <SelectItem value="MAT">MAT</SelectItem>
                 <SelectItem value="Tartarini">Tartarini</SelectItem>
                 <SelectItem value="OMVL">OMVL</SelectItem>
+                <SelectItem value="Excion">Excion</SelectItem>
+                <SelectItem value="Bigas">Bigas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -982,7 +998,7 @@ export function UtpInspectionForm({
                       <Input
                         value={cyl.initialSerial}
                         onChange={(e) =>
-                          updateCylinder(idx, "initialSerial", e.target.value)
+                          updateCylinder(idx, "initialSerial", e.target.value.toUpperCase())
                         }
                         disabled={pending}
                       />
@@ -999,14 +1015,25 @@ export function UtpInspectionForm({
                     </div>
                     <div className="space-y-2">
                       <Label>Ubicación</Label>
-                      <Input
+                      <Select
                         value={cyl.location}
-                        onChange={(e) =>
-                          updateCylinder(idx, "location", e.target.value)
+                        onValueChange={(val) =>
+                          updateCylinder(idx, "location", val)
                         }
-                        disabled={pending}
-                        placeholder="Ej: Baúl"
-                      />
+                      >
+                        <SelectTrigger
+                          disabled={pending}
+                          className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <SelectValue placeholder="Seleccione ubicación" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Chasis">Chasis</SelectItem>
+                          <SelectItem value="Plataforma">Plataforma</SelectItem>
+                          <SelectItem value="Zona de Carga">Zona de Carga</SelectItem>
+                          <SelectItem value="Baul/maletero">Baúl/maletero</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>
@@ -1039,6 +1066,132 @@ export function UtpInspectionForm({
         </CardContent>
       </Card>
 
+      {/* ── Vehicle Documents ──────────────────────────────────── */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-teal-50 dark:bg-teal-900/20 rounded-xl flex items-center justify-center">
+              <FileText className="w-5 h-5 text-teal-600" />
+            </div>
+            <div>
+              <CardTitle>Documentos del Vehículo</CardTitle>
+              <CardDescription>
+                Cédula y carnet de circulación (opcional)
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Cédula */}
+            <div className="space-y-2">
+              <Label>Cédula del Vehículo</Label>
+              <div className="flex flex-col gap-2">
+                {cedulaFile && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
+                    <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">
+                      {cedulaFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCedulaFile(null)}
+                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => cedulaInputRef.current?.click()}
+                    disabled={pending}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {cedulaFile ? "Reemplazar archivo" : "Seleccionar archivo"}
+                  </button>
+                  <input
+                    ref={cedulaInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="sr-only"
+                    onChange={(e) => setCedulaFile(e.target.files?.[0] || null)}
+                    disabled={pending}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setScannerOpen("cedula")}
+                    disabled={pending}
+                    className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
+                    title="Escanear documento con la cámara"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    Escanear
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Carnet */}
+            <div className="space-y-2">
+              <Label>Carnet de Circulación</Label>
+              <div className="flex flex-col gap-2">
+                {carnetFile && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
+                    <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                    <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">
+                      {carnetFile.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setCarnetFile(null)}
+                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => carnetInputRef.current?.click()}
+                    disabled={pending}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
+                  >
+                    <FileText className="w-4 h-4" />
+                    {carnetFile ? "Reemplazar archivo" : "Seleccionar archivo"}
+                  </button>
+                  <input
+                    ref={carnetInputRef}
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="sr-only"
+                    onChange={(e) => setCarnetFile(e.target.files?.[0] || null)}
+                    disabled={pending}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setScannerOpen("carnet")}
+                    disabled={pending}
+                    className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
+                    title="Escanear documento con la cámara"
+                  >
+                    <ScanLine className="w-4 h-4" />
+                    Escanear
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* ── Signature ──────────────────────────────────────────── */}
       <Card>
         <CardHeader>
@@ -1061,6 +1214,25 @@ export function UtpInspectionForm({
           </p>
         </CardContent>
       </Card>
+
+      {/* ── Document Scanner Modal ──────────────────────── */}
+      {scannerOpen && (
+        <DocumentScanner
+          key={scannerOpen === "cedula" ? "cedula" : "carnet"}
+          label={
+            scannerOpen === "cedula"
+              ? "Escanear Cédula del Vehículo"
+              : "Escanear Carnet de Circulación"
+          }
+          onCapture={(file) => {
+            if (scannerOpen === "cedula") setCedulaFile(file);
+            else setCarnetFile(file);
+            setScannerOpen(null);
+          }}
+          onClose={() => setScannerOpen(null)}
+          disabled={pending}
+        />
+      )}
 
       {/* ── Submit ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-end gap-4">

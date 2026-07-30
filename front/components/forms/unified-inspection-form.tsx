@@ -868,9 +868,10 @@ export function UnifiedInspectionForm({
                 <SelectItem value="Landi Renzo">Landi Renzo</SelectItem>
                 <SelectItem value="Tomasetto">Tomasetto</SelectItem>
                 <SelectItem value="BRC">BRC</SelectItem>
-                <SelectItem value="MAT">MAT</SelectItem>
                 <SelectItem value="Tartarini">Tartarini</SelectItem>
                 <SelectItem value="OMVL">OMVL</SelectItem>
+                <SelectItem value="Excion">Excion</SelectItem>
+                <SelectItem value="Bigas">Bigas</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -1074,7 +1075,7 @@ export function UnifiedInspectionForm({
                       <Input
                         value={cyl.initialSerial}
                         onChange={(e) =>
-                          updateCylinder(idx, "initialSerial", e.target.value)
+                          updateCylinder(idx, "initialSerial", e.target.value.toUpperCase())
                         }
                         disabled={pending}
                       />
@@ -1091,14 +1092,25 @@ export function UnifiedInspectionForm({
                     </div>
                     <div className="space-y-2">
                       <Label>Ubicación</Label>
-                      <Input
+                      <Select
                         value={cyl.location}
-                        onChange={(e) =>
-                          updateCylinder(idx, "location", e.target.value)
+                        onValueChange={(val) =>
+                          updateCylinder(idx, "location", val)
                         }
-                        disabled={pending}
-                        placeholder="Ej: Baúl"
-                      />
+                      >
+                        <SelectTrigger
+                          disabled={pending}
+                          className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <SelectValue placeholder="Seleccione ubicación" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Chasis">Chasis</SelectItem>
+                          <SelectItem value="Plataforma">Plataforma</SelectItem>
+                          <SelectItem value="Zona de Carga">Zona de Carga</SelectItem>
+                          <SelectItem value="Baul/maletero">Baúl/maletero</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </div>

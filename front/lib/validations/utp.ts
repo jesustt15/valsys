@@ -11,7 +11,9 @@ export const utpCylinderInputSchema = z.object({
   }),
   initialSerial: z.string().min(1, 'Número de serial es requerido'),
   manufactureDate: z.string().min(1, 'La fecha de prueba es requerida'),
-  location: z.string().min(1, 'Ubicación es requerida'),
+  location: z.enum(['Chasis', 'Plataforma', 'Zona de Carga', 'Baul/maletero'], {
+    message: 'Seleccione una ubicación',
+  }),
 })
 
 // ─── UTP Inspection Schema (simplified — no branch, no appointment) ──────
@@ -34,7 +36,7 @@ const vehicleFieldsShape = {
   vehicleType: z.enum(['sedan', 'autobus', 'camion', 'pickup', 'camioneta', 'van']),
   brand: z.string().min(2).max(50),
   model: z.string().min(1).max(50),
-  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'MAT', 'Tartarini', 'OMVL']),
+  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']),
   specificAttributes: z.record(z.string(), z.unknown()).optional(),
 } as const
 
