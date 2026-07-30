@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
-import { inspections, inspectionAnswers, inspectionAttachments, gncCylinders, certificates, signatures } from '@/db/schema'
-import { eq, inArray, sql, and } from 'drizzle-orm'
+import { inspections, vehicles, owners, inspectionAnswers, inspectionAttachments, gncCylinders, certificates, signatures } from '@/db/schema'
+import { eq, inArray, sql, and, isNull } from 'drizzle-orm'
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -243,11 +243,14 @@ export async function getPendingAlerts(limit = 10): Promise<PendingAlert[]> {
     .select({
       id: inspections.id,
       status: inspections.status,
-      licensePlate: sql<string>`null`,
-      ownerName: sql<string>`null`,
+      licensePlate: vehicles.licensePlate,
+      ownerName: owners.fullName,
       createdAt: inspections.createdAt,
     })
     .from(inspections)
+    .leftJoin(vehicles, eq(inspections.vehicleId, vehicles.id))
+    .leftJoin(owners, eq(vehicles.ownerId, owners.id))
+    .where(isNull(inspections.deletedAt))
     .orderBy(inspections.createdAt)
 
   const allIds = rows.map((r) => r.id)

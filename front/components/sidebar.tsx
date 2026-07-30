@@ -30,9 +30,9 @@ export function Sidebar({ role, isMobileOpen = false, onMobileClose }: SidebarPr
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const menuItems = [
+    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Inspecciones", href: "/inspections", icon: ClipboardCheck },
     { label: "UTP", href: "/utp", icon: FileBadge },
-    { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Dueños", href: "/owners", icon: Users },
     { label: "Vehículos", href: "/vehicles", icon: Truck },
   ];

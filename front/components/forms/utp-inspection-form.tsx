@@ -582,7 +582,7 @@ export function UtpInspectionForm({
             {/* Contenedor Tipo Doc y Número Doc */}
             <div className="grid grid-cols-3 gap-2 md:col-span-3">
               {/* Tipo Doc */}
-              <div className="space-y-2 md:col-span-1">
+              <div className="space-y-2 col-span-1">
                 <Label htmlFor="documentType">Tipo Doc.</Label>
                 <select
                   id="documentType"
@@ -599,7 +599,7 @@ export function UtpInspectionForm({
               </div>
 
               {/* Número Doc */}
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2 col-span-2">
                 <Label htmlFor="documentNumber">Número de Documento</Label>
                 <Input
                   id="documentNumber"
@@ -607,6 +607,7 @@ export function UtpInspectionForm({
                   value={ownerDocumentNumber}
                   onChange={(e) => setOwnerDocumentNumber(e.target.value)}
                   disabled={pending || !!foundOwner}
+                  inputMode="text"
                   placeholder="12345678"
                 />
               </div>

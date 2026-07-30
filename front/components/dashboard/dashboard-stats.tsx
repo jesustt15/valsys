@@ -17,6 +17,15 @@ const item = {
 }
 
 const statConfig: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
+  hoy: {
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bg: 'bg-emerald-50 dark:bg-emerald-900/20',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
   inspeccion_inicial: {
     color: 'text-green-600 dark:text-green-400',
     bg: 'bg-green-50 dark:bg-green-900/20',
@@ -31,13 +40,22 @@ const statConfig: Record<string, { color: string; bg: string; icon: React.ReactN
     bg: 'bg-amber-50 dark:bg-amber-900/20',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
       </svg>
     ),
   },
   por_programar: {
     color: 'text-red-600 dark:text-red-400',
     bg: 'bg-red-50 dark:bg-red-900/20',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    ),
+  },
+  cita: {
+    color: 'text-purple-600 dark:text-purple-400',
+    bg: 'bg-purple-50 dark:bg-purple-900/20',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -53,13 +71,24 @@ const statConfig: Record<string, { color: string; bg: string; icon: React.ReactN
       </svg>
     ),
   },
-}
-
-const statLabels: Record<string, string> = {
-  inspeccion_inicial: 'Inspecci\xf3n Inicial',
-  recalificacion: 'Recalificación',
-  por_programar: 'Por Programar',
-  certificado: 'Certificadas',
+  standby: {
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bg: 'bg-indigo-50 dark:bg-indigo-900/20',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  vehiculos: {
+    color: 'text-blue-600 dark:text-blue-400',
+    bg: 'bg-blue-50 dark:bg-blue-900/20',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+      </svg>
+    ),
+  },
 }
 
 interface DashboardStatsProps {
@@ -67,7 +96,9 @@ interface DashboardStatsProps {
     inspeccion_inicial: number
     recalificacion: number
     por_programar: number
+    cita: number
     certificado: number
+    standby: number
   }
   todayCount: number
   vehicleCount: number
@@ -75,25 +106,18 @@ interface DashboardStatsProps {
 
 export function DashboardStats({ statusCounts, todayCount, vehicleCount }: DashboardStatsProps) {
   const stats = [
-    { label: 'Inspecciones Hoy', value: todayCount, ...statConfig.inspeccion_inicial },
-    { label: statLabels.recalificacion, value: statusCounts.recalificacion, ...statConfig.recalificacion },
-    { label: statLabels.por_programar, value: statusCounts.por_programar, ...statConfig.por_programar },
-    { label: statLabels.certificado, value: statusCounts.certificado, ...statConfig.certificado },
-    {
-      label: 'Veh\xedculos',
-      value: vehicleCount,
-      color: 'text-purple-600 dark:text-purple-400',
-      bg: 'bg-purple-50 dark:bg-purple-900/20',
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-        </svg>
-      ),
-    },
+    { label: 'Hoy', value: todayCount, ...statConfig.hoy },
+    { label: 'Inspección Inicial', value: statusCounts.inspeccion_inicial, ...statConfig.inspeccion_inicial },
+    { label: 'Recalificación', value: statusCounts.recalificacion, ...statConfig.recalificacion },
+    { label: 'Por Programar', value: statusCounts.por_programar, ...statConfig.por_programar },
+    { label: 'Standby', value: statusCounts.standby, ...statConfig.standby },
+    { label: 'Cita', value: statusCounts.cita, ...statConfig.cita },
+    { label: 'Certificadas', value: statusCounts.certificado, ...statConfig.certificado },
+    { label: 'Vehículos', value: vehicleCount, ...statConfig.vehiculos },
   ]
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {stats.map((stat) => (
         <motion.div key={stat.label} variants={item}>
           <Card className="hover:shadow-md transition-shadow duration-300">

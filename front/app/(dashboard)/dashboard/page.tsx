@@ -50,7 +50,7 @@ function Icon({ name, className = 'w-5 h-5' }: { name: string; className?: strin
 }
 
 export default async function DashboardPage() {
-  let statusCounts = { inspeccion_inicial: 0, recalificacion: 0, por_programar: 0, certificado: 0 }
+  let statusCounts = { inspeccion_inicial: 0, recalificacion: 0, por_programar: 0, cita: 0, certificado: 0, standby: 0 }
   let todayCount = 0
   let vehicleCount = 0
   let recentInspections: Awaited<ReturnType<typeof getRecentInspectionsWithOwner>> = []

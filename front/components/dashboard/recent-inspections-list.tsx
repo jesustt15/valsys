@@ -10,7 +10,9 @@ const statusConfig: Record<string, { variant: 'success' | 'warning' | 'info' | '
   certificado: { variant: 'success', label: 'Certificado' },
   recalificacion: { variant: 'warning', label: 'Recalificación' },
   por_programar: { variant: 'destructive', label: 'Por Programar' },
-  inspeccion_inicial: { variant: 'info', label: 'Inspecci\xf3n Inicial' },
+  inspeccion_inicial: { variant: 'info', label: 'Inspección Inicial' },
+  standby: { variant: 'warning', label: 'Standby' },
+  cita: { variant: 'info', label: 'Cita' },
 }
 
 interface RecentInspectionsListProps {

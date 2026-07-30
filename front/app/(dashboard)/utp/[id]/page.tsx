@@ -11,6 +11,8 @@ import { EditInspectionFields } from '@/components/inspections/edit-inspection-f
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Camera, CheckSquare, Truck, User, Database } from 'lucide-react'
+import { getDocsByVehicle } from '@/lib/services/vehicle-document'
+import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -66,6 +68,18 @@ export default async function UtpDetailPage({ params }: PageProps) {
 
   // Gate check
   const gate = await canIssueUtpCertificate(resolvedParams.id)
+
+  const vehicleDocs = await getDocsByVehicle(inspection.vehicle.id)
+  const vehicleDocsWithUrls = await Promise.all(
+    vehicleDocs.map(async (doc) => {
+      try {
+        const url = await getObjectUrl(doc.minioKey)
+        return { ...doc, url }
+      } catch {
+        return { ...doc, url: null }
+      }
+    }),
+  )
 
   function getAnswerBgClass(answer: boolean | null) {
     if (answer === true) return 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800'
@@ -380,6 +394,56 @@ export default async function UtpDetailPage({ params }: PageProps) {
                   ))}
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Vehicle Documents */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5 text-teal-500" />
+                Documentos del Vehículo
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {vehicleDocsWithUrls.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  {vehicleDocsWithUrls.map((doc) => (
+                    <a
+                      key={doc.id}
+                      href={doc.url ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`relative aspect-[3/4] rounded-xl overflow-hidden border border-border flex items-center justify-center ${doc.url ? 'hover:ring-2 hover:ring-teal-500 transition-all' : ''}`}
+                    >
+                      {doc.type === 'cedula' ? (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-muted p-4">
+                          <FileText className="w-8 h-8 text-teal-500 mb-2" />
+                          <span className="text-xs text-center font-medium">Cédula</span>
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-muted p-4">
+                          <FileText className="w-8 h-8 text-teal-500 mb-2" />
+                          <span className="text-xs text-center font-medium">Carnet</span>
+                        </div>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-3 pt-2">
+                <VehicleDocumentUploader
+                  vehicleId={inspection.vehicle.id}
+                  type="cedula"
+                  label="Cédula de Identidad"
+                />
+                <VehicleDocumentUploader
+                  vehicleId={inspection.vehicle.id}
+                  type="carnet"
+                  label="Carnet de Circulación"
+                />
+              </div>
             </CardContent>
           </Card>
 

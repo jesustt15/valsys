@@ -13,6 +13,8 @@ const statusLabels: Record<string, string> = {
   recalificacion: 'Recalificación',
   por_programar: 'Por Programar',
   certificado: 'Certificado',
+  cita: 'Cita',
+  standby: 'Standby',
 }
 
 interface Props {
@@ -114,7 +116,9 @@ export function PendingAlerts({ alerts }: Props) {
                           ? 'destructive'
                           : alert.status === 'recalificacion'
                             ? 'warning'
-                            : 'info'
+                            : alert.status === 'standby'
+                              ? 'warning'
+                              : 'info'
                     }
                     className="hidden sm:inline-flex"
                   >

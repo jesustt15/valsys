@@ -8,6 +8,7 @@ export interface StatusCounts {
   por_programar: number
   cita: number
   certificado: number
+  standby: number
 }
 
 export interface RecentInspectionRow {
@@ -155,7 +156,7 @@ export async function countInspectionsByStatus(): Promise<StatusCounts> {
       count: count(inspections.id),
     })
     .from(inspections)
-    .where(and(eq(inspections.source, 'gnc'), isNull(inspections.deletedAt)))
+    .where(isNull(inspections.deletedAt))
     .groupBy(inspections.status)
 
   const result: StatusCounts = {
@@ -164,6 +165,7 @@ export async function countInspectionsByStatus(): Promise<StatusCounts> {
     por_programar: 0,
     cita: 0,
     certificado: 0,
+    standby: 0,
   }
 
   for (const row of rows) {
@@ -180,7 +182,7 @@ export async function countInspectionsToday(): Promise<number> {
     .select({ count: count(inspections.id) })
     .from(inspections)
     .where(
-      sql`DATE(${inspections.inspectionDate}) = CURRENT_DATE AND ${inspections.source} = 'gnc' AND ${inspections.deletedAt} IS NULL`,
+      sql`DATE(${inspections.inspectionDate}) = CURRENT_DATE AND ${inspections.deletedAt} IS NULL`,
     )
 
   return Number(row?.count ?? 0)
@@ -198,7 +200,7 @@ export async function getRecentInspectionsWithOwner(limit = 5): Promise<RecentIn
     .from(inspections)
     .leftJoin(vehicles, eq(inspections.vehicleId, vehicles.id))
     .leftJoin(owners, eq(vehicles.ownerId, owners.id))
-    .where(and(eq(inspections.source, 'gnc'), isNull(inspections.deletedAt)))
+    .where(isNull(inspections.deletedAt))
     .orderBy(sql`${inspections.createdAt} DESC`)
     .limit(limit)
 

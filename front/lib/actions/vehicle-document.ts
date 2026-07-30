@@ -54,6 +54,7 @@ export async function uploadVehicleDocumentAction(
 
     revalidatePath(`/inspections/${formData.get('inspectionId') || ''}`)
     revalidatePath(`/vehicles/${vehicleId}`)
+    revalidatePath('/utp')
 
     return { success: true, data: { id: doc.id } }
   } catch (e) {
