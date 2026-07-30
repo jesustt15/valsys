@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders, certificates, owners, vehicles } from '@/db/schema'
-import { createInspectionSchema, checklistAnswersSchema, toggleAnswerSchema, unifiedInspectionSchema } from '@/lib/validations/inspection'
+import { createInspectionSchema, checklistAnswersSchema, toggleAnswerSchema, unifiedInspectionSchema, updateInspectionSchema } from '@/lib/validations/inspection'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
@@ -912,6 +912,50 @@ export async function markAsScheduledAction(
     data: { correlativeNumber: correlativeNumber.trim() },
   }
 }
+
+// ── Update Inspection Fields ───────────────────────────────────
+
+export type UpdateInspectionState = {
+  success?: boolean
+  error?: string
+}
+
+export async function updateInspectionAction(
+  _prev: UpdateInspectionState | null,
+  formData: FormData,
+): Promise<UpdateInspectionState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+
+  const parsed = updateInspectionSchema.safeParse({
+    id: formData.get('id'),
+    kmCurrent: formData.get('kmCurrent'),
+    observations: formData.get('observations'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  try {
+    await db
+      .update(inspections)
+      .set({
+        kmCurrent: parsed.data.kmCurrent ?? null,
+        observations: parsed.data.observations ?? null,
+        updatedAt: new Date(),
+      })
+      .where(eq(inspections.id, parsed.data.id))
+
+    revalidatePath(`/inspections/${parsed.data.id}`)
+    return { success: true }
+  } catch (e) {
+    console.error('Error updating inspection:', e)
+    return { error: 'Error al actualizar la inspección' }
+  }
+}
+
+// ── Signature Capture ──────────────────────────────────────────
 
 export type SignatureCaptureState = {
   success?: boolean

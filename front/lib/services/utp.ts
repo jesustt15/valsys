@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates, gncCylinders } from '@/db/schema'
-import { eq, and, inArray, asc, isNull } from 'drizzle-orm'
+import { eq, and, inArray, asc, desc, isNull } from 'drizzle-orm'
 
 export interface UtpInspectionRow {
   id: string
@@ -33,7 +33,7 @@ export async function getUtpInspections(status?: string): Promise<UtpInspectionR
     .from(inspections)
     .leftJoin(certificates, eq(certificates.inspectionId, inspections.id))
     .where(and(...conditions))
-    .orderBy(inspections.inspectionDate)
+    .orderBy(desc(inspections.inspectionDate))
 
   if (records.length === 0) return []
 
@@ -98,6 +98,10 @@ export async function getUtpInspectionById(id: string) {
 
   if (!inspection) return null
 
+  const [operator] = inspection.operatorId
+    ? await db.select({ fullName: users.fullName }).from(users).where(eq(users.id, inspection.operatorId))
+    : [null]
+
   const [vehicle] = inspection.vehicleId
     ? await db.select().from(vehicles).where(eq(vehicles.id, inspection.vehicleId))
     : [null]
@@ -134,6 +138,7 @@ export async function getUtpInspectionById(id: string) {
     ...inspection,
     vehicle,
     owner,
+    operator,
     answers,
     attachments,
     signature,

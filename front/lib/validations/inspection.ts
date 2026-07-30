@@ -33,8 +33,17 @@ export type PhotoUploadInput = z.infer<typeof photoUploadSchema>
 
 // ─── Toggle Answer ────────────────────────────────────────────
 export const toggleAnswerSchema = z.object({
-  answerId: z.string().uuid('ID de respuesta inválido'),
+  answerId: z.string().uuid(),
   expectedAnswer: z.boolean().nullable(),
+})
+
+export const updateInspectionSchema = z.object({
+  id: z.string().uuid(),
+  kmCurrent: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
+    z.number().min(1, 'Los kilómetros deben ser mayores a 0').nullable().optional()
+  ),
+  observations: z.string().optional(),
 })
 
 export type ToggleAnswerInput = z.infer<typeof toggleAnswerSchema>

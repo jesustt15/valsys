@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState, useRef } from "react";
+import { useState, useActionState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -88,6 +88,12 @@ export function UtpInspectionForm({
     UtpFormState | null,
     FormData
   >(createUtpInspectionAction, null);
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push("/utp")
+    }
+  }, [state?.success, router])
 
   // ── Field Errors ──────────────────────────────────────────
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -466,29 +472,8 @@ export function UtpInspectionForm({
     formAction(submitData);
   };
 
-  // ── Success State ───────────────────────────────────────────
   if (state?.success) {
-    return (
-      <Card className="max-w-2xl mx-auto mt-8">
-        <CardContent className="p-12 text-center space-y-4">
-          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold">Inspección UTP Creada</h2>
-          <p className="text-muted-foreground">
-            La inspección UTP se registró correctamente.
-          </p>
-          <div className="flex gap-4 justify-center pt-4">
-            <Button onClick={() => router.push("/utp")}>
-              Ver Inspecciones UTP
-            </Button>
-            <Button variant="outline" onClick={() => router.push("/dashboard")}>
-              Volver al Inicio
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null
   }
 
   return (

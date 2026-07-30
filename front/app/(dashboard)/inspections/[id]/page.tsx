@@ -21,6 +21,7 @@ import { FileText, Camera, CheckSquare, Truck, User } from 'lucide-react'
 import { ChecklistCard } from '@/components/inspections/checklist-card'
 import { EditOwnerModal } from '@/components/owners/edit-owner-modal'
 import { EditVehicleModal } from '@/components/vehicles/edit-vehicle-modal'
+import { EditInspectionFields } from '@/components/inspections/edit-inspection-fields'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 
 interface PageProps {
@@ -235,6 +236,23 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
               </CardContent>
             </Card>
           </div>
+
+          <EditInspectionFields
+            inspectionId={resolvedParams.id}
+            kmCurrent={inspection.kmCurrent}
+            observations={inspection.observations}
+          />
+
+          {inspection.observations && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Observaciones</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{inspection.observations}</p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Cylinder Fate Panel */}
           {showFatePanel && (
