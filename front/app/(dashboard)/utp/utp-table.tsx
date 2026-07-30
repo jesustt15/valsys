@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Search } from 'lucide-react'
+import { DeleteInspectionButton } from '@/components/inspections/delete-inspection-button'
 import type { UtpInspectionRow } from '@/lib/services/utp'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,9 +42,10 @@ function formatDate(d: Date | null): string {
 
 interface Props {
   inspections: UtpInspectionRow[]
+  isAdmin?: boolean
 }
 
-export function UtpTable({ inspections }: Props) {
+export function UtpTable({ inspections, isAdmin = false }: Props) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
 
@@ -109,12 +111,13 @@ export function UtpTable({ inspections }: Props) {
               <th className="py-3 px-3 font-medium">Estado</th>
               <th className="py-3 px-3 font-medium">Correlativo</th>
               <th className="py-3 px-3 font-medium">Operador</th>
+              {isAdmin && <th className="py-3 px-3 font-medium w-10" />}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                <td colSpan={isAdmin ? 7 : 6} className="py-8 text-center text-muted-foreground">
                   Sin resultados
                 </td>
               </tr>
@@ -147,6 +150,11 @@ export function UtpTable({ inspections }: Props) {
                     </Link>
                   </td>
                   <td className="py-3 px-3 text-muted-foreground">{row.operatorName ?? '—'}</td>
+                  {isAdmin && (
+                    <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                      <DeleteInspectionButton inspectionId={row.id} source="utp" />
+                    </td>
+                  )}
                 </tr>
               ))
             )}

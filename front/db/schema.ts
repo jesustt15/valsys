@@ -136,6 +136,7 @@ export const inspections = pgTable('inspections', {
   inspectionDate: timestamp('inspection_date').defaultNow(),
   observations: text('observations'),
   appointmentDate: timestamp('appointment_date'),
+  deletedAt: timestamp('deleted_at'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({

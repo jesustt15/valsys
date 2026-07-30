@@ -2,8 +2,10 @@ import Link from 'next/link'
 import { InspectionsTable } from '@/components/inspections/inspections-table'
 import { getAllInspections } from '@/lib/services/inspection'
 import { getPendingSummaries } from '@/lib/services/inspection-pending'
+import { getSession } from '@/lib/auth/get-session'
 
 export default async function InspectionsPage() {
+  const session = await getSession()
   const inspections = await getAllInspections()
   const pendingSummaries = await getPendingSummaries(inspections.map((i) => i.id))
 
@@ -45,6 +47,7 @@ export default async function InspectionsPage() {
           <InspectionsTable
             inspections={inspections}
             pendingSummaries={Object.fromEntries(pendingSummaries)}
+            isAdmin={session?.role === 'admin'}
           />
         )}
       </div>

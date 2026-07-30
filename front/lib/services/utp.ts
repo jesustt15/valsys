@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates, gncCylinders } from '@/db/schema'
-import { eq, and, inArray, asc } from 'drizzle-orm'
+import { eq, and, inArray, asc, isNull } from 'drizzle-orm'
 
 export interface UtpInspectionRow {
   id: string
@@ -16,7 +16,7 @@ export interface UtpInspectionRow {
  * Get all UTP inspections (source = 'utp'), optionally filtered by status.
  */
 export async function getUtpInspections(status?: string): Promise<UtpInspectionRow[]> {
-  const conditions = [eq(inspections.source, 'utp')]
+  const conditions = [eq(inspections.source, 'utp'), isNull(inspections.deletedAt)]
   if (status) {
     conditions.push(eq(inspections.status, status as any))
   }
@@ -94,7 +94,7 @@ export async function getUtpInspectionById(id: string) {
   const [inspection] = await db
     .select()
     .from(inspections)
-    .where(and(eq(inspections.id, id), eq(inspections.source, 'utp')))
+    .where(and(eq(inspections.id, id), eq(inspections.source, 'utp'), isNull(inspections.deletedAt)))
 
   if (!inspection) return null
 
@@ -157,7 +157,7 @@ export async function canIssueUtpCertificate(inspectionId: string): Promise<UtpG
   const [inspection] = await db
     .select()
     .from(inspections)
-    .where(and(eq(inspections.id, inspectionId), eq(inspections.source, 'utp')))
+    .where(and(eq(inspections.id, inspectionId), eq(inspections.source, 'utp'), isNull(inspections.deletedAt)))
     .limit(1)
 
   if (!inspection) {

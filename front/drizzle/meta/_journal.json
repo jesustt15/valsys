@@ -29,6 +29,13 @@
       "when": 1784233586667,
       "tag": "0003_misty_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785433637654,
+      "tag": "0004_add_deleted_at_to_inspections",
+      "breakpoints": true
     }
   ]
 }

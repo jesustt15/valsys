@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { getUtpInspections } from '@/lib/services/utp'
+import { getSession } from '@/lib/auth/get-session'
 import { UtpTable } from './utp-table'
 
 export default async function UtpPage() {
+  const session = await getSession()
   const inspections = await getUtpInspections()
 
   return (
@@ -49,7 +51,7 @@ export default async function UtpPage() {
             </Link>
           </div>
         ) : (
-          <UtpTable inspections={inspections} />
+          <UtpTable inspections={inspections} isAdmin={session?.role === 'admin'} />
         )}
       </div>
     </div>

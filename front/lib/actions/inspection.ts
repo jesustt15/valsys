@@ -9,7 +9,7 @@ import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
 import { upsertDoc } from '@/lib/services/vehicle-document'
 import { createNotification } from '@/lib/services/notification'
-import { eq, sql } from 'drizzle-orm'
+import { eq, and, sql, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { getNonCompliantAnswers, getPostMountAttachments, cycleInspectionAnswer, scheduleAppointment } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
@@ -958,5 +958,77 @@ export async function captureSignatureAction(
   } catch (e) {
     console.error('Error capturing signature:', e)
     return { error: 'Error al guardar la firma. Intente de nuevo.' }
+  }
+}
+
+// ── Soft-delete Inspection (Admin only) ──────────────────────
+
+export type DeleteInspectionState = {
+  success?: boolean
+  error?: string
+}
+
+export async function deleteInspectionAction(
+  _prev: DeleteInspectionState | null,
+  formData: FormData,
+): Promise<DeleteInspectionState> {
+  const session = await getSession()
+  if (!session || session.role !== 'admin') {
+    return { error: 'Solo administradores pueden eliminar inspecciones' }
+  }
+
+  const id = formData.get('id') as string
+  if (!id) return { error: 'ID de inspección requerido' }
+
+  const source = (formData.get('source') as string) || 'gnc'
+
+  try {
+    await db
+      .update(inspections)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(inspections.id, id), isNull(inspections.deletedAt)))
+
+    revalidatePath('/inspections')
+    revalidatePath('/utp')
+    revalidatePath('/dashboard')
+    if (source === 'utp') {
+      revalidatePath('/utp')
+    } else {
+      revalidatePath('/inspections')
+    }
+    return { success: true }
+  } catch (e) {
+    console.error('Error soft-deleting inspection:', e)
+    return { error: 'Error al eliminar la inspección' }
+  }
+}
+
+export async function restoreInspectionAction(
+  _prev: DeleteInspectionState | null,
+  formData: FormData,
+): Promise<DeleteInspectionState> {
+  const session = await getSession()
+  if (!session || session.role !== 'admin') {
+    return { error: 'Solo administradores pueden restaurar inspecciones' }
+  }
+
+  const id = formData.get('id') as string
+  if (!id) return { error: 'ID de inspección requerido' }
+
+  const source = (formData.get('source') as string) || 'gnc'
+
+  try {
+    await db
+      .update(inspections)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(eq(inspections.id, id))
+
+    revalidatePath('/inspections')
+    revalidatePath('/utp')
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (e) {
+    console.error('Error restoring inspection:', e)
+    return { error: 'Error al restaurar la inspección' }
   }
 }

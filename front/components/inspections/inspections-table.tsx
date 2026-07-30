@@ -7,6 +7,7 @@ import { Plus, Search, FileText, AlertTriangle, AlertCircle, CheckCircle2 } from
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { DeleteInspectionButton } from '@/components/inspections/delete-inspection-button'
 import type { PendingItems } from '@/lib/services/inspection-pending'
 
 interface InspectionsTableProps {
@@ -23,6 +24,7 @@ interface InspectionsTableProps {
     appointmentDate?: Date | string | null
   }>
   pendingSummaries?: Record<string, PendingItems>
+  isAdmin?: boolean
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -50,7 +52,7 @@ const STATUS_TABS = [
   { value: 'certificado', label: 'Certificadas' },
 ] as const
 
-export function InspectionsTable({ inspections, pendingSummaries = {} }: InspectionsTableProps) {
+export function InspectionsTable({ inspections, pendingSummaries = {}, isAdmin = false }: InspectionsTableProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [pendingFilter, setPendingFilter] = useState<string>('all')
@@ -288,14 +290,19 @@ export function InspectionsTable({ inspections, pendingSummaries = {} }: Inspect
                     {insp.operatorName ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-right">
-                    <Link
-                      href={`/inspections/${insp.id}`}
-                      title="Ver Expediente"
-                      className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-secondary hover:text-secondary-foreground transition-all"
-                    >
-                      <FileText className="h-4 w-4 text-green-600" />
-                      <span className="sr-only">Ver Expediente</span>
-                    </Link>
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={`/inspections/${insp.id}`}
+                        title="Ver Expediente"
+                        className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-secondary hover:text-secondary-foreground transition-all"
+                      >
+                        <FileText className="h-4 w-4 text-green-600" />
+                        <span className="sr-only">Ver Expediente</span>
+                      </Link>
+                      {isAdmin && (
+                        <DeleteInspectionButton inspectionId={insp.id} source="gnc" />
+                      )}
+                    </div>
                   </td>
                 </motion.tr>
               ))}
