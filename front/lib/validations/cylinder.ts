@@ -9,6 +9,15 @@ export const createCylinderSchema = z.object({
   location: z.string().min(1, 'La ubicación es obligatoria'),
 })
 
+export const updateCylinderSchema = z.object({
+  id: z.string().uuid(),
+  brand: z.string().min(1, 'La marca es obligatoria'),
+  capacity: z.string().min(1, 'La capacidad es obligatoria'),
+  initialSerial: z.string().min(1, 'El número de serial es obligatorio'),
+  manufactureDate: z.string().min(1, 'La fecha de prueba es obligatoria'),
+  location: z.string().min(1, 'La ubicación es obligatoria'),
+})
+
 export const updateCylinderStatusSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(['instalado', 'desmontado', 'en_planta', 'pendiente_reinstalacion', 'reinstalado', 'condenado']),

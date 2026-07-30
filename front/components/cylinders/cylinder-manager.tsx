@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { MonthYearPicker } from '@/components/ui/month-year-picker'
-import { createCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
+import { createCylinderAction, updateCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
 
 interface Cylinder {
   id: string
@@ -30,9 +30,92 @@ interface Props {
   cylinders: Cylinder[]
 }
 
+function EditCylinderFieldsForm({
+  cylinder,
+  inspectionId,
+  onClose,
+  formAction,
+  state,
+  pending,
+}: {
+  cylinder: Cylinder
+  inspectionId: string
+  onClose: () => void
+  formAction: (formData: FormData) => void
+  state: CylinderFormState | null
+  pending: boolean
+}) {
+  const [manufactureDate, setManufactureDate] = useState(cylinder.manufactureDate || '')
+
+  return (
+    <motion.div
+      key="editar-campos"
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      className="overflow-hidden mt-4"
+    >
+      <form action={formAction} className="bg-blue-50/50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-200 dark:border-blue-800 space-y-4">
+        <h4 className="font-medium text-sm flex items-center gap-2">
+          <Edit2 className="w-4 h-4 text-blue-600" />
+          Editar Cilindro — {cylinder.brand} {cylinder.initialSerial}
+        </h4>
+        <input type="hidden" name="id" value={cylinder.id} />
+        <input type="hidden" name="inspectionId" value={inspectionId} />
+        <input type="hidden" name="manufactureDate" value={manufactureDate} />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor={`edit-brand-${cylinder.id}`} required>Marca</Label>
+            <Input id={`edit-brand-${cylinder.id}`} name="brand" defaultValue={cylinder.brand} required disabled={pending} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-capacity-${cylinder.id}`} required>Capacidad (L)</Label>
+            <Input id={`edit-capacity-${cylinder.id}`} name="capacity" defaultValue={cylinder.capacity} required disabled={pending} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-serial-${cylinder.id}`} required>Nº Serial</Label>
+            <Input id={`edit-serial-${cylinder.id}`} name="initialSerial" defaultValue={cylinder.initialSerial} required disabled={pending} />
+          </div>
+          <div className="space-y-2">
+            <Label required>Fecha de Prueba</Label>
+            <MonthYearPicker
+              value={manufactureDate || undefined}
+              onChange={setManufactureDate}
+              disabled={pending}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`edit-location-${cylinder.id}`} required>Ubicación</Label>
+            <Input id={`edit-location-${cylinder.id}`} name="location" defaultValue={cylinder.location} required disabled={pending} placeholder="Ej: Baúl" />
+          </div>
+        </div>
+
+        {state?.error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{state.error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Guardando...' : 'Guardar Cambios'}
+          </Button>
+        </div>
+      </form>
+    </motion.div>
+  )
+}
+
 export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingFieldsId, setEditingFieldsId] = useState<string | null>(null)
 
   const [createState, createFormAction, createPending] = useActionState<CylinderFormState | null, FormData>(
     createCylinderAction,
@@ -44,12 +127,23 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
     null
   )
 
+  const [editFieldsState, editFieldsFormAction, editFieldsPending] = useActionState<CylinderFormState | null, FormData>(
+    updateCylinderAction,
+    null
+  )
+
   // Clear editing form after successful update
   useEffect(() => {
     if (updateState?.success) {
       setEditingId(null)
     }
   }, [updateState?.success])
+
+  useEffect(() => {
+    if (editFieldsState?.success) {
+      setEditingFieldsId(null)
+    }
+  }, [editFieldsState?.success])
 
   return (
     <Card className="flex flex-col">
@@ -164,11 +258,29 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {cyl.status !== 'instalado' && (
-                        <Button variant="ghost" size="sm" onClick={() => setEditingId(editingId === cyl.id ? null : cyl.id)}>
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        {(cyl.status === 'instalado' || cyl.status === 'reinstalado') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingId(null)
+                              setEditingFieldsId(editingFieldsId === cyl.id ? null : cyl.id)
+                            }}
+                            title="Editar datos del cilindro"
+                          >
+                            <Edit2 className="w-4 h-4 text-blue-600" />
+                          </Button>
+                        )}
+                        {cyl.status !== 'instalado' && (
+                          <Button variant="ghost" size="sm" onClick={() => {
+                            setEditingFieldsId(null)
+                            setEditingId(editingId === cyl.id ? null : cyl.id)
+                          }}>
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -345,6 +457,25 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                   </div>
                 </form>
               </motion.div>
+            )
+          })()}
+        </AnimatePresence>
+
+        {/* Field Edit Form for instalado/reinstalado cylinders */}
+        <AnimatePresence>
+          {editingFieldsId && (() => {
+            const cyl = cylinders.find(c => c.id === editingFieldsId)
+            if (!cyl) return null
+
+            return (
+              <EditCylinderFieldsForm
+                cylinder={cyl}
+                inspectionId={inspectionId}
+                onClose={() => setEditingFieldsId(null)}
+                formAction={editFieldsFormAction}
+                state={editFieldsState}
+                pending={editFieldsPending}
+              />
             )
           })()}
         </AnimatePresence>

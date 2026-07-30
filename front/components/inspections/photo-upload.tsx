@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useMediaQuery } from '@/hooks/use-media-query'
 
 interface PhotoUploadProps {
   category: 'initial' | 'removal' | 'post_mount'
@@ -12,6 +11,19 @@ const MAX_PHOTOS = 25
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const CAMERA_TIMEOUT_MS = 120_000
 
+function useIsTouchDevice() {
+  const [isTouch, setIsTouch] = useState(false)
+
+  useEffect(() => {
+    setIsTouch(
+      typeof navigator !== 'undefined' &&
+      (navigator.maxTouchPoints > 0 || 'ontouchstart' in window)
+    )
+  }, [])
+
+  return isTouch
+}
+
 export function PhotoUpload({ category, label }: PhotoUploadProps) {
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -19,9 +31,26 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
   const [isMultiShot, setIsMultiShot] = useState(false)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
+  const accumulatorRef = useRef<HTMLInputElement>(null)
   const multiShotRef = useRef(false)
   const cameraTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const isTouch = useMediaQuery('(pointer: coarse)')
+  const isTouch = useIsTouchDevice()
+
+  const syncAccumulator = useCallback(() => {
+    if (!accumulatorRef.current) return
+    try {
+      const dt = new DataTransfer()
+      previews.forEach(p => dt.items.add(p.file))
+      accumulatorRef.current.files = dt.files
+    } catch {
+      // DataTransfer not supported — fallback: files won't be in accumulator
+      // This affects iOS Safari; photos will only be in previews state
+    }
+  }, [previews])
+
+  useEffect(() => {
+    syncAccumulator()
+  }, [previews, syncAccumulator])
 
   const stopMultiShot = useCallback(() => {
     setIsMultiShot(false)
@@ -139,10 +168,9 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
     <div className="space-y-3">
       <label className="block text-sm font-medium text-foreground">{label}</label>
 
-      {/* Hidden inputs — shared by both mobile and desktop */}
+      {/* Hidden inputs for native camera/gallery UI (no name — not submitted) */}
       <input
         ref={cameraRef}
-        name="photos"
         type="file"
         accept="image/*"
         capture="environment"
@@ -151,11 +179,20 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
       />
       <input
         ref={galleryRef}
-        name="photos"
         type="file"
         accept="image/*"
         multiple
         onChange={handleGallerySelect}
+        className="hidden"
+      />
+
+      {/* Accumulator input — holds ALL photos for form submission */}
+      <input
+        ref={accumulatorRef}
+        name="photos"
+        type="file"
+        accept="image/*"
+        multiple
         className="hidden"
       />
 

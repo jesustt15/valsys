@@ -19,6 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { FileText, Camera, CheckSquare, Truck, User } from 'lucide-react'
 import { ChecklistCard } from '@/components/inspections/checklist-card'
+import { EditOwnerModal } from '@/components/owners/edit-owner-modal'
+import { EditVehicleModal } from '@/components/vehicles/edit-vehicle-modal'
 import { ALL_QUESTIONS } from '@/lib/checklist'
 
 interface PageProps {
@@ -153,10 +155,23 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Truck className="w-4 h-4 text-emerald-500" />
-                  Vehículo
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-emerald-500" />
+                    Vehículo
+                  </CardTitle>
+                  <EditVehicleModal
+                    vehicle={{
+                      id: inspection.vehicle.id,
+                      codigoUnicoGnc: inspection.vehicle.codigoUnicoGnc,
+                      licensePlate: inspection.vehicle.licensePlate,
+                      vehicleType: inspection.vehicle.vehicleType,
+                      brand: inspection.vehicle.brand,
+                      model: inspection.vehicle.model,
+                      marcaKit: inspection.vehicle.marcaKit,
+                    }}
+                  />
+                </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between border-b pb-1">
@@ -184,10 +199,21 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="w-4 h-4 text-violet-500" />
-                  Propietario
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <User className="w-4 h-4 text-violet-500" />
+                    Propietario
+                  </CardTitle>
+                  <EditOwnerModal
+                    owner={{
+                      id: inspection.owner.id,
+                      fullName: inspection.owner.fullName,
+                      documentId: inspection.owner.documentId,
+                      phone: inspection.owner.phone,
+                      email: inspection.owner.email,
+                    }}
+                  />
+                </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between border-b pb-1">

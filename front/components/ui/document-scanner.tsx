@@ -281,7 +281,7 @@ export function DocumentScanner({ label, onCapture, onClose, disabled }: Documen
             {step === 'preview' && 'Vista previa'}
           </span>
         </div>
-        <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
+        <button type="button" onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
           <X className="w-5 h-5" />
         </button>
       </div>

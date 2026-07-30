@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { gncCylinders, inspectionAttachments, signatures, inspections } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { createCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema, decideCylinderFateSchema } from '@/lib/validations/cylinder'
+import { createCylinderSchema, updateCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema, decideCylinderFateSchema } from '@/lib/validations/cylinder'
 import { getSession } from '@/lib/auth/get-session'
 import { putObject } from '@/lib/minio'
 import { createNotification } from '@/lib/services/notification'
@@ -57,6 +57,51 @@ export async function createCylinderAction(
   } catch (error) {
     console.error('Error creating cylinder:', error)
     return { error: 'Error al registrar el cilindro' }
+  }
+}
+
+export async function updateCylinderAction(
+  _prev: CylinderFormState | null,
+  formData: FormData,
+): Promise<CylinderFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+
+  const parsed = updateCylinderSchema.safeParse({
+    id: formData.get('id'),
+    brand: formData.get('brand'),
+    capacity: formData.get('capacity'),
+    initialSerial: formData.get('initialSerial'),
+    manufactureDate: formData.get('manufactureDate'),
+    location: formData.get('location'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  try {
+    await db
+      .update(gncCylinders)
+      .set({
+        brand: parsed.data.brand,
+        capacity: parsed.data.capacity,
+        initialSerial: parsed.data.initialSerial,
+        manufactureDate: parsed.data.manufactureDate,
+        location: parsed.data.location,
+        updatedBy: session.sub,
+      })
+      .where(eq(gncCylinders.id, parsed.data.id))
+
+    const inspectionId = formData.get('inspectionId') as string
+    if (inspectionId) {
+      revalidatePath(`/inspections/${inspectionId}`)
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating cylinder:', error)
+    return { error: 'Error al actualizar el cilindro' }
   }
 }
 
