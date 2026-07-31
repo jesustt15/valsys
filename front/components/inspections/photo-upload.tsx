@@ -8,7 +8,7 @@ interface PhotoUploadProps {
 }
 
 const MAX_PHOTOS = 25
-const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_FILE_SIZE = 15 * 1024 * 1024
 const CAMERA_TIMEOUT_MS = 120_000
 
 function useIsTouchDevice() {
@@ -92,7 +92,7 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
         }
 
         if (file.size > MAX_FILE_SIZE) {
-          setError(`La imagen "${file.name}" supera los 5MB`)
+          setError(`La imagen "${file.name}" supera los 15MB`)
           return
         }
 
@@ -264,7 +264,7 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
                        cursor-pointer"
           />
           <p className="text-xs text-muted-foreground">
-            Máximo {MAX_PHOTOS} fotos, 5MB cada una. Formatos: JPG, PNG, WEBP
+            Máximo {MAX_PHOTOS} fotos, 15MB cada una. Formatos: JPG, PNG, WEBP
           </p>
         </>
       )}
