@@ -95,6 +95,8 @@ export function UtpInspectionForm({
     }
   }, [state?.success, router])
 
+  const photoFilesRef = useRef<File[]>([]);
+
   // ── Field Errors ──────────────────────────────────────────
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -461,11 +463,10 @@ export function UtpInspectionForm({
       submitData.set("cylinders", JSON.stringify(cylinders));
     }
 
-    // Photos - collect from all PhotoUpload inputs in the form
-    const photos = formData.getAll("photos") as File[];
-    for (const photo of photos) {
-      if (photo && photo.size > 0) {
-        submitData.append("photos", photo);
+    // Photos - collect from PhotoUpload via ref (avoids DataTransfer issues on Safari)
+    for (const file of photoFilesRef.current) {
+      if (file && file.size > 0) {
+        submitData.append("photos", file);
       }
     }
 
@@ -1111,6 +1112,7 @@ export function UtpInspectionForm({
           <PhotoUpload
             category="initial"
             label="Fotos de la inspección UTP"
+            onFilesChange={(files) => { photoFilesRef.current = files }}
           />
         </CardContent>
       </Card>

@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 interface PhotoUploadProps {
   category: 'initial' | 'removal' | 'post_mount'
   label: string
+  onFilesChange?: (files: File[]) => void
 }
 
 const MAX_PHOTOS = 25
@@ -24,7 +25,7 @@ function useIsTouchDevice() {
   return isTouch
 }
 
-export function PhotoUpload({ category, label }: PhotoUploadProps) {
+export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps) {
   const [previews, setPreviews] = useState<{ file: File; url: string }[]>([])
   const [error, setError] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -50,7 +51,8 @@ export function PhotoUpload({ category, label }: PhotoUploadProps) {
 
   useEffect(() => {
     syncAccumulator()
-  }, [previews, syncAccumulator])
+    onFilesChange?.(previews.map((p) => p.file))
+  }, [previews, syncAccumulator, onFilesChange])
 
   const stopMultiShot = useCallback(() => {
     setIsMultiShot(false)

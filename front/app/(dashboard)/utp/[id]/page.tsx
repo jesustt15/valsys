@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { FileText, Camera, CheckSquare, Truck, User, Database } from 'lucide-react'
 import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
+import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -370,7 +371,9 @@ export default async function UtpDetailPage({ params }: PageProps) {
                 {attachmentsWithUrls.length} foto(s)
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <ExpedienteUploader inspectionId={resolvedParams.id} />
+
               {attachmentsWithUrls.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Sin fotos.</p>
               ) : (

@@ -88,6 +88,8 @@ export function UnifiedInspectionForm({
     FormData
   >(createUnifiedInspectionAction, null);
 
+  const photoFilesRef = useRef<File[]>([]);
+
   // ── Branch ──────────────────────────────────────────────────
   const [branch, setBranch] = useState<"montados" | "desmontados">("montados");
   const [formError, setFormError] = useState<string | null>(null);
@@ -451,12 +453,10 @@ export function UnifiedInspectionForm({
       submitData.set("carnet", carnetFile);
     }
 
-    // Photos - collect from all PhotoUpload inputs in the form
-    // The form contains multiple file inputs with name="photos"
-    const photos = formData.getAll("photos") as File[];
-    for (const photo of photos) {
-      if (photo && photo.size > 0) {
-        submitData.append("photos", photo);
+    // Photos - collect from PhotoUpload via ref (avoids DataTransfer issues on Safari)
+    for (const file of photoFilesRef.current) {
+      if (file && file.size > 0) {
+        submitData.append("photos", file);
       }
     }
 
@@ -1136,7 +1136,11 @@ export function UnifiedInspectionForm({
           </div>
         </CardHeader>
         <CardContent>
-          <PhotoUpload category="initial" label="Fotos de inspección inicial" />
+          <PhotoUpload
+            category="initial"
+            label="Fotos de inspección inicial"
+            onFilesChange={(files) => { photoFilesRef.current = files }}
+          />
         </CardContent>
       </Card>
 
