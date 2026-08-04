@@ -5,7 +5,7 @@ const nextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ['*.trycloudflare.com', '*.cfargotunnel.com', 'localhost:3000', 'agrogas.online', '*.agrogas.online'],
-      bodySizeLimit: '15mb',
+      bodySizeLimit: '50mb',
     },
   },
 }
