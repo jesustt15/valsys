@@ -14,6 +14,7 @@ import { FileText, Camera, CheckSquare, Truck, User, Database } from 'lucide-rea
 import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
+import { formatMonthYear } from '@/lib/utils/format-month-year'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -266,12 +267,25 @@ export default async function UtpDetailPage({ params }: PageProps) {
           <CardContent>
             <div className="space-y-2">
               {inspection.cylinders.map((cyl) => (
-                <div key={cyl.id} className="flex items-center gap-4 p-2 bg-muted/50 rounded-lg text-sm">
-                  <span className="font-medium">{cyl.brand}</span>
-                  <span className="text-muted-foreground">{cyl.capacity}L</span>
-                  <span className="font-mono text-xs">{cyl.initialSerial}</span>
-                  <span className="text-muted-foreground ml-auto">{cyl.location}</span>
-                  <Badge variant="info" className="text-xs">{cyl.status ?? 'instalado'}</Badge>
+                <div key={cyl.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="font-medium">{cyl.brand} — {cyl.capacity}L</span>
+                    <Badge variant="info" className="text-xs shrink-0">{cyl.status ?? 'instalado'}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-muted-foreground">
+                    <div className="flex justify-between gap-2">
+                      <span>Serial:</span>
+                      <span className="font-mono font-medium text-foreground text-right break-all">{cyl.initialSerial}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span>Prueba:</span>
+                      <span className="font-medium text-foreground">{formatMonthYear(cyl.manufactureDate)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2 col-span-2">
+                      <span>Ubicación:</span>
+                      <span className="font-medium text-foreground text-right">{cyl.location}</span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { MonthYearPicker } from '@/components/ui/month-year-picker'
 import { createCylinderAction, updateCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
+import { formatMonthYear } from '@/lib/utils/format-month-year'
 
 interface Cylinder {
   id: string
@@ -219,7 +220,73 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
             No hay cilindros registrados para este vehículo.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile cards — avoids table overflow on small screens */}
+            <div className="space-y-2 md:hidden">
+              {cylinders.map((cyl) => (
+                <div key={cyl.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <span className="font-medium">{cyl.brand} — {cyl.capacity}L</span>
+                    <Badge variant={
+                      cyl.status === 'desmontado' ? 'warning'
+                        : cyl.status === 'en_planta' ? 'warning'
+                        : cyl.status === 'pendiente_reinstalacion' ? 'warning'
+                        : cyl.status === 'condenado' ? 'destructive'
+                        : cyl.status === 'instalado' ? 'success'
+                        : cyl.status === 'reinstalado' ? 'success'
+                        : 'info'
+                    } className="shrink-0">
+                      {cyl.status === 'instalado' ? 'Instalado'
+                        : cyl.status === 'desmontado' ? 'Desmontado'
+                        : cyl.status === 'reinstalado' ? 'Reinstalado'
+                        : cyl.status === 'condenado' ? 'Condenado (De baja)'
+                        : cyl.status === 'en_planta' ? 'En Planta'
+                        : cyl.status === 'pendiente_reinstalacion' ? 'Pendiente de Reinstalación'
+                        : cyl.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-muted-foreground">
+                    <div className="flex justify-between gap-2">
+                      <span>Serial:</span>
+                      <span className="font-mono font-medium text-foreground text-right break-all">{cyl.actualSerial || cyl.initialSerial}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span>Prueba:</span>
+                      <span className="font-medium text-foreground">{formatMonthYear(cyl.manufactureDate)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-border">
+                    <span className="text-muted-foreground truncate">{cyl.location || '—'}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(cyl.status === 'instalado' || cyl.status === 'reinstalado') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setEditingId(null)
+                            setEditingFieldsId(editingFieldsId === cyl.id ? null : cyl.id)
+                          }}
+                          title="Editar datos del cilindro"
+                        >
+                          <Edit2 className="w-4 h-4 text-blue-600" />
+                        </Button>
+                      )}
+                      {cyl.status !== 'instalado' && (
+                        <Button variant="ghost" size="sm" onClick={() => {
+                          setEditingFieldsId(null)
+                          setEditingId(editingId === cyl.id ? null : cyl.id)
+                        }}>
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
@@ -237,7 +304,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                     <td className="px-4 py-3 text-sm">{cyl.brand}</td>
                     <td className="px-4 py-3 text-sm">{cyl.capacity}</td>
                     <td className="px-4 py-3 text-sm font-mono">{cyl.actualSerial || cyl.initialSerial}</td>
-                    <td className="px-4 py-3 text-sm">{cyl.manufactureDate ? (() => { const m = cyl.manufactureDate.match(/^(\d{4})-(\d{2})/); return m ? `${m[2]}/${m[1]}` : '—' })() : '—'}</td>
+                    <td className="px-4 py-3 text-sm">{formatMonthYear(cyl.manufactureDate)}</td>
                     <td className="px-4 py-3 text-sm">
                       <Badge variant={
                         cyl.status === 'desmontado' ? 'warning'
@@ -286,7 +353,8 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {/* Edit Form Modal/Inline */}
