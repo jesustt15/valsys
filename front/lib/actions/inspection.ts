@@ -703,7 +703,11 @@ export async function createUnifiedInspectionAction(
       }
 
       // 5. Insert cylinders
+      // Previous cylinders are removed so each new inspection registers a fresh
+      // set — old cylinder rows (from earlier inspections) must not stay attached.
       if (data.cylinders && data.cylinders.length > 0) {
+        await tx.delete(gncCylinders).where(eq(gncCylinders.vehicleId, vehicleId))
+
         await tx.insert(gncCylinders).values(
           data.cylinders.map((c) => ({
             vehicleId,
@@ -1017,8 +1021,8 @@ export async function deleteInspectionAction(
   formData: FormData,
 ): Promise<DeleteInspectionState> {
   const session = await getSession()
-  if (!session || session.role !== 'admin') {
-    return { error: 'Solo administradores pueden eliminar inspecciones' }
+  if (!session || (session.role !== 'admin' && session.role !== 'operator')) {
+    return { error: 'No tienes permisos para eliminar inspecciones' }
   }
 
   const id = formData.get('id') as string
@@ -1052,8 +1056,8 @@ export async function restoreInspectionAction(
   formData: FormData,
 ): Promise<DeleteInspectionState> {
   const session = await getSession()
-  if (!session || session.role !== 'admin') {
-    return { error: 'Solo administradores pueden restaurar inspecciones' }
+  if (!session || (session.role !== 'admin' && session.role !== 'operator')) {
+    return { error: 'No tienes permisos para restaurar inspecciones' }
   }
 
   const id = formData.get('id') as string

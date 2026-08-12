@@ -42,11 +42,11 @@ function formatDate(d: Date | null): string {
 
 interface Props {
   inspections: UtpInspectionRow[]
-  isAdmin?: boolean
+  canDelete?: boolean
   initialStatus?: string
 }
 
-export function UtpTable({ inspections, isAdmin = false, initialStatus = 'all' }: Props) {
+export function UtpTable({ inspections, canDelete = false, initialStatus = 'all' }: Props) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
 
@@ -112,13 +112,13 @@ export function UtpTable({ inspections, isAdmin = false, initialStatus = 'all' }
               <th className="py-3 px-3 font-medium">Estado</th>
               <th className="py-3 px-3 font-medium">Correlativo</th>
               <th className="py-3 px-3 font-medium">Operador</th>
-              {isAdmin && <th className="py-3 px-3 font-medium w-10" />}
+              {canDelete && <th className="py-3 px-3 font-medium w-10" />}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 7 : 6} className="py-8 text-center text-muted-foreground">
+                <td colSpan={canDelete ? 7 : 6} className="py-8 text-center text-muted-foreground">
                   Sin resultados
                 </td>
               </tr>
@@ -151,7 +151,7 @@ export function UtpTable({ inspections, isAdmin = false, initialStatus = 'all' }
                     </Link>
                   </td>
                   <td className="py-3 px-3 text-muted-foreground">{row.operatorName ?? '—'}</td>
-                  {isAdmin && (
+                  {canDelete && (
                     <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
                       <DeleteInspectionButton inspectionId={row.id} source="utp" />
                     </td>

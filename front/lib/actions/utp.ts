@@ -278,7 +278,11 @@ export async function createUtpInspectionAction(
       }
 
       // 5. Insert cylinders
+      // Previous cylinders are removed so each new inspection registers a fresh
+      // set — old cylinder rows (from earlier inspections) must not stay attached.
       if (data.cylinders && data.cylinders.length > 0) {
+        await tx.delete(gncCylinders).where(eq(gncCylinders.vehicleId, vehicleId))
+
         await tx.insert(gncCylinders).values(
           data.cylinders.map((c) => ({
             vehicleId,

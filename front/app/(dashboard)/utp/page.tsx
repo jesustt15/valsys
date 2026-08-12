@@ -61,7 +61,7 @@ export default async function UtpPage({
             </Link>
           </div>
         ) : (
-          <UtpTable inspections={inspections} isAdmin={session?.role === 'admin'} initialStatus={initialStatus} />
+          <UtpTable inspections={inspections} canDelete={session?.role === 'admin' || session?.role === 'operator'} initialStatus={initialStatus} />
         )}
       </div>
     </div>

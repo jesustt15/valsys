@@ -24,7 +24,7 @@ interface InspectionsTableProps {
     appointmentDate?: Date | string | null
   }>
   pendingSummaries?: Record<string, PendingItems>
-  isAdmin?: boolean
+  canDelete?: boolean
   initialStatus?: string
 }
 
@@ -56,7 +56,7 @@ const STATUS_TABS = [
   { value: 'certificado', label: 'Certificadas' },
 ] as const
 
-export function InspectionsTable({ inspections, pendingSummaries = {}, isAdmin = false, initialStatus = 'all' }: InspectionsTableProps) {
+export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete = false, initialStatus = 'all' }: InspectionsTableProps) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
   const [pendingFilter, setPendingFilter] = useState<string>('all')
@@ -303,7 +303,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, isAdmin =
                         <FileText className="h-4 w-4 text-green-600" />
                         <span className="sr-only">Ver Expediente</span>
                       </Link>
-                      {isAdmin && (
+                      {canDelete && (
                         <DeleteInspectionButton inspectionId={insp.id} source="gnc" />
                       )}
                     </div>

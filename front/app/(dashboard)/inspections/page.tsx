@@ -65,7 +65,7 @@ export default async function InspectionsPage({
           <InspectionsTable
             inspections={inspections}
             pendingSummaries={Object.fromEntries(pendingSummaries)}
-            isAdmin={session?.role === 'admin'}
+            canDelete={session?.role === 'admin' || session?.role === 'operator'}
             initialStatus={initialStatus}
           />
         )}
