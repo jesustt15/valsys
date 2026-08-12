@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -89,6 +90,15 @@ const statConfig: Record<string, { color: string; bg: string; icon: React.ReactN
       </svg>
     ),
   },
+  utp_total: {
+    color: 'text-teal-600 dark:text-teal-400',
+    bg: 'bg-teal-50 dark:bg-teal-900/20',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+  },
 }
 
 interface DashboardStatsProps {
@@ -102,37 +112,79 @@ interface DashboardStatsProps {
   }
   todayCount: number
   vehicleCount: number
+  utpCounts: {
+    total: number
+    inspeccion_inicial: number
+    standby: number
+    certificado: number
+  }
 }
 
-export function DashboardStats({ statusCounts, todayCount, vehicleCount }: DashboardStatsProps) {
-  const stats = [
-    { label: 'Hoy', value: todayCount, ...statConfig.hoy },
-    { label: 'Inspección Inicial', value: statusCounts.inspeccion_inicial, ...statConfig.inspeccion_inicial },
-    { label: 'Recalificación', value: statusCounts.recalificacion, ...statConfig.recalificacion },
-    { label: 'Por Programar', value: statusCounts.por_programar, ...statConfig.por_programar },
-    { label: 'Standby', value: statusCounts.standby, ...statConfig.standby },
-    { label: 'Cita', value: statusCounts.cita, ...statConfig.cita },
-    { label: 'Certificadas', value: statusCounts.certificado, ...statConfig.certificado },
-    { label: 'Vehículos', value: vehicleCount, ...statConfig.vehiculos },
+export function DashboardStats({ statusCounts, todayCount, vehicleCount, utpCounts }: DashboardStatsProps) {
+  const gncStats = [
+    { label: 'Hoy', value: todayCount, href: '/inspections', ...statConfig.hoy },
+    { label: 'Inspección Inicial', value: statusCounts.inspeccion_inicial, href: '/inspections?status=inspeccion_inicial', ...statConfig.inspeccion_inicial },
+    { label: 'Recalificación', value: statusCounts.recalificacion, href: '/inspections?status=recalificacion', ...statConfig.recalificacion },
+    { label: 'Por Programar', value: statusCounts.por_programar, href: '/inspections?status=por_programar', ...statConfig.por_programar },
+    { label: 'Standby', value: statusCounts.standby, href: '/inspections?status=standby', ...statConfig.standby },
+    { label: 'Cita', value: statusCounts.cita, href: '/inspections?status=cita', ...statConfig.cita },
+    { label: 'Certificadas', value: statusCounts.certificado, href: '/inspections?status=certificado', ...statConfig.certificado },
+    { label: 'Vehículos', value: vehicleCount, href: '/vehicles', ...statConfig.vehiculos },
+  ]
+
+  const utpStats = [
+    { label: 'Total UTP', value: utpCounts.total, href: '/utp', ...statConfig.utp_total },
+    { label: 'Inspección Inicial', value: utpCounts.inspeccion_inicial, href: '/utp?status=inspeccion_inicial', ...statConfig.inspeccion_inicial },
+    { label: 'Standby', value: utpCounts.standby, href: '/utp?status=standby', ...statConfig.standby },
+    { label: 'Certificadas', value: utpCounts.certificado, href: '/utp?status=certificado', ...statConfig.certificado },
   ]
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      {stats.map((stat) => (
-        <motion.div key={stat.label} variants={item}>
-          <Card className="hover:shadow-md transition-shadow duration-300">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
-                  {stat.icon}
-                </div>
-              </div>
-              <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-              <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
-            </CardContent>
-          </Card>
+    <div className="space-y-8">
+      {/* GNC stats */}
+      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {gncStats.map((stat) => (
+          <motion.div key={stat.label} variants={item}>
+            <Link href={stat.href} className="block h-full">
+              <Card className="hover:shadow-md transition-shadow duration-300 h-full">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
+                      {stat.icon}
+                    </div>
+                  </div>
+                  <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                  <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+                </CardContent>
+              </Card>
+            </Link>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* UTP stats */}
+      <div>
+        <h2 className="text-lg font-semibold text-foreground mb-4">Inspecciones UTP</h2>
+        <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {utpStats.map((stat) => (
+            <motion.div key={stat.label} variants={item}>
+              <Link href={stat.href} className="block h-full">
+                <Card className="hover:shadow-md transition-shadow duration-300 h-full">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
+                        {stat.icon}
+                      </div>
+                    </div>
+                    <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </motion.div>
+          ))}
         </motion.div>
-      ))}
-    </motion.div>
+      </div>
+    </div>
   )
 }

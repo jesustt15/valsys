@@ -9,6 +9,7 @@ import {
   getRecentInspectionsWithOwner,
 } from '@/lib/services/inspection'
 import { getPendingAlerts } from '@/lib/services/inspection-pending'
+import { countUtpInspectionsByStatus } from '@/lib/services/utp'
 import { countVehicles } from '@/lib/services/vehicle'
 
 const quickActions = [
@@ -53,14 +54,16 @@ export default async function DashboardPage() {
   let statusCounts = { inspeccion_inicial: 0, recalificacion: 0, por_programar: 0, cita: 0, certificado: 0, standby: 0 }
   let todayCount = 0
   let vehicleCount = 0
+  let utpCounts = { total: 0, inspeccion_inicial: 0, standby: 0, certificado: 0 }
   let recentInspections: Awaited<ReturnType<typeof getRecentInspectionsWithOwner>> = []
   let pendingAlerts: Awaited<ReturnType<typeof getPendingAlerts>> = []
 
   try {
-    const [sc, tc, vc, ri, pa] = await Promise.allSettled([
+    const [sc, tc, vc, uc, ri, pa] = await Promise.allSettled([
       countInspectionsByStatus(),
       countInspectionsToday(),
       countVehicles(),
+      countUtpInspectionsByStatus(),
       getRecentInspectionsWithOwner(5),
       getPendingAlerts(10),
     ])
@@ -68,6 +71,7 @@ export default async function DashboardPage() {
     if (sc.status === 'fulfilled') statusCounts = sc.value
     if (tc.status === 'fulfilled') todayCount = tc.value
     if (vc.status === 'fulfilled') vehicleCount = vc.value
+    if (uc.status === 'fulfilled') utpCounts = uc.value
     if (ri.status === 'fulfilled') recentInspections = ri.value
     if (pa.status === 'fulfilled') pendingAlerts = pa.value
   } catch {
@@ -87,6 +91,7 @@ export default async function DashboardPage() {
         statusCounts={statusCounts}
         todayCount={todayCount}
         vehicleCount={vehicleCount}
+        utpCounts={utpCounts}
       />
 
       {/* Quick Actions */}

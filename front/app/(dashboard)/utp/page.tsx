@@ -3,8 +3,18 @@ import { getUtpInspections } from '@/lib/services/utp'
 import { getSession } from '@/lib/auth/get-session'
 import { UtpTable } from './utp-table'
 
-export default async function UtpPage() {
+const KNOWN_STATUSES = ['inspeccion_inicial', 'standby', 'certificado']
+
+export default async function UtpPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const session = await getSession()
+  const sp = await searchParams
+  const statusParam = Array.isArray(sp.status) ? sp.status[0] : sp.status
+  const initialStatus =
+    statusParam && KNOWN_STATUSES.includes(statusParam) ? statusParam : 'all'
   const inspections = await getUtpInspections()
 
   return (
@@ -51,7 +61,7 @@ export default async function UtpPage() {
             </Link>
           </div>
         ) : (
-          <UtpTable inspections={inspections} isAdmin={session?.role === 'admin'} />
+          <UtpTable inspections={inspections} isAdmin={session?.role === 'admin'} initialStatus={initialStatus} />
         )}
       </div>
     </div>

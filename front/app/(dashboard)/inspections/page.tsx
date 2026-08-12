@@ -4,10 +4,28 @@ import { getAllInspections } from '@/lib/services/inspection'
 import { getPendingSummaries } from '@/lib/services/inspection-pending'
 import { getSession } from '@/lib/auth/get-session'
 
-export default async function InspectionsPage() {
+const KNOWN_STATUSES = [
+  'inspeccion_inicial',
+  'recalificacion',
+  'por_programar',
+  'cita',
+  'certificado',
+  'standby',
+]
+
+export default async function InspectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
   const session = await getSession()
   const inspections = await getAllInspections()
   const pendingSummaries = await getPendingSummaries(inspections.map((i) => i.id))
+
+  const sp = await searchParams
+  const statusParam = Array.isArray(sp.status) ? sp.status[0] : sp.status
+  const initialStatus =
+    statusParam && KNOWN_STATUSES.includes(statusParam) ? statusParam : 'all'
 
   return (
     <div className="space-y-6">
@@ -48,6 +66,7 @@ export default async function InspectionsPage() {
             inspections={inspections}
             pendingSummaries={Object.fromEntries(pendingSummaries)}
             isAdmin={session?.role === 'admin'}
+            initialStatus={initialStatus}
           />
         )}
       </div>

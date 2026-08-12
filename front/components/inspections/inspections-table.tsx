@@ -25,6 +25,7 @@ interface InspectionsTableProps {
   }>
   pendingSummaries?: Record<string, PendingItems>
   isAdmin?: boolean
+  initialStatus?: string
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,6 +34,7 @@ const STATUS_LABELS: Record<string, string> = {
   por_programar: 'Por Programar',
   cita: 'Cita',
   certificado: 'Certificado',
+  standby: 'Standby',
 }
 
 const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive' | 'purple'> = {
@@ -41,6 +43,7 @@ const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive
   por_programar: 'destructive',
   cita: 'purple',
   certificado: 'success',
+  standby: 'warning',
 }
 
 const STATUS_TABS = [
@@ -49,12 +52,13 @@ const STATUS_TABS = [
   { value: 'recalificacion', label: 'Recalificación' },
   { value: 'por_programar', label: 'Por Programar' },
   { value: 'cita', label: 'Con Cita' },
+  { value: 'standby', label: 'Standby' },
   { value: 'certificado', label: 'Certificadas' },
 ] as const
 
-export function InspectionsTable({ inspections, pendingSummaries = {}, isAdmin = false }: InspectionsTableProps) {
+export function InspectionsTable({ inspections, pendingSummaries = {}, isAdmin = false, initialStatus = 'all' }: InspectionsTableProps) {
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
   const [pendingFilter, setPendingFilter] = useState<string>('all')
   const [operatorFilter, setOperatorFilter] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'createdAt' | 'inspectionDate'>('createdAt')

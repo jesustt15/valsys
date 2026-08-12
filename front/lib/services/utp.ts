@@ -1,6 +1,41 @@
 import { db } from '@/lib/db'
 import { inspections, vehicles, users, owners, inspectionAnswers, inspectionAttachments, signatures, certificates, gncCylinders } from '@/db/schema'
-import { eq, and, inArray, asc, desc, isNull } from 'drizzle-orm'
+import { eq, and, inArray, asc, desc, isNull, count } from 'drizzle-orm'
+
+export interface UtpStatusCounts {
+  total: number
+  inspeccion_inicial: number
+  standby: number
+  certificado: number
+}
+
+export async function countUtpInspectionsByStatus(): Promise<UtpStatusCounts> {
+  const rows = await db
+    .select({
+      status: inspections.status,
+      count: count(inspections.id),
+    })
+    .from(inspections)
+    .where(and(eq(inspections.source, 'utp'), isNull(inspections.deletedAt)))
+    .groupBy(inspections.status)
+
+  const result: UtpStatusCounts = {
+    total: 0,
+    inspeccion_inicial: 0,
+    standby: 0,
+    certificado: 0,
+  }
+
+  for (const row of rows) {
+    const value = Number(row.count)
+    result.total += value
+    if (row.status === 'inspeccion_inicial') result.inspeccion_inicial = value
+    else if (row.status === 'standby') result.standby = value
+    else if (row.status === 'certificado') result.certificado = value
+  }
+
+  return result
+}
 
 export interface UtpInspectionRow {
   id: string

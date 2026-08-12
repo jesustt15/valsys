@@ -43,11 +43,12 @@ function formatDate(d: Date | null): string {
 interface Props {
   inspections: UtpInspectionRow[]
   isAdmin?: boolean
+  initialStatus?: string
 }
 
-export function UtpTable({ inspections, isAdmin = false }: Props) {
+export function UtpTable({ inspections, isAdmin = false, initialStatus = 'all' }: Props) {
   const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus)
 
   const filtered = useMemo(() => {
     let rows = inspections
