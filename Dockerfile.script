@@ -1,0 +1,22 @@
+# syntax=docker/dockerfile:1
+
+# One-off image to run maintenance scripts (e.g. cleanup-hidden-inspections-certificates)
+# against the running stack. Not used by the app runtime image.
+FROM node:22-alpine
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Root workspace package files first (layer caching)
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY front/package.json ./front/
+
+RUN corepack enable pnpm && (pnpm install --frozen-lockfile || pnpm install)
+
+# Full source (schema, scripts) after deps are cached
+COPY . .
+
+WORKDIR /app/front
+
+CMD ["/bin/sh", "-c", "pnpm exec tsx scripts/cleanup-hidden-inspections-certificates.ts"]

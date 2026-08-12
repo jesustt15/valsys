@@ -1,0 +1,22 @@
+# One-off maintenance jobs against the running stack.
+#
+# Usage (on the server that hosts the running containers):
+#   Dry-run      : docker compose -f docker-compose.scripts.yml run --rm cleanup-certs
+#   Apply (flota): CLEANUP_APPLY=1 docker compose -f docker-compose.scripts.yml run --rm cleanup-certs
+#   or           : docker compose -f docker-compose.scripts.yml run --rm -e CLEANUP_APPLY=1 cleanup-certs
+services:
+  cleanup-certs:
+    build:
+      context: .
+      dockerfile: Dockerfile.script
+    env_file:
+      - .env
+    networks:
+      - valsys_net
+    restart: "no"
+
+# Reuses the network created by docker-compose.yml.
+networks:
+  valsys_net:
+    external: true
+    name: ${COMPOSE_PROJECT_NAME:-valsys}_valsys_net

@@ -1031,10 +1031,14 @@ export async function deleteInspectionAction(
   const source = (formData.get('source') as string) || 'gnc'
 
   try {
-    await db
-      .update(inspections)
-      .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(inspections.id, id), isNull(inspections.deletedAt)))
+    await db.transaction(async (tx) => {
+      await tx
+        .update(inspections)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(inspections.id, id), isNull(inspections.deletedAt)))
+
+      await tx.delete(certificates).where(eq(certificates.inspectionId, id))
+    })
 
     revalidatePath('/inspections')
     revalidatePath('/utp')
