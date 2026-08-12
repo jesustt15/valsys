@@ -99,14 +99,21 @@ export async function createCertificateAction(
   let minioKey: string | null = null
 
   if (plantDoc && plantDoc.size > 0) {
-    if (plantDoc.type !== 'application/pdf') {
+    const extByType: Record<string, string> = {
+      'application/pdf': 'pdf',
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+    }
+
+    if (!extByType[plantDoc.type]) {
       return {
-        error: 'El documento de planta debe ser PDF',
+        error: 'El documento de planta debe ser PDF o imagen (JPG, JPEG, PNG)',
         fields: { correlativeNumber: validatedCorrelative },
       }
     }
 
-    minioKey = `certificates/${validatedInspectionId}/plant/${validatedCorrelative}.pdf`
+    minioKey = `certificates/${validatedInspectionId}/plant/${validatedCorrelative}.${extByType[plantDoc.type]}`
 
     try {
       await putObject(minioKey, plantDoc)
