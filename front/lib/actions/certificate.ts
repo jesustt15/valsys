@@ -8,6 +8,7 @@ import { putObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
 import { eq } from 'drizzle-orm'
 import { getCertifiableCylinders } from '@/lib/services/certificate'
+import { canIssueCertificate } from '@/lib/services/inspection-gate'
 
 export type CertificateFormState = {
   success?: boolean
@@ -93,6 +94,20 @@ export async function createCertificateAction(
 
   // 4c. Get certifiable cylinders (for document assembly)
   const certifiableCylinders = await getCertifiableCylinders(validatedInspectionId)
+
+  // 4d. Gate check — verify all preconditions (cylinders in final states, post-mount photos)
+  const gate = await canIssueCertificate(validatedInspectionId)
+  if (!gate.canIssue) {
+    const GATE_MESSAGES: Record<string, string> = {
+      cylinders_pending: 'Hay cilindros pendientes de recertificación. Resuelva todos los cilindros antes de emitir el certificado.',
+      post_mount_photos: 'Faltan fotos de post-montaje. Cargue las fotos antes de emitir el certificado.',
+    }
+    const messages = gate.missing.map((key) => GATE_MESSAGES[key] ?? key)
+    return {
+      error: messages.join(' '),
+      fields: { correlativeNumber: validatedCorrelative },
+    }
+  }
 
   // 5. Upload to MinIO (optional — correlative-only is valid)
   const plantDoc = formData.get('plantDoc') as File | null

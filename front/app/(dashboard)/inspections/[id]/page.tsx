@@ -39,7 +39,8 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   const cylinders = await getCylindersByVehicleId(inspection.vehicle.id)
   const recertCylinders = await getCylindersByInspectionId(resolvedParams.id)
 
-  const showFatePanel = inspection.status === 'por_programar'
+  const showFatePanel = inspection.status != null
+    && ['inspeccion_inicial', 'recalificacion', 'por_programar'].includes(inspection.status)
     && recertCylinders.some(c => c.status === 'en_planta')
 
   const attachmentsWithUrls = await Promise.all(

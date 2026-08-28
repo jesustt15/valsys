@@ -238,6 +238,24 @@ export async function updateInspectionStatusAction(
       .where(eq(inspections.id, id))
       .limit(1)
 
+    // Gate: block transition to 'cita' if any cylinders are still 'en_planta'
+    if (parsed.data === 'cita' && currentInspection?.vehicleId) {
+      const pendingCylinders = await db
+        .select({ id: gncCylinders.id })
+        .from(gncCylinders)
+        .where(
+          and(
+            eq(gncCylinders.vehicleId, currentInspection.vehicleId),
+            eq(gncCylinders.status, 'en_planta')
+          )
+        )
+        .limit(1)
+
+      if (pendingCylinders.length > 0) {
+        return { error: 'No se puede avanzar a cita: hay cilindros pendientes de recertificación. Resuelva todos los cilindros en el panel de recertificación.' }
+      }
+    }
+
     await db.update(inspections)
       .set({ status: parsed.data, updatedAt: new Date() })
       .where(eq(inspections.id, id))
