@@ -92,7 +92,7 @@ async function main() {
     for (const cyl of stuckCylinders) {
       issues.push({
         inspectionId: insp.id,
-        inspectionStatus: insp.status,
+        inspectionStatus: insp.status ?? 'unknown',
         cylinderId: cyl.id,
         cylinderStatus: cyl.status ?? 'unknown',
         brand: cyl.brand,
