@@ -22,6 +22,7 @@ interface InspectionsTableProps {
     operatorName: string | null
     correlativeNumber: string | null
     appointmentDate?: Date | string | null
+    ownerName: string | null
   }>
   pendingSummaries?: Record<string, PendingItems>
   canDelete?: boolean
@@ -84,7 +85,8 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
       const matchesQuery =
         !q ||
         (i.licensePlate ?? '').toLowerCase().includes(q) ||
-        (i.correlativeNumber ?? '').toLowerCase().includes(q)
+        (i.correlativeNumber ?? '').toLowerCase().includes(q) ||
+        (i.ownerName ?? '').toLowerCase().includes(q)
 
       const matchesStatus =
         statusFilter === 'all' || i.status === statusFilter
@@ -159,7 +161,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por placa o correlativo..."
+            placeholder="Buscar por cliente, placa o correlativo..."
             className="pl-9 h-11"
           />
         </div>
@@ -220,13 +222,16 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
           <table className="w-full">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">
                   Fecha
+                </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Cliente
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Patente
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden lg:table-cell">
                   Correlativo
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
@@ -258,16 +263,29 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                   transition={{ delay: i * 0.03 }}
                   className="hover:bg-muted/30 transition-colors"
                 >
-                  <td className="px-4 py-3.5 text-sm text-muted-foreground">
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden md:table-cell">
                     {insp.inspectionDate
                       ? new Date(insp.inspectionDate).toLocaleDateString('es-AR')
                       : '—'}
                   </td>
+                  <td className="px-4 py-3.5 text-sm text-foreground font-medium max-w-[200px] truncate">
+                    {insp.ownerName ?? '—'}
+                  </td>
                   <td className="px-4 py-3.5 text-sm font-medium text-foreground font-mono">
                     {insp.licensePlate ?? '—'}
                   </td>
-                  <td className="px-4 py-3.5 text-sm font-mono text-muted-foreground hidden md:table-cell">
-                    {insp.correlativeNumber ?? '—'}
+                  <td className="px-4 py-3.5 text-sm hidden lg:table-cell">
+                    {insp.correlativeNumber ? (
+                      insp.status === 'certificado' ? (
+                        <span className="font-mono font-semibold text-green-600 dark:text-green-400">
+                          {insp.correlativeNumber}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-muted-foreground">{insp.correlativeNumber}</span>
+                      )
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
                     {insp.brand && insp.model

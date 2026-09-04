@@ -38,6 +38,53 @@ export async function getAllVehicles(): Promise<VehicleRecord[]> {
   return db.select().from(vehicles).orderBy(vehicles.createdAt)
 }
 
+export interface VehicleWithOwner {
+  id: string
+  codigoUnicoGnc: string | null
+  licensePlate: string
+  vehicleType: string
+  brand: string | null
+  model: string | null
+  marcaKit: string | null
+  createdAt: Date | null
+  ownerId: string | null
+  ownerName: string | null
+}
+
+export async function getVehiclesForList(): Promise<VehicleWithOwner[]> {
+  const records = await db
+    .select({
+      id: vehicles.id,
+      codigoUnicoGnc: vehicles.codigoUnicoGnc,
+      licensePlate: vehicles.licensePlate,
+      vehicleType: vehicles.vehicleType,
+      brand: vehicles.brand,
+      model: vehicles.model,
+      marcaKit: vehicles.marcaKit,
+      createdAt: vehicles.createdAt,
+      ownerId: vehicles.ownerId,
+      ownerName: owners.fullName,
+    })
+    .from(vehicles)
+    .leftJoin(owners, eq(vehicles.ownerId, owners.id))
+    .orderBy(vehicles.createdAt)
+
+  if (records.length === 0) return []
+
+  return records.map((r) => ({
+    id: r.id,
+    codigoUnicoGnc: r.codigoUnicoGnc,
+    licensePlate: r.licensePlate,
+    vehicleType: r.vehicleType,
+    brand: r.brand,
+    model: r.model,
+    marcaKit: r.marcaKit,
+    createdAt: r.createdAt,
+    ownerId: r.ownerId,
+    ownerName: r.ownerName ?? null,
+  }))
+}
+
 export async function getVehiclesByOwnerId(ownerId: string): Promise<VehicleRecord[]> {
   return db
     .select()

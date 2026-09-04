@@ -1,9 +1,9 @@
 import Link from 'next/link'
 import { VehiclesTable } from '@/components/vehicles/vehicles-table'
-import { getAllVehicles } from '@/lib/services/vehicle'
+import { getVehiclesForList } from '@/lib/services/vehicle'
 
 export default async function VehiclesPage() {
-  const vehicles = await getAllVehicles()
+  const vehicles = await getVehiclesForList()
 
   return (
     <div className="space-y-6">

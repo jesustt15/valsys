@@ -30,6 +30,7 @@ export interface InspectionSummary {
   operatorName: string | null
   correlativeNumber: string | null
   appointmentDate: Date | null
+  ownerName: string | null
 }
 
 export async function getAllInspections(): Promise<InspectionSummary[]> {
@@ -51,9 +52,10 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
 
   if (records.length === 0) return []
 
-  // Fetch related vehicles
-  const vehicleIds = [...new Set(records.map((r) => r.vehicleId).filter(Boolean))]
-  const vehicleMap = new Map<string, { licensePlate: string | null; brand: string | null; model: string | null }>()
+  // Fetch related vehicles and owners
+  const rawVehicleIds = records.map((r) => r.vehicleId).filter((id): id is string => id !== null)
+  const vehicleIds = [...new Set(rawVehicleIds)]
+  const vehicleMap = new Map<string, { licensePlate: string | null; brand: string | null; model: string | null; ownerId: string | null }>()
   if (vehicleIds.length > 0) {
     const v = await db
       .select({
@@ -61,10 +63,28 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
         licensePlate: vehicles.licensePlate,
         brand: vehicles.brand,
         model: vehicles.model,
+        ownerId: vehicles.ownerId,
       })
       .from(vehicles)
       .where(inArray(vehicles.id, vehicleIds as string[]))
     for (const row of v) vehicleMap.set(row.id, row)
+  }
+
+  // Fetch related owners
+  const ownerIds: string[] = []
+  for (const vid of vehicleIds) {
+    const item = vehicleMap.get(vid)
+    if (item?.ownerId) {
+      ownerIds.push(item.ownerId)
+    }
+  }
+  const ownerMap = new Map<string, { fullName: string }>()
+  if (ownerIds.length > 0) {
+    const o = await db
+      .select({ id: owners.id, fullName: owners.fullName })
+      .from(owners)
+      .where(inArray(owners.id, ownerIds))
+    for (const row of o) ownerMap.set(row.id, row)
   }
 
   // Fetch related operators
@@ -78,18 +98,23 @@ export async function getAllInspections(): Promise<InspectionSummary[]> {
     for (const row of u) operatorMap.set(row.id, row)
   }
 
-  return records.map((r) => ({
-    id: r.id,
-    inspectionDate: r.inspectionDate,
-    licensePlate: r.vehicleId ? vehicleMap.get(r.vehicleId)?.licensePlate ?? null : null,
-    brand: r.vehicleId ? vehicleMap.get(r.vehicleId)?.brand ?? null : null,
-    model: r.vehicleId ? vehicleMap.get(r.vehicleId)?.model ?? null : null,
-    status: r.status ?? 'inspeccion_inicial',
-    kmCurrent: r.kmCurrent,
-    operatorName: r.operatorId ? operatorMap.get(r.operatorId)?.fullName ?? null : null,
-    correlativeNumber: r.correlativeNumber ?? null,
-    appointmentDate: r.appointmentDate ?? null,
-  }))
+  return records.map((r) => {
+    const vehicle = r.vehicleId ? vehicleMap.get(r.vehicleId) : undefined
+    const owner = vehicle?.ownerId ? ownerMap.get(vehicle.ownerId) : undefined
+    return {
+      id: r.id,
+      inspectionDate: r.inspectionDate,
+      licensePlate: vehicle?.licensePlate ?? null,
+      brand: vehicle?.brand ?? null,
+      model: vehicle?.model ?? null,
+      status: r.status ?? 'inspeccion_inicial',
+      kmCurrent: r.kmCurrent,
+      operatorName: r.operatorId ? operatorMap.get(r.operatorId)?.fullName ?? null : null,
+      correlativeNumber: r.correlativeNumber ?? null,
+      appointmentDate: r.appointmentDate ?? null,
+      ownerName: owner?.fullName ?? null,
+    }
+  })
 }
 
 export async function getInspectionById(id: string) {

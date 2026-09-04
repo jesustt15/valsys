@@ -18,6 +18,7 @@ interface VehiclesTableProps {
     model: string | null
     marcaKit: string | null
     createdAt: Date | null
+    ownerName: string | null
   }>
 }
 
@@ -42,7 +43,8 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
         (v.codigoUnicoGnc ?? '').toLowerCase().includes(q) ||
         (v.brand ?? '').toLowerCase().includes(q) ||
         (v.model ?? '').toLowerCase().includes(q) ||
-        (v.marcaKit ?? '').toLowerCase().includes(q),
+        (v.marcaKit ?? '').toLowerCase().includes(q) ||
+        (v.ownerName ?? '').toLowerCase().includes(q),
     )
   }, [vehicles, query])
 
@@ -62,7 +64,7 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Buscar por placa, Código Único, marca, modelo o kit..."
+            placeholder="Buscar por cliente, placa, Código Único, marca, modelo o kit..."
             className="pl-9 h-11"
           />
         </div>
@@ -89,6 +91,9 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
           <table className="w-full">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Cliente
+                </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Patente
                 </th>
@@ -118,6 +123,9 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                   transition={{ delay: i * 0.03 }}
                   className="hover:bg-muted/30 transition-colors"
                 >
+                  <td className="px-4 py-3.5 text-sm text-foreground font-medium">
+                    {v.ownerName ?? '—'}
+                  </td>
                   <td className="px-4 py-3.5 text-sm font-medium text-foreground font-mono">
                     {v.licensePlate}
                   </td>
