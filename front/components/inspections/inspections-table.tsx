@@ -222,7 +222,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
           <table className="w-full">
             <thead className="bg-muted/50 border-b border-border">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden md:table-cell">
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Fecha
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -263,7 +263,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                   transition={{ delay: i * 0.03 }}
                   className="hover:bg-muted/30 transition-colors"
                 >
-                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden md:table-cell">
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground">
                     {insp.inspectionDate
                       ? new Date(insp.inspectionDate).toLocaleDateString('es-AR')
                       : '—'}
