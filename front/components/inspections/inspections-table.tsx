@@ -231,7 +231,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Patente
                 </th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden lg:table-cell">
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Correlativo
                 </th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
@@ -274,7 +274,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                   <td className="px-4 py-3.5 text-sm font-medium text-foreground font-mono">
                     {insp.licensePlate ?? '—'}
                   </td>
-                  <td className="px-4 py-3.5 text-sm hidden lg:table-cell">
+                  <td className="px-4 py-3.5 text-sm">
                     {insp.correlativeNumber ? (
                       insp.status === 'certificado' ? (
                         <span className="font-mono font-semibold text-green-600 dark:text-green-400">
