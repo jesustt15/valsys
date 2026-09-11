@@ -154,8 +154,8 @@ export function PhotoCamera({ maxPhotos, onPhotos, onClose, onFallback }: PhotoC
         </button>
       </div>
 
-      {/* Camera area */}
-      <div className="flex flex-col flex-1 items-center justify-center gap-4 p-4 relative">
+      {/* Camera area — constrained on mobile so controls/shutter stay reachable */}
+      <div className="flex flex-col flex-1 items-center justify-center gap-3 min-h-0 py-2">
         {/* Loading spinner — visible while camera initializes */}
         {isLoading && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 gap-4">
@@ -205,8 +205,10 @@ export function PhotoCamera({ maxPhotos, onPhotos, onClose, onFallback }: PhotoC
           </div>
         ) : (
           <>
-            {/* Normal camera view */}
-            <div className="relative w-full max-w-lg rounded-2xl overflow-hidden border-2 border-emerald-400/50 shadow-xl">
+            {/* Normal camera view — constrained height so layout stays reachable */}
+            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden border-2 border-emerald-400/50 shadow-xl mx-auto"
+                 style={{ maxHeight: 'min(45dvh, 340px)' }}
+            >
               <Webcam
                 key={webcamKey}
                 ref={webcamRef}
@@ -216,7 +218,7 @@ export function PhotoCamera({ maxPhotos, onPhotos, onClose, onFallback }: PhotoC
                 videoConstraints={videoConstraints}
                 onUserMedia={handleUserMedia}
                 onUserMediaError={handleUserMediaError}
-                className="w-full object-cover"
+                className="w-full"
               />
               {/* Flash overlay — brief white pulse on capture */}
               {flashActive && (
@@ -224,25 +226,25 @@ export function PhotoCamera({ maxPhotos, onPhotos, onClose, onFallback }: PhotoC
               )}
             </div>
 
-            {/* Controls row */}
-            <div className="flex items-center gap-4">
+            {/* Controls row — tighter spacing for mobile tap targets */}
+            <div className="flex items-center gap-3 mt-1">
               {/* Undo last shot */}
               <button
                 type="button"
                 onClick={handleUndo}
                 disabled={sessionFiles.length === 0}
-                className="p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Deshacer última foto"
               >
                 <Undo2 className="w-5 h-5" />
               </button>
 
-              {/* Shutter button */}
+              {/* Shutter button — 56px for comfortable tap target */}
               <button
                 type="button"
                 onClick={handleShutter}
                 disabled={!isReady || atMax}
-                className="w-16 h-16 rounded-full bg-emerald-500 border-4 border-white shadow-lg flex items-center justify-center hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-[56px] h-[56px] rounded-full bg-emerald-500 border-[3px] border-white shadow-lg flex items-center justify-center hover:bg-emerald-600 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed min-w-[56px] min-h-[56px]"
                 aria-label="Tomar foto"
               >
                 <Camera className="w-7 h-7 text-white" />
@@ -252,7 +254,7 @@ export function PhotoCamera({ maxPhotos, onPhotos, onClose, onFallback }: PhotoC
               <button
                 type="button"
                 onClick={handleSwitchCamera}
-                className="p-2.5 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                 aria-label="Cambiar cámara"
               >
                 <SwitchCamera className="w-5 h-5" />
@@ -261,18 +263,18 @@ export function PhotoCamera({ maxPhotos, onPhotos, onClose, onFallback }: PhotoC
 
             {/* Max reached hint */}
             {atMax && (
-              <p className="text-amber-300 text-xs text-center">
+              <p className="text-amber-300 text-xs text-center mt-0.5">
                 Máximo alcanzado — presioná Listo
               </p>
             )}
 
-            {/* Thumbnail strip */}
+            {/* Thumbnail strip — smaller, compact */}
             {sessionFiles.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto max-w-full px-2 pb-1">
+              <div className="flex gap-1.5 overflow-x-auto max-w-full px-2 -mt-1 pt-1">
                 {sessionFiles.map((entry, i) => (
                   <div
                     key={entry.url}
-                    className="relative flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border border-white/20"
+                    className="relative flex-shrink-0 w-10 h-10 rounded-md overflow-hidden border border-white/20"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element -- blob URLs from camera capture can't use next/image */}
                     <img
