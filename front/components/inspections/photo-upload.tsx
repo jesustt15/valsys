@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { PhotoCamera } from './photo-camera'
 
 interface PhotoUploadProps {
   category: 'initial' | 'removal' | 'post_mount'
@@ -36,6 +37,16 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
   const multiShotRef = useRef(false)
   const cameraTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isTouch = useIsTouchDevice()
+  const [cameraSupported, setCameraSupported] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
+
+  // Feature detection: can we use getUserMedia for in-app camera?
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- feature detection needs client-side value after hydration
+    setCameraSupported(
+      typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
+    )
+  }, [])
 
   const syncAccumulator = useCallback(() => {
     if (!accumulatorRef.current) return
@@ -74,11 +85,11 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
   }, [stopMultiShot])
 
   const addFiles = useCallback(
-    (files: FileList | null) => {
+    (files: File[] | FileList | null) => {
       setError(null)
       if (!files) return
 
-      const fileArray = Array.from(files)
+      const fileArray = Array.from(files as ArrayLike<File>)
 
       if (previews.length + fileArray.length > MAX_PHOTOS) {
         setError(`Máximo ${MAX_PHOTOS} fotos permitidas (ya tenés ${previews.length})`)
@@ -154,6 +165,14 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
     })
   }, [])
 
+  // ── In-app camera: receive captured files and feed them into addFiles ──
+  const handleCameraPhotos = useCallback(
+    (files: File[]) => {
+      if (files.length > 0) addFiles(files)
+    },
+    [addFiles],
+  )
+
   useEffect(() => {
     return () => {
       previews.forEach((preview) => URL.revokeObjectURL(preview.url))
@@ -226,7 +245,7 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
             <>
               <button
                 type="button"
-                onClick={startMultiShot}
+                onClick={() => (cameraSupported ? setCameraOpen(true) : startMultiShot())}
                 disabled={previews.length >= MAX_PHOTOS}
                 className="inline-flex items-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -243,7 +262,9 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
               </button>
 
               <p className="w-full text-xs text-muted-foreground">
-                La cámara se reabre automáticamente después de cada foto. Presioná &quot;Finalizar&quot; o cancelá para detener.
+                {cameraSupported
+                  ? 'Se abrirá la cámara en la app: tocá el obturador para cada foto y &quot;Listo&quot; al terminar.'
+                  : 'La cámara se reabre automáticamente después de cada foto. Presioná &quot;Finalizar&quot; o cancelá para detener.'}
               </p>
             </>
           )}
@@ -333,6 +354,18 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
             </button>
           </div>
         </div>
+      )}
+
+      {cameraOpen && (
+        <PhotoCamera
+          maxPhotos={MAX_PHOTOS - previews.length}
+          onPhotos={handleCameraPhotos}
+          onClose={() => setCameraOpen(false)}
+          onFallback={() => {
+            setCameraOpen(false)
+            startMultiShot()
+          }}
+        />
       )}
 
       <input type="hidden" name="category" value={category} />
