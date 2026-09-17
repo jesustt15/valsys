@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState, useRef, useEffect } from "react";
+import { useState, useActionState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -17,6 +17,8 @@ import {
 import { PhotoUpload } from "@/components/inspections/photo-upload";
 import { SignaturePad } from "@/components/inspections/signature-pad";
 import { DocumentScanner } from "@/components/ui/document-scanner";
+import { useFormDraft } from "@/hooks/use-form-draft";
+import { formatDraftAge } from "@/lib/draft-storage";
 import {
   Card,
   CardContent,
@@ -52,6 +54,7 @@ import {
   FileText,
   ScanLine,
   X,
+  Save,
 } from "lucide-react";
 import type { OwnerRecord } from "@/lib/services/owner";
 import type { VehicleRecord } from "@/lib/services/vehicle";
@@ -59,6 +62,91 @@ import type { VehicleRecord } from "@/lib/services/vehicle";
 interface UtpInspectionFormProps {
   owners: OwnerRecord[];
   vehicles: VehicleRecord[];
+}
+
+// ─── Draft Persistence ─────────────────────────────────────────────
+const DRAFT_KEY = "utp-inspection";
+
+interface DraftAnswerEntry {
+  key: string;
+  answer: boolean | null | undefined;
+  observations: string;
+}
+
+interface DraftSnapshot {
+  // owner
+  ownerDocumentType: string;
+  ownerDocumentNumber: string;
+  ownerFullName: string;
+  ownerPhone: string;
+  ownerEmail: string;
+  selectedOwnerId: string;
+  foundOwner: {
+    id: string;
+    documentId: string;
+    fullName: string;
+    phone: string | null;
+    email: string | null;
+  } | null;
+  // vehicle
+  vinSerial: string;
+  codigoUnicoGnc: string;
+  licensePlate: string;
+  vehicleType: string;
+  brand: string;
+  model: string;
+  marcaKit: string;
+  selectedVehicleId: string;
+  foundVehicle: {
+    id: string;
+    vinSerial: string | null;
+    codigoUnicoGnc: string | null;
+    licensePlate: string;
+    vehicleType: string;
+    brand: string | null;
+    model: string | null;
+    marcaKit: string | null;
+    owner: {
+      id: string;
+      documentId: string;
+      fullName: string;
+      phone: string | null;
+      email: string | null;
+    } | null;
+  } | null;
+  // inspection
+  kmCurrent: string;
+  kmNoMarca: boolean;
+  observations: string;
+  // checklist (flattened map)
+  answers: DraftAnswerEntry[];
+  // cylinders
+  cylinders: CylinderEntry[];
+  // signature (base64)
+  signature: string;
+  // file metadata
+  fileMeta: {
+    cedulaName: string | null;
+    carnetName: string | null;
+    photosNames: string[];
+  };
+  savedAt: number;
+}
+
+function rebuildAnswersMap(
+  entries: DraftAnswerEntry[] | undefined,
+): Map<string, AnswerState> {
+  const map = new Map<string, AnswerState>();
+  if (entries && entries.length > 0) {
+    for (const e of entries) {
+      map.set(e.key, { answer: e.answer, observations: e.observations });
+    }
+    return map;
+  }
+  for (const q of [...UTP_FRONT_QUESTIONS, ...UTP_REAR_QUESTIONS]) {
+    map.set(q.key, { answer: undefined, observations: "" });
+  }
+  return map;
 }
 
 // ─── Answer State Type ────────────────────────────────────────────
@@ -95,7 +183,24 @@ export function UtpInspectionForm({
     }
   }, [state?.success, router])
 
+  // ── Draft restoration (sync) ────────────────────────────────────
+  // First useState — reads localStorage exactly once so every other
+  // useState below can seed from the restored draft.
+  const [draftInitial] = useState<DraftSnapshot | null>(() => {
+    try {
+      const raw = localStorage.getItem(`draft:${DRAFT_KEY}`);
+      if (!raw) return null;
+      return JSON.parse(raw) as DraftSnapshot;
+    } catch {
+      return null;
+    }
+  });
+  const hasDraft = draftInitial !== null;
+
   const photoFilesRef = useRef<File[]>([]);
+  // Photos are tracked as state so the snapshot (and therefore the draft
+  // auto-save) reacts when the user adds/removes photos.
+  const [photos, setPhotos] = useState<File[]>([]);
 
   // ── Field Errors ──────────────────────────────────────────
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -116,28 +221,42 @@ export function UtpInspectionForm({
   }
 
   // ── Owner State ─────────────────────────────────────────────
-  const [ownerDocumentType, setOwnerDocumentType] = useState("V");
-  const [ownerDocumentNumber, setOwnerDocumentNumber] = useState("");
-  const [ownerFullName, setOwnerFullName] = useState("");
-  const [ownerPhone, setOwnerPhone] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState("");
+  const [ownerDocumentType, setOwnerDocumentType] = useState(
+    draftInitial?.ownerDocumentType ?? "V",
+  );
+  const [ownerDocumentNumber, setOwnerDocumentNumber] = useState(
+    draftInitial?.ownerDocumentNumber ?? "",
+  );
+  const [ownerFullName, setOwnerFullName] = useState(
+    draftInitial?.ownerFullName ?? "",
+  );
+  const [ownerPhone, setOwnerPhone] = useState(draftInitial?.ownerPhone ?? "");
+  const [ownerEmail, setOwnerEmail] = useState(draftInitial?.ownerEmail ?? "");
   const [foundOwner, setFoundOwner] = useState<{
     id: string;
     documentId: string;
     fullName: string;
     phone: string | null;
     email: string | null;
-  } | null>(null);
-  const [selectedOwnerId, setSelectedOwnerId] = useState("");
+  } | null>(draftInitial?.foundOwner ?? null);
+  const [selectedOwnerId, setSelectedOwnerId] = useState(
+    draftInitial?.selectedOwnerId ?? "",
+  );
 
   // ── Vehicle State ───────────────────────────────────────────
-  const [vinSerial, setVinSerial] = useState("");
-  const [codigoUnicoGnc, setCodigoUnicoGnc] = useState("");
-  const [licensePlate, setLicensePlate] = useState("");
-  const [vehicleType, setVehicleType] = useState("sedan");
-  const [brand, setBrand] = useState("");
-  const [model, setModel] = useState("");
-  const [marcaKit, setMarcaKit] = useState("");
+  const [vinSerial, setVinSerial] = useState(draftInitial?.vinSerial ?? "");
+  const [codigoUnicoGnc, setCodigoUnicoGnc] = useState(
+    draftInitial?.codigoUnicoGnc ?? "",
+  );
+  const [licensePlate, setLicensePlate] = useState(
+    draftInitial?.licensePlate ?? "",
+  );
+  const [vehicleType, setVehicleType] = useState(
+    draftInitial?.vehicleType ?? "sedan",
+  );
+  const [brand, setBrand] = useState(draftInitial?.brand ?? "");
+  const [model, setModel] = useState(draftInitial?.model ?? "");
+  const [marcaKit, setMarcaKit] = useState(draftInitial?.marcaKit ?? "");
   const [foundVehicle, setFoundVehicle] = useState<{
     id: string;
     vinSerial: string | null;
@@ -154,22 +273,22 @@ export function UtpInspectionForm({
       phone: string | null;
       email: string | null;
     } | null;
-  } | null>(null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
+  } | null>(draftInitial?.foundVehicle ?? null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState(
+    draftInitial?.selectedVehicleId ?? "",
+  );
 
   // ── Inspection ──────────────────────────────────────────────
-  const [kmCurrent, setKmCurrent] = useState("");
-  const [kmNoMarca, setKmNoMarca] = useState(false);
-  const [observations, setObservations] = useState("");
+  const [kmCurrent, setKmCurrent] = useState(draftInitial?.kmCurrent ?? "");
+  const [kmNoMarca, setKmNoMarca] = useState(draftInitial?.kmNoMarca ?? false);
+  const [observations, setObservations] = useState(
+    draftInitial?.observations ?? "",
+  );
 
   // ── Checklist ───────────────────────────────────────────────
-  const [answers, setAnswers] = useState<Map<string, AnswerState>>(() => {
-    const map = new Map<string, AnswerState>();
-    for (const q of [...UTP_FRONT_QUESTIONS, ...UTP_REAR_QUESTIONS]) {
-      map.set(q.key, { answer: undefined, observations: "" });
-    }
-    return map;
-  });
+  const [answers, setAnswers] = useState<Map<string, AnswerState>>(() =>
+    rebuildAnswersMap(draftInitial?.answers),
+  );
 
   // ── Vehicle Documents ───────────────────────────────────────
   const [cedulaFile, setCedulaFile] = useState<File | null>(null);
@@ -179,10 +298,163 @@ export function UtpInspectionForm({
   const [scannerOpen, setScannerOpen] = useState<"cedula" | "carnet" | null>(null);
 
   // ── Signature ───────────────────────────────────────────────
-  const [signature, setSignature] = useState("");
+  const [signature, setSignature] = useState(draftInitial?.signature ?? "");
 
   // ── Cylinders ───────────────────────────────────────────────
-  const [cylinders, setCylinders] = useState<CylinderEntry[]>([]);
+  const [cylinders, setCylinders] = useState<CylinderEntry[]>(
+    draftInitial?.cylinders ?? [],
+  );
+
+  // ── Draft persistence ─────────────────────────────────────────
+  // Build the JSON-serializable snapshot on every render. Files are excluded
+  // (their names go in fileMeta for the banner; the actual File objects are
+  // persisted to IndexedDB separately via `saveFiles`).
+  const snapshot = useMemo<DraftSnapshot>(
+    () => ({
+      ownerDocumentType,
+      ownerDocumentNumber,
+      ownerFullName,
+      ownerPhone,
+      ownerEmail,
+      selectedOwnerId,
+      foundOwner,
+      vinSerial,
+      codigoUnicoGnc,
+      licensePlate,
+      vehicleType,
+      brand,
+      model,
+      marcaKit,
+      selectedVehicleId,
+      foundVehicle,
+      kmCurrent,
+      kmNoMarca,
+      observations,
+      answers: [...answers.entries()].map(([key, v]) => ({
+        key,
+        answer: v.answer,
+        observations: v.observations,
+      })),
+      cylinders,
+      signature,
+      fileMeta: {
+        cedulaName: cedulaFile?.name ?? draftInitial?.fileMeta.cedulaName ?? null,
+        carnetName: carnetFile?.name ?? draftInitial?.fileMeta.carnetName ?? null,
+        photosNames:
+          photos.length > 0
+            ? photos.map((f) => f.name)
+            : (draftInitial?.fileMeta.photosNames ?? []),
+      },
+      savedAt: Date.now(),
+    }),
+    [
+      ownerDocumentType,
+      ownerDocumentNumber,
+      ownerFullName,
+      ownerPhone,
+      ownerEmail,
+      selectedOwnerId,
+      foundOwner,
+      vinSerial,
+      codigoUnicoGnc,
+      licensePlate,
+      vehicleType,
+      brand,
+      model,
+      marcaKit,
+      selectedVehicleId,
+      foundVehicle,
+      kmCurrent,
+      kmNoMarca,
+      observations,
+      answers,
+      cylinders,
+      signature,
+      cedulaFile,
+      carnetFile,
+      photos,
+      draftInitial,
+    ],
+  );
+
+  // Hook: auto-saves snapshot to localStorage (debounced), flushes on
+  // visibilitychange/pagehide, exposes IDB-backed file storage.
+  const draft = useFormDraft(DRAFT_KEY, snapshot);
+
+  // Hydrate files from IDB once they load.
+  useEffect(() => {
+    if (!draft.loaded || !hasDraft) return;
+    if (draft.files.cedula) setCedulaFile(draft.files.cedula);
+    if (draft.files.carnet) setCarnetFile(draft.files.carnet);
+    if (draft.files.photos.length > 0) {
+      setPhotos(draft.files.photos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.loaded, hasDraft]);
+
+  // Wipe the draft once the inspection is actually created so we don't
+  // restore stale data on the next visit.
+  useEffect(() => {
+    if (state?.success) draft.clear();
+  }, [state?.success, draft]);
+
+  // Persist files to IDB whenever they change.
+  const persistFiles = (next: {
+    cedula: File | null;
+    carnet: File | null;
+    photos: File[];
+  }) => {
+    draft.saveFiles({
+      cedula: next.cedula,
+      carnet: next.carnet,
+      photos: next.photos,
+    });
+  };
+
+  // File setters — update local state AND persist to IDB.
+  const handleCedulaChange = (file: File | null) => {
+    setCedulaFile(file);
+    persistFiles({ cedula: file, carnet: carnetFile, photos });
+  };
+  const handleCarnetChange = (file: File | null) => {
+    setCarnetFile(file);
+    persistFiles({ cedula: cedulaFile, carnet: file, photos });
+  };
+  const handlePhotosChange = (files: File[]) => {
+    setPhotos(files);
+    persistFiles({ cedula: cedulaFile, carnet: carnetFile, photos: files });
+  };
+
+  // ── Draft banner: discard action ──────────────────────────────
+  const discardDraft = async () => {
+    await draft.clear();
+    setOwnerDocumentType("V");
+    setOwnerDocumentNumber("");
+    setOwnerFullName("");
+    setOwnerPhone("");
+    setOwnerEmail("");
+    setFoundOwner(null);
+    setSelectedOwnerId("");
+    setVinSerial("");
+    setCodigoUnicoGnc("");
+    setLicensePlate("");
+    setVehicleType("sedan");
+    setBrand("");
+    setModel("");
+    setMarcaKit("");
+    setFoundVehicle(null);
+    setSelectedVehicleId("");
+    setKmCurrent("");
+    setKmNoMarca(false);
+    setObservations("");
+    setAnswers(rebuildAnswersMap(undefined));
+    setSignature("");
+    setCylinders([]);
+    setCedulaFile(null);
+    setCarnetFile(null);
+    setPhotos([]);
+    setFieldErrors({});
+  };
 
   // ── Owner Selection (SearchableSelect) ──────────────────────
   const applyOwner = (owner: OwnerRecord) => {
@@ -463,8 +735,8 @@ export function UtpInspectionForm({
       submitData.set("cylinders", JSON.stringify(cylinders));
     }
 
-    // Photos - collect from PhotoUpload via ref (avoids DataTransfer issues on Safari)
-    for (const file of photoFilesRef.current) {
+    // Photos
+    for (const file of photos) {
       if (file && file.size > 0) {
         submitData.append("photos", file);
       }
@@ -479,6 +751,41 @@ export function UtpInspectionForm({
 
   return (
     <form action={handleSubmit} className="space-y-6" noValidate>
+      {/* ── Draft restoration banner ────────────────────────── */}
+      <AnimatePresence>
+        {hasDraft && draft.savedAt && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-4">
+              <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
+                <Save className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  Borrador restaurado
+                </p>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+                  Tenías datos sin enviar guardados {formatDraftAge(draft.savedAt)}
+                  . Los restauramos para que continúes donde lo dejaste.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={discardDraft}
+                className="shrink-0 text-amber-900 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
+              >
+                Descartar
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Server Error ───────────────────────────────────── */}
       <AnimatePresence>
         {state?.error && (
@@ -1112,7 +1419,7 @@ export function UtpInspectionForm({
           <PhotoUpload
             category="initial"
             label="Fotos de la inspección UTP"
-            onFilesChange={(files) => { photoFilesRef.current = files }}
+            onFilesChange={handlePhotosChange}
           />
         </CardContent>
       </Card>
@@ -1146,7 +1453,7 @@ export function UtpInspectionForm({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCedulaFile(null)}
+                      onClick={() => handleCedulaChange(null)}
                       className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
                     >
                       <X className="w-4 h-4" />
@@ -1168,7 +1475,9 @@ export function UtpInspectionForm({
                     type="file"
                     accept="image/*,.pdf"
                     className="sr-only"
-                    onChange={(e) => setCedulaFile(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      handleCedulaChange(e.target.files?.[0] || null)
+                    }
                     disabled={pending}
                   />
                   <Button
@@ -1199,7 +1508,7 @@ export function UtpInspectionForm({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCarnetFile(null)}
+                      onClick={() => handleCarnetChange(null)}
                       className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
                     >
                       <X className="w-4 h-4" />
@@ -1221,7 +1530,9 @@ export function UtpInspectionForm({
                     type="file"
                     accept="image/*,.pdf"
                     className="sr-only"
-                    onChange={(e) => setCarnetFile(e.target.files?.[0] || null)}
+                    onChange={(e) =>
+                      handleCarnetChange(e.target.files?.[0] || null)
+                    }
                     disabled={pending}
                   />
                   <Button
@@ -1279,8 +1590,8 @@ export function UtpInspectionForm({
               : "Escanear Carnet de Circulación"
           }
           onCapture={(file) => {
-            if (scannerOpen === "cedula") setCedulaFile(file);
-            else setCarnetFile(file);
+            if (scannerOpen === "cedula") handleCedulaChange(file);
+            else handleCarnetChange(file);
             setScannerOpen(null);
           }}
           onClose={() => setScannerOpen(null)}
