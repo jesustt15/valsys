@@ -88,7 +88,11 @@ export function useFormDraft<T extends object>(
       };
       lsSaveState(draftKey, withTimestamp);
       lastSavedJsonRef.current = json;
-      setSavedAt(withTimestamp.savedAt);
+      // NOTE: we deliberately do NOT setSavedAt() here. Doing so re-renders the
+      // consumer on every debounced save, which (combined with unstable
+      // callbacks downstream) can produce render loops. `savedAt` reflects the
+      // restored draft's timestamp — exactly what a "draft restored" banner
+      // needs to display.
     }, debounceMs);
 
     return () => clearTimeout(timer);
@@ -125,9 +129,12 @@ export function useFormDraft<T extends object>(
   }, [draftKey]);
 
   // Imperative API
+  // NOTE: `saveFiles` intentionally does NOT update the `files` state. The
+  // consumer owns its own file state; `files` here is only the IDB snapshot
+  // loaded once at mount (used for hydration). Updating it on every save
+  // re-rendered consumers and fed render loops.
   const saveFilesNow = useCallback(
     async (next: DraftFiles) => {
-      setFiles(next);
       await idbSaveFiles(draftKey, next);
     },
     [draftKey],

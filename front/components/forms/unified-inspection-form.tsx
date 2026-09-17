@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useActionState, useRef, useEffect, useMemo } from "react";
+import {
+  useState,
+  useActionState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -151,6 +158,32 @@ function rebuildAnswersMap(
   return map;
 }
 
+/**
+ * True when the restored draft actually holds user input.
+ *
+ * The hook also persists an all-default snapshot (e.g. when you open the form
+ * and leave without typing), and showing "draft restored" for that is noise.
+ */
+function draftHasContent(d: DraftSnapshot | null): boolean {
+  if (!d) return false;
+  return Boolean(
+    d.ownerFullName.trim() ||
+      d.ownerDocumentNumber.trim() ||
+      d.licensePlate.trim() ||
+      d.vinSerial.trim() ||
+      d.brand.trim() ||
+      d.model.trim() ||
+      d.kmCurrent.trim() ||
+      d.observations.trim() ||
+      d.signature ||
+      d.cylinders.length > 0 ||
+      d.answers.some((a) => a.answer !== undefined || a.observations.trim()) ||
+      d.fileMeta.cedulaName ||
+      d.fileMeta.carnetName ||
+      d.fileMeta.photosNames.length > 0,
+  );
+}
+
 // ─── Answer State Type ────────────────────────────────────────────
 interface AnswerState {
   answer: boolean | null | undefined;
@@ -179,67 +212,51 @@ export function UnifiedInspectionForm({
     FormData
   >(createUnifiedInspectionAction, null);
 
-  // ── Draft restoration (sync) ────────────────────────────────────
-  // First useState — reads localStorage exactly once so every other
-  // useState below can seed from the restored draft.
-  const [draftInitial] = useState<DraftSnapshot | null>(() => {
-    try {
-      const raw = localStorage.getItem(`draft:${DRAFT_KEY}`);
-      if (!raw) return null;
-      return JSON.parse(raw) as DraftSnapshot;
-    } catch {
-      return null;
-    }
-  });
-  const hasDraft = draftInitial !== null;
+  // ── Draft restoration ─────────────────────────────────────────
+  // Restoration happens in an effect, NOT in useState initializers.
+  //
+  // Reading localStorage during render makes the client's first render differ
+  // from the server's (localStorage does not exist during SSR), which breaks
+  // hydration and forces React to regenerate the whole tree. So the first
+  // render uses plain defaults on both sides, then we apply the draft after
+  // mount.
+  const [restored, setRestored] = useState<DraftSnapshot | null>(null);
+  const [restoreAttempted, setRestoreAttempted] = useState(false);
+  const hasDraft = draftHasContent(restored);
+  // Bumped by discardDraft to remount the uncontrolled pickers clean.
+  const [draftEpoch, setDraftEpoch] = useState(0);
 
   // Photos are tracked as state so the snapshot (and therefore the draft
   // auto-save) reacts when the user adds/removes photos.
   const [photos, setPhotos] = useState<File[]>([]);
 
   // ── Branch ──────────────────────────────────────────────────
-  const [branch, setBranch] = useState<"montados" | "desmontados">(
-    draftInitial?.branch ?? "montados",
-  );
+  const [branch, setBranch] = useState<"montados" | "desmontados">("montados");
   const [formError, setFormError] = useState<string | null>(null);
 
   // ── Owner State ─────────────────────────────────────────────
-  const [ownerDocumentType, setOwnerDocumentType] = useState(
-    draftInitial?.ownerDocumentType ?? "V",
-  );
-  const [ownerDocumentNumber, setOwnerDocumentNumber] = useState(
-    draftInitial?.ownerDocumentNumber ?? "",
-  );
-  const [ownerFullName, setOwnerFullName] = useState(
-    draftInitial?.ownerFullName ?? "",
-  );
-  const [ownerPhone, setOwnerPhone] = useState(draftInitial?.ownerPhone ?? "");
-  const [ownerEmail, setOwnerEmail] = useState(draftInitial?.ownerEmail ?? "");
+  const [ownerDocumentType, setOwnerDocumentType] = useState("V");
+  const [ownerDocumentNumber, setOwnerDocumentNumber] = useState("");
+  const [ownerFullName, setOwnerFullName] = useState("");
+  const [ownerPhone, setOwnerPhone] = useState("");
+  const [ownerEmail, setOwnerEmail] = useState("");
   const [foundOwner, setFoundOwner] = useState<{
     id: string;
     documentId: string;
     fullName: string;
     phone: string | null;
     email: string | null;
-  } | null>(draftInitial?.foundOwner ?? null);
-  const [selectedOwnerId, setSelectedOwnerId] = useState(
-    draftInitial?.selectedOwnerId ?? "",
-  );
+  } | null>(null);
+  const [selectedOwnerId, setSelectedOwnerId] = useState("");
 
   // ── Vehicle State ───────────────────────────────────────────
-  const [vinSerial, setVinSerial] = useState(draftInitial?.vinSerial ?? "");
-  const [codigoUnicoGnc, setCodigoUnicoGnc] = useState(
-    draftInitial?.codigoUnicoGnc ?? "",
-  );
-  const [licensePlate, setLicensePlate] = useState(
-    draftInitial?.licensePlate ?? "",
-  );
-  const [vehicleType, setVehicleType] = useState(
-    draftInitial?.vehicleType ?? "sedan",
-  );
-  const [brand, setBrand] = useState(draftInitial?.brand ?? "");
-  const [model, setModel] = useState(draftInitial?.model ?? "");
-  const [marcaKit, setMarcaKit] = useState(draftInitial?.marcaKit ?? "");
+  const [vinSerial, setVinSerial] = useState("");
+  const [codigoUnicoGnc, setCodigoUnicoGnc] = useState("");
+  const [licensePlate, setLicensePlate] = useState("");
+  const [vehicleType, setVehicleType] = useState("sedan");
+  const [brand, setBrand] = useState("");
+  const [model, setModel] = useState("");
+  const [marcaKit, setMarcaKit] = useState("");
   const [foundVehicle, setFoundVehicle] = useState<{
     id: string;
     vinSerial: string | null;
@@ -256,30 +273,24 @@ export function UnifiedInspectionForm({
       phone: string | null;
       email: string | null;
     } | null;
-  } | null>(draftInitial?.foundVehicle ?? null);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(
-    draftInitial?.selectedVehicleId ?? "",
-  );
+  } | null>(null);
+  const [selectedVehicleId, setSelectedVehicleId] = useState("");
 
   // ── Inspection ──────────────────────────────────────────────
-  const [kmCurrent, setKmCurrent] = useState(draftInitial?.kmCurrent ?? "");
-  const [kmNoMarca, setKmNoMarca] = useState(draftInitial?.kmNoMarca ?? false);
-  const [observations, setObservations] = useState(
-    draftInitial?.observations ?? "",
-  );
+  const [kmCurrent, setKmCurrent] = useState("");
+  const [kmNoMarca, setKmNoMarca] = useState(false);
+  const [observations, setObservations] = useState("");
 
   // ── Checklist ───────────────────────────────────────────────
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() =>
-    rebuildAnswersMap(draftInitial?.answers),
+    rebuildAnswersMap(undefined),
   );
 
   // ── Signature ───────────────────────────────────────────────
-  const [signature, setSignature] = useState(draftInitial?.signature ?? "");
+  const [signature, setSignature] = useState("");
 
   // ── Cylinders ───────────────────────────────────────────────
-  const [cylinders, setCylinders] = useState<CylinderEntry[]>(
-    draftInitial?.cylinders ?? [],
-  );
+  const [cylinders, setCylinders] = useState<CylinderEntry[]>([]);
 
   // ── Vehicle Documents (inline) ──────────────────────────────
   const [cedulaFile, setCedulaFile] = useState<File | null>(null);
@@ -325,12 +336,12 @@ export function UnifiedInspectionForm({
       cylinders,
       signature,
       fileMeta: {
-        cedulaName: cedulaFile?.name ?? draftInitial?.fileMeta.cedulaName ?? null,
-        carnetName: carnetFile?.name ?? draftInitial?.fileMeta.carnetName ?? null,
+        cedulaName: cedulaFile?.name ?? restored?.fileMeta.cedulaName ?? null,
+        carnetName: carnetFile?.name ?? restored?.fileMeta.carnetName ?? null,
         photosNames:
           photos.length > 0
             ? photos.map((f) => f.name)
-            : (draftInitial?.fileMeta.photosNames ?? []),
+            : (restored?.fileMeta.photosNames ?? []),
       },
       savedAt: Date.now(),
     }),
@@ -361,64 +372,142 @@ export function UnifiedInspectionForm({
       cedulaFile,
       carnetFile,
       photos,
-      draftInitial,
+      restored,
     ],
   );
 
   // Hook: auto-saves snapshot to localStorage (debounced), flushes on
   // visibilitychange/pagehide, exposes IDB-backed file storage.
-  const draft = useFormDraft(DRAFT_KEY, snapshot);
+  //
+  // Destructured (not used as `draft.x`) because `saveDraftFiles` and
+  // `clearDraft` are the hook's stable useCallback identities — the wrapper
+  // object itself is new every render and would defeat useCallback below.
+  //
+  // `paused` until restoration runs: otherwise the all-default first render
+  // would be written over the stored draft before we ever read it.
+  const {
+    files: draftFiles,
+    loaded: draftLoaded,
+    saveFiles: saveDraftFiles,
+    clear: clearDraft,
+  } = useFormDraft(DRAFT_KEY, snapshot, { paused: !restoreAttempted });
 
-  // Hydrate files from IDB once they load. Also hydrates the photos state.
+  // Apply the persisted draft after mount. Batched into a single re-render by
+  // React 18+, so the snapshot the hook sees next already holds real data.
   useEffect(() => {
-    if (!draft.loaded || !hasDraft) return;
-    if (draft.files.cedula) setCedulaFile(draft.files.cedula);
-    if (draft.files.carnet) setCarnetFile(draft.files.carnet);
-    if (draft.files.photos.length > 0) {
-      setPhotos(draft.files.photos);
+    let draft: DraftSnapshot | null = null;
+    try {
+      const raw = localStorage.getItem(`draft:${DRAFT_KEY}`);
+      if (raw) draft = JSON.parse(raw) as DraftSnapshot;
+    } catch {
+      draft = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.loaded, hasDraft]);
 
-  // Persist files to IDB whenever they change. Wrapped helper keeps the
-  // call-site clean.
-  const persistFiles = (next: {
-    cedula: File | null;
-    carnet: File | null;
-    photos: File[];
-  }) => {
-    draft.saveFiles({
-      cedula: next.cedula,
-      carnet: next.carnet,
-      photos: next.photos,
-    });
-  };
+    if (draft) {
+      setBranch(draft.branch ?? "montados");
+      setOwnerDocumentType(draft.ownerDocumentType ?? "V");
+      setOwnerDocumentNumber(draft.ownerDocumentNumber ?? "");
+      setOwnerFullName(draft.ownerFullName ?? "");
+      setOwnerPhone(draft.ownerPhone ?? "");
+      setOwnerEmail(draft.ownerEmail ?? "");
+      setFoundOwner(draft.foundOwner ?? null);
+      setSelectedOwnerId(draft.selectedOwnerId ?? "");
+      setVinSerial(draft.vinSerial ?? "");
+      setCodigoUnicoGnc(draft.codigoUnicoGnc ?? "");
+      setLicensePlate(draft.licensePlate ?? "");
+      setVehicleType(draft.vehicleType ?? "sedan");
+      setBrand(draft.brand ?? "");
+      setModel(draft.model ?? "");
+      setMarcaKit(draft.marcaKit ?? "");
+      setSelectedVehicleId(draft.selectedVehicleId ?? "");
+      setFoundVehicle(draft.foundVehicle ?? null);
+      setKmCurrent(draft.kmCurrent ?? "");
+      setKmNoMarca(draft.kmNoMarca ?? false);
+      setObservations(draft.observations ?? "");
+      setAnswers(rebuildAnswersMap(draft.answers));
+      setSignature(draft.signature ?? "");
+      setCylinders(draft.cylinders ?? []);
+    }
+
+    setRestored(draft);
+    setRestoreAttempted(true);
+  }, []);
+
+  // PhotoUpload/SignaturePad read their restored value only on first mount, so
+  // we hold them back until both the state restore and the IDB file load are
+  // done. Without a draft there is nothing to wait for beyond the restore.
+  const filesReady = restoreAttempted && (!hasDraft || draftLoaded);
+
+  // "Latest value" refs so the file handlers below can stay referentially
+  // stable (empty-ish deps) while still reading current state. Stable handler
+  // identity is what breaks the render loop: PhotoUpload re-fires its notify
+  // effect whenever `onFilesChange` changes identity.
+  const cedulaFileRef = useRef(cedulaFile);
+  cedulaFileRef.current = cedulaFile;
+  const carnetFileRef = useRef(carnetFile);
+  carnetFileRef.current = carnetFile;
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+
+  // Hydrate files from IDB once they load.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (!draftLoaded || hydratedRef.current) return;
+    hydratedRef.current = true;
+    if (draftFiles.cedula) setCedulaFile(draftFiles.cedula);
+    if (draftFiles.carnet) setCarnetFile(draftFiles.carnet);
+    if (draftFiles.photos.length > 0) setPhotos(draftFiles.photos);
+  }, [draftLoaded, draftFiles]);
 
   // File setters — update local state AND persist to IDB.
-  const handleCedulaChange = (file: File | null) => {
-    setCedulaFile(file);
-    persistFiles({
-      cedula: file,
-      carnet: carnetFile,
-      photos,
-    });
-  };
-  const handleCarnetChange = (file: File | null) => {
-    setCarnetFile(file);
-    persistFiles({
-      cedula: cedulaFile,
-      carnet: file,
-      photos,
-    });
-  };
-  const handlePhotosChange = (files: File[]) => {
-    setPhotos(files);
-    persistFiles({
-      cedula: cedulaFile,
-      carnet: carnetFile,
-      photos: files,
-    });
-  };
+  const handleCedulaChange = useCallback(
+    (file: File | null) => {
+      setCedulaFile(file);
+      cedulaFileRef.current = file;
+      saveDraftFiles({
+        cedula: file,
+        carnet: carnetFileRef.current,
+        photos: photosRef.current,
+      });
+    },
+    [saveDraftFiles],
+  );
+
+  const handleCarnetChange = useCallback(
+    (file: File | null) => {
+      setCarnetFile(file);
+      carnetFileRef.current = file;
+      saveDraftFiles({
+        cedula: cedulaFileRef.current,
+        carnet: file,
+        photos: photosRef.current,
+      });
+    },
+    [saveDraftFiles],
+  );
+
+  const handlePhotosChange = useCallback(
+    (files: File[]) => {
+      // Identity guard — PhotoUpload passes a freshly-mapped array on every
+      // notify, so without this check each call would setState with a new
+      // reference, re-render, re-notify, and loop forever.
+      const current = photosRef.current;
+      if (
+        files.length === current.length &&
+        files.every((f, i) => f === current[i])
+      ) {
+        return;
+      }
+      setPhotos(files);
+      photosRef.current = files;
+      saveDraftFiles({
+        cedula: cedulaFileRef.current,
+        carnet: carnetFileRef.current,
+        photos: files,
+      });
+    },
+    [saveDraftFiles],
+  );
 
   // ── Owner Selection (SearchableSelect) ──────────────────────
   const applyOwner = (owner: OwnerRecord) => {
@@ -720,8 +809,12 @@ export function UnifiedInspectionForm({
   // ── Draft banner: discard action ──────────────────────────────
   // Resets every local state back to its default AND clears the draft
   // from localStorage + IDB.
+  //
+  // PhotoUpload and SignaturePad are uncontrolled (they own their previews /
+  // canvas), so resetting our state is not enough to clear what the user sees.
+  // Bumping `draftEpoch` changes their `key`, which remounts them clean.
   const discardDraft = async () => {
-    await draft.clear();
+    await clearDraft();
     setBranch("montados");
     setOwnerDocumentType("V");
     setOwnerDocumentNumber("");
@@ -748,15 +841,19 @@ export function UnifiedInspectionForm({
     setCedulaFile(null);
     setCarnetFile(null);
     setPhotos([]);
+    photosRef.current = [];
+    cedulaFileRef.current = null;
+    carnetFileRef.current = null;
     setFormError(null);
+    setDraftEpoch((n) => n + 1);
   };
 
   // ── Success State ───────────────────────────────────────────
   // Wipe the draft once the inspection is actually created so we don't
   // restore stale data on the next visit.
   useEffect(() => {
-    if (state?.success) draft.clear();
-  }, [state?.success, draft]);
+    if (state?.success) clearDraft();
+  }, [state?.success, clearDraft]);
 
   if (state?.success) {
     return (
@@ -786,7 +883,7 @@ export function UnifiedInspectionForm({
     <form action={handleSubmit} className="space-y-6" noValidate>
       {/* ── Draft restoration banner ────────────────────────── */}
       <AnimatePresence>
-        {hasDraft && draft.savedAt && (
+        {hasDraft && restored && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -801,7 +898,7 @@ export function UnifiedInspectionForm({
                   Borrador restaurado
                 </p>
                 <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                  Tenías datos sin enviar guardados {formatDraftAge(draft.savedAt)}
+                  Tenías datos sin enviar guardados {formatDraftAge(restored.savedAt)}
                   . Los restauramos para que continúes donde lo dejaste.
                 </p>
               </div>
@@ -1465,11 +1562,15 @@ export function UnifiedInspectionForm({
           </div>
         </CardHeader>
         <CardContent>
-          <PhotoUpload
-            category="initial"
-            label="Fotos de inspección inicial"
-            onFilesChange={handlePhotosChange}
-          />
+          {filesReady && (
+            <PhotoUpload
+              key={`photos-${draftEpoch}`}
+              category="initial"
+              label="Fotos de inspección inicial"
+              onFilesChange={handlePhotosChange}
+              initialFiles={draftFiles.photos}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -1489,7 +1590,14 @@ export function UnifiedInspectionForm({
           </div>
         </CardHeader>
         <CardContent>
-          <SignaturePad onChange={setSignature} disabled={pending} />
+          {filesReady && (
+            <SignaturePad
+              key={`sig-${draftEpoch}`}
+              onChange={setSignature}
+              disabled={pending}
+              initialValue={restored?.signature}
+            />
+          )}
           <p className="text-xs text-muted-foreground mt-2">
             Esta firma quedará registrada como constancia de la inspección.
           </p>

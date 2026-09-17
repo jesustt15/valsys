@@ -7,6 +7,13 @@ interface PhotoUploadProps {
   category: 'initial' | 'removal' | 'post_mount'
   label: string
   onFilesChange?: (files: File[]) => void
+  /**
+   * Files to seed the picker with (e.g. restored from an IndexedDB draft).
+   * Must be available on FIRST render — this component is uncontrolled and
+   * only reads it during state initialization. Gate rendering until your
+   * draft has finished loading.
+   */
+  initialFiles?: File[]
 }
 
 const MAX_PHOTOS = 25
@@ -26,8 +33,17 @@ function useIsTouchDevice() {
   return isTouch
 }
 
-export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps) {
-  const [previews, setPreviews] = useState<{ file: File; url: string }[]>([])
+export function PhotoUpload({ category, label, onFilesChange, initialFiles }: PhotoUploadProps) {
+  // Seeded synchronously from `initialFiles` so the very first render already
+  // holds restored photos. This matters because the notify effect below fires
+  // on mount — if previews started empty it would push [] to the parent and
+  // clobber the restored draft (and its IndexedDB copy).
+  const [previews, setPreviews] = useState<{ file: File; url: string }[]>(() =>
+    (initialFiles ?? []).map((file) => ({
+      file,
+      url: URL.createObjectURL(file),
+    })),
+  )
   const [error, setError] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [isMultiShot, setIsMultiShot] = useState(false)
@@ -173,11 +189,19 @@ export function PhotoUpload({ category, label, onFilesChange }: PhotoUploadProps
     [addFiles],
   )
 
+  // Revoke object URLs only on unmount.
+  //
+  // This previously depended on `previews`, which meant its cleanup closed
+  // over the PREVIOUS array and revoked URLs that were still rendered after an
+  // add — producing broken thumbnails. Individual removals are already revoked
+  // inside removePhoto().
+  const previewsRef = useRef(previews)
+  previewsRef.current = previews
   useEffect(() => {
     return () => {
-      previews.forEach((preview) => URL.revokeObjectURL(preview.url))
+      previewsRef.current.forEach((preview) => URL.revokeObjectURL(preview.url))
     }
-  }, [previews])
+  }, [])
 
   useEffect(() => {
     return () => {

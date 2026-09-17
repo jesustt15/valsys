@@ -7,9 +7,14 @@ import { Eraser, RotateCcw } from 'lucide-react'
 interface SignaturePadProps {
   onChange: (base64: string) => void
   disabled?: boolean
+  /**
+   * Base64 PNG to redraw onto the canvas once it is ready (e.g. a signature
+   * restored from a draft). The component is otherwise uncontrolled.
+   */
+  initialValue?: string
 }
 
-export function SignaturePad({ onChange, disabled }: SignaturePadProps) {
+export function SignaturePad({ onChange, disabled, initialValue }: SignaturePadProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [hasContent, setHasContent] = useState(false)
@@ -38,6 +43,34 @@ export function SignaturePad({ onChange, disabled }: SignaturePadProps) {
 
     setCtx(context)
   }, [])
+
+  // Redraw a restored signature once the 2D context exists.
+  //
+  // exportSignature() stores a trimmed bitmap in DEVICE pixels, while this
+  // canvas has a dpr scale transform applied — so we divide by dpr to get CSS
+  // size, then letterbox-fit if the stroke was larger than the pad.
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current || !ctx || !initialValue) return
+    restoredRef.current = true
+
+    const img = new Image()
+    img.onload = () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const dpr = window.devicePixelRatio || 1
+      const maxW = canvas.width / dpr
+      const maxH = canvas.height / dpr
+      let w = img.width / dpr
+      let h = img.height / dpr
+      const scale = Math.min(maxW / w, maxH / h, 1)
+      w *= scale
+      h *= scale
+      ctx.drawImage(img, (maxW - w) / 2, (maxH - h) / 2, w, h)
+      setHasContent(true)
+    }
+    img.src = initialValue
+  }, [ctx, initialValue])
 
   const getPos = useCallback(
     (e: React.MouseEvent | React.TouchEvent) => {
