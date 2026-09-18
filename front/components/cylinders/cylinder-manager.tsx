@@ -2,7 +2,7 @@
 
 import { useState, useActionState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw } from 'lucide-react'
+import { Plus, CheckCircle, AlertCircle, Edit2, Camera, RotateCcw, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { MonthYearPicker } from '@/components/ui/month-year-picker'
-import { createCylinderAction, updateCylinderAction, updateCylinderStatusAction, type CylinderFormState } from '@/lib/actions/cylinder'
+import { createCylinderAction, updateCylinderAction, updateCylinderStatusAction, unlinkCylinderAction, type CylinderFormState } from '@/lib/actions/cylinder'
 import { formatMonthYear } from '@/lib/utils/format-month-year'
 
 interface Cylinder {
@@ -117,6 +117,7 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingFieldsId, setEditingFieldsId] = useState<string | null>(null)
+  const [unlinkConfirmId, setUnlinkConfirmId] = useState<string | null>(null)
 
   const [createState, createFormAction, createPending] = useActionState<CylinderFormState | null, FormData>(
     createCylinderAction,
@@ -130,6 +131,11 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
 
   const [editFieldsState, editFieldsFormAction, editFieldsPending] = useActionState<CylinderFormState | null, FormData>(
     updateCylinderAction,
+    null
+  )
+
+  const [unlinkState, unlinkFormAction, unlinkPending] = useActionState<CylinderFormState | null, FormData>(
+    unlinkCylinderAction,
     null
   )
 
@@ -279,6 +285,16 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                           <Edit2 className="w-4 h-4" />
                         </Button>
                       )}
+                      {(cyl.status === 'desmontado' || cyl.status === 'en_planta' || cyl.status === 'pendiente_reinstalacion') && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setUnlinkConfirmId(unlinkConfirmId === cyl.id ? null : cyl.id)}
+                          title="Desvincular del vehículo"
+                        >
+                          <Unlink className="w-4 h-4 text-red-600" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -345,6 +361,16 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                             setEditingId(editingId === cyl.id ? null : cyl.id)
                           }}>
                             <Edit2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {(cyl.status === 'desmontado' || cyl.status === 'en_planta' || cyl.status === 'pendiente_reinstalacion') && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setUnlinkConfirmId(unlinkConfirmId === cyl.id ? null : cyl.id)}
+                            title="Desvincular del vehículo"
+                          >
+                            <Unlink className="w-4 h-4 text-red-600" />
                           </Button>
                         )}
                       </div>
@@ -544,6 +570,62 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
                 state={editFieldsState}
                 pending={editFieldsPending}
               />
+            )
+          })()}
+        </AnimatePresence>
+
+        {/* Unlink confirmation */}
+        <AnimatePresence>
+          {unlinkConfirmId && (() => {
+            const cyl = cylinders.find(c => c.id === unlinkConfirmId)
+            if (!cyl) return null
+
+            return (
+              <motion.div
+                key="unlink-confirm"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden mt-4"
+              >
+                <form action={unlinkFormAction} className="bg-red-50/50 dark:bg-red-900/10 p-4 rounded-xl border border-red-200 dark:border-red-800 space-y-4">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Unlink className="w-4 h-4 text-red-600" />
+                    Desvincular Cilindro
+                  </h4>
+                  <input type="hidden" name="id" value={unlinkConfirmId} />
+                  <input type="hidden" name="inspectionId" value={inspectionId} />
+
+                  <div className="flex items-start gap-3 p-3 bg-red-100 dark:bg-red-900/20 rounded-xl">
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div className="text-sm text-red-800 dark:text-red-300">
+                      <p className="font-medium">{cyl.brand} — {cyl.capacity}L</p>
+                      <p className="text-red-700 dark:text-red-400 mt-1">
+                        Serial: <code className="font-mono">{cyl.actualSerial || cyl.initialSerial}</code>
+                      </p>
+                      <p className="text-red-700 dark:text-red-400 mt-1">
+                        Este cilindro se <strong>desvinculará del vehículo</strong> y quedará disponible para asignarlo a otro vehículo.
+                      </p>
+                    </div>
+                  </div>
+
+                  {unlinkState?.error && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{unlinkState.error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="ghost" onClick={() => setUnlinkConfirmId(null)}>
+                      Cancelar
+                    </Button>
+                    <Button type="submit" disabled={unlinkPending} className="bg-red-600 hover:bg-red-700 text-white">
+                      {unlinkPending ? 'Desvinculando...' : '✓ Desvincular Cilindro'}
+                    </Button>
+                  </div>
+                </form>
+              </motion.div>
             )
           })()}
         </AnimatePresence>

@@ -5,8 +5,25 @@ const nextConfig = {
   experimental: {
     serverActions: {
       allowedOrigins: ['*.trycloudflare.com', '*.cfargotunnel.com', 'localhost:3000', 'agrogas.online', '*.agrogas.online'],
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '100mb',
     },
+  },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp',
+          },
+        ],
+      },
+    ]
   },
 }
 

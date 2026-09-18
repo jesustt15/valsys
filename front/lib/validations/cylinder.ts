@@ -73,3 +73,8 @@ export const decideCylinderFateSchema = z.object({
     }
   }
 })
+
+export const unlinkCylinderSchema = z.object({
+  id: z.string().uuid(),
+  inspectionId: z.string().uuid(),
+})

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { PhotoCamera } from './photo-camera'
+import { compressVideo, validateVideoDuration, validateVideoFile } from '@/lib/video-compressor'
 
 interface PhotoUploadProps {
   category: 'initial' | 'removal' | 'post_mount'
@@ -17,7 +18,9 @@ interface PhotoUploadProps {
 }
 
 const MAX_PHOTOS = 25
+const MAX_VIDEOS = 2
 const MAX_FILE_SIZE = 15 * 1024 * 1024
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024
 const CAMERA_TIMEOUT_MS = 120_000
 
 function useIsTouchDevice() {
@@ -38,14 +41,15 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
   // holds restored photos. This matters because the notify effect below fires
   // on mount — if previews started empty it would push [] to the parent and
   // clobber the restored draft (and its IndexedDB copy).
-  const [previews, setPreviews] = useState<{ file: File; url: string }[]>(() =>
+  const [previews, setPreviews] = useState<{ file: File; url: string; type: 'image' | 'video' }[]>(() =>
     (initialFiles ?? []).map((file) => ({
       file,
       url: URL.createObjectURL(file),
+      type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
     })),
   )
   const [error, setError] = useState<string | null>(null)
-  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [previewImage, setPreviewImage] = useState<{ url: string; type: 'image' | 'video' } | null>(null)
   const [isMultiShot, setIsMultiShot] = useState(false)
   const cameraRef = useRef<HTMLInputElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -55,6 +59,8 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
   const isTouch = useIsTouchDevice()
   const [cameraSupported, setCameraSupported] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
+  const [videoCompressing, setVideoCompressing] = useState(false)
+  const [compressProgress, setCompressProgress] = useState(0)
 
   // Feature detection: can we use getUserMedia for in-app camera?
   useEffect(() => {
@@ -101,36 +107,96 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
   }, [stopMultiShot])
 
   const addFiles = useCallback(
-    (files: File[] | FileList | null) => {
+    async (files: File[] | FileList | null) => {
       setError(null)
       if (!files) return
 
       const fileArray = Array.from(files as ArrayLike<File>)
 
-      if (previews.length + fileArray.length > MAX_PHOTOS) {
-        setError(`Máximo ${MAX_PHOTOS} fotos permitidas (ya tenés ${previews.length})`)
-        return
-      }
+      // Separate images and videos
+      const images = fileArray.filter(f => f.type.startsWith('image/'))
+      const videos = fileArray.filter(f => f.type.startsWith('video/'))
 
-      const valid: { file: File; url: string }[] = []
-
-      for (const file of fileArray) {
-        if (!file.type.startsWith('image/')) {
-          setError('Solo se permiten imágenes')
+      // Handle videos (if any)
+      const compressedVideos: { file: File; url: string; type: 'video' }[] = []
+      
+      if (videos.length > 0) {
+        const currentVideos = previews.filter(p => p.type === 'video').length
+        
+        if (currentVideos + videos.length > MAX_VIDEOS) {
+          setError(`Máximo ${MAX_VIDEOS} videos permitidos (ya tenés ${currentVideos})`)
           return
         }
 
-        if (file.size > MAX_FILE_SIZE) {
-          setError(`La imagen "${file.name}" supera los 15MB`)
+        // Validate all videos first
+        for (const video of videos) {
+          const sizeError = validateVideoFile(video)
+          if (sizeError) {
+            setError(sizeError)
+            return
+          }
+          
+          const durationError = await validateVideoDuration(video)
+          if (durationError) {
+            setError(durationError)
+            return
+          }
+        }
+
+        // Compress videos
+        setVideoCompressing(true)
+        setCompressProgress(0)
+
+        try {
+          for (let i = 0; i < videos.length; i++) {
+            const video = videos[i]
+            const compressed = await compressVideo(video, (progress) => {
+              const overallProgress = ((i + progress / 100) / videos.length) * 100
+              setCompressProgress(overallProgress)
+            })
+            
+            compressedVideos.push({
+              file: compressed,
+              url: URL.createObjectURL(compressed),
+              type: 'video',
+            })
+          }
+        } catch (err) {
+          setVideoCompressing(false)
+          setCompressProgress(0)
+          setError(err instanceof Error ? err.message : 'Error al comprimir video')
+          return
+        } finally {
+          setVideoCompressing(false)
+          setCompressProgress(0)
+        }
+      }
+
+      // Handle images (if any)
+      const validImages: { file: File; url: string; type: 'image' }[] = []
+      
+      if (images.length > 0) {
+        const currentImages = previews.filter(p => p.type === 'image').length
+        
+        if (currentImages + images.length > MAX_PHOTOS) {
+          setError(`Máximo ${MAX_PHOTOS} fotos permitidas (ya tenés ${currentImages})`)
           return
         }
 
-        valid.push({ file, url: URL.createObjectURL(file) })
+        for (const file of images) {
+          if (file.size > MAX_FILE_SIZE) {
+            setError(`La imagen "${file.name}" supera los 15MB`)
+            return
+          }
+
+          validImages.push({ file, url: URL.createObjectURL(file), type: 'image' })
+        }
       }
 
-      setPreviews((prev) => [...prev, ...valid])
+      // Add both videos and images to previews
+      setPreviews((prev) => [...prev, ...compressedVideos, ...validImages])
     },
-    [previews.length],
+    [previews],
   )
 
   const handleCameraCapture = useCallback(
@@ -225,18 +291,18 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
       <input
         ref={galleryRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         onChange={handleGallerySelect}
         className="hidden"
       />
 
-      {/* Accumulator input — holds ALL photos for form submission */}
+      {/* Accumulator input — holds ALL files for form submission */}
       <input
         ref={accumulatorRef}
         name="photos"
         type="file"
-        accept="image/*"
+        accept="image/*,video/*"
         multiple
         className="hidden"
       />
@@ -282,7 +348,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
                 disabled={previews.length >= MAX_PHOTOS}
                 className="inline-flex items-center gap-2 rounded-xl border border-dashed border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                📁 Elegir de galería
+                📁 Fotos o videos
               </button>
 
               <p className="w-full text-xs text-muted-foreground">
@@ -299,7 +365,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
           <input
             name="photos"
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             multiple
             onChange={(e) => addFiles(e.target.files)}
             className="block w-full text-sm text-muted-foreground
@@ -311,7 +377,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
                        cursor-pointer"
           />
           <p className="text-xs text-muted-foreground">
-            Máximo {MAX_PHOTOS} fotos, 15MB cada una. Formatos: JPG, PNG, WEBP
+            Máximo {MAX_PHOTOS} fotos (15MB c/u) o {MAX_VIDEOS} videos (100MB, 2 min máximo). Formatos: JPG, PNG, WEBP, MP4, MOV
           </p>
         </>
       )}
@@ -322,16 +388,49 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
         </div>
       )}
 
+      {videoCompressing && (
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
+          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-1">
+            Comprimiendo video... {Math.round(compressProgress)}%
+          </p>
+          <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${compressProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {previews.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
           {previews.map((preview, index) => (
             <div key={preview.url} className="relative group">
-              <img
-                src={preview.url}
-                alt={`Foto ${index + 1}`}
-                className="w-full h-24 object-cover rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => setPreviewImage(preview.url)}
-              />
+              {preview.type === 'video' ? (
+                <div
+                  className="relative w-full h-24 rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity bg-black overflow-hidden"
+                  onClick={() => setPreviewImage({ url: preview.url, type: 'video' })}
+                >
+                  <video
+                    src={preview.url}
+                    className="w-full h-full object-cover"
+                    muted
+                    preload="metadata"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-white/90 flex items-center justify-center">
+                      <span className="text-2xl ml-0.5">▶</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={preview.url}
+                  alt={`Foto ${index + 1}`}
+                  className="w-full h-24 object-cover rounded-lg border border-border cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => setPreviewImage({ url: preview.url, type: 'image' })}
+                />
+              )}
               <button
                 type="button"
                 onClick={() => removePhoto(index)}
@@ -340,7 +439,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
                     ? 'absolute top-1 right-1 w-7 h-7 rounded-full bg-red-500/80 text-white flex items-center justify-center text-xs'
                     : 'absolute top-1 right-1 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs'
                 }
-                aria-label="Eliminar foto"
+                aria-label={`Eliminar ${preview.type === 'video' ? 'video' : 'foto'}`}
               >
                 ✕
               </button>
@@ -351,23 +450,37 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
               }>
                 {index + 1}
               </span>
+              {preview.type === 'video' && (
+                <span className="absolute top-1 left-1 text-[10px] text-white bg-blue-500/80 px-1.5 py-0.5 rounded">
+                  VIDEO
+                </span>
+              )}
             </div>
           ))}
         </div>
       )}
 
-      {/* ── Image Preview Modal ───────────────────────────────── */}
+      {/* ── Media Preview Modal ───────────────────────────────── */}
       {previewImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
           onClick={() => setPreviewImage(null)}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]">
-            <img
-              src={previewImage}
-              alt="Vista previa"
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-            />
+            {previewImage.type === 'video' ? (
+              <video
+                src={previewImage.url}
+                controls
+                autoPlay
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+              />
+            ) : (
+              <img
+                src={previewImage.url}
+                alt="Vista previa"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              />
+            )}
             <button
               type="button"
               onClick={() => setPreviewImage(null)}

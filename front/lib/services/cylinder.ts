@@ -154,6 +154,75 @@ export async function decideCylinderFate(
   }
 }
 
+// ─── Unlink cylinder from vehicle ──────────────────────────────────
+
+export interface UnlinkCylinderResult {
+  success: boolean
+  error?: string
+}
+
+/**
+ * Unlinks a cylinder from its vehicle so it becomes available for reassignment.
+ * Only allowed when:
+ *  - The parent inspection is still in 'inspeccion_inicial'
+ *  - The cylinder is NOT 'instalado', 'reinstalado', or 'condenado'
+ */
+export async function unlinkCylinderFromVehicle(
+  cylinderId: string,
+  inspectionId: string,
+): Promise<UnlinkCylinderResult> {
+  try {
+    // Verify inspection is still in initial state
+    const [inspection] = await db
+      .select({ status: inspections.status })
+      .from(inspections)
+      .where(eq(inspections.id, inspectionId))
+      .limit(1)
+
+    if (!inspection) {
+      return { success: false, error: 'Inspección no encontrada' }
+    }
+
+    if (inspection.status !== 'inspeccion_inicial') {
+      return { success: false, error: 'Solo se pueden desvincular cilindros en inspección inicial' }
+    }
+
+    // Verify cylinder exists and is in an unlinkable state
+    const [cylinder] = await db
+      .select({ status: gncCylinders.status })
+      .from(gncCylinders)
+      .where(eq(gncCylinders.id, cylinderId))
+      .limit(1)
+
+    if (!cylinder) {
+      return { success: false, error: 'Cilindro no encontrado' }
+    }
+
+    if (cylinder.status === 'instalado') {
+      return { success: false, error: 'No se puede desvincular un cilindro instalado. Desmóntelo primero.' }
+    }
+
+    if (cylinder.status === 'reinstalado') {
+      return { success: false, error: 'No se puede desvincular un cilindro ya reinstalado' }
+    }
+
+    if (cylinder.status === 'condenado') {
+      return { success: false, error: 'No se puede desvincular un cilindro condenado' }
+    }
+
+    // Unlink: set vehicleId to null
+    await db
+      .update(gncCylinders)
+      .set({ vehicleId: null, updatedAt: new Date() })
+      .where(eq(gncCylinders.id, cylinderId))
+
+    return { success: true }
+  } catch (e) {
+    console.error('Error in unlinkCylinderFromVehicle:', e)
+    return { success: false, error: 'Error al desvincular el cilindro' }
+  }
+}
+
 // ─── Get pending cylinders ─────────────────────────────────────────
 
 export interface PendingCylinder {

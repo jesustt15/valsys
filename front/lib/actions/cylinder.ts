@@ -4,11 +4,11 @@ import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
 import { gncCylinders, inspectionAttachments, signatures, inspections } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { createCylinderSchema, updateCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema, decideCylinderFateSchema } from '@/lib/validations/cylinder'
+import { createCylinderSchema, updateCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema, decideCylinderFateSchema, unlinkCylinderSchema } from '@/lib/validations/cylinder'
 import { getSession } from '@/lib/auth/get-session'
 import { putObject } from '@/lib/minio'
 import { createNotification } from '@/lib/services/notification'
-import { decideCylinderFate } from '@/lib/services/cylinder'
+import { decideCylinderFate, unlinkCylinderFromVehicle } from '@/lib/services/cylinder'
 
 export type CylinderFormState = {
   success?: boolean
@@ -440,6 +440,47 @@ export async function decideCylinderFateAction(
         relatedEntityId: parsed.data.id,
       })
     }
+  } catch (e) {
+    console.error('Failed to create notification:', e)
+  }
+
+  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+
+  return { success: true }
+}
+
+export async function unlinkCylinderAction(
+  _prev: CylinderFormState | null,
+  formData: FormData,
+): Promise<CylinderFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No autorizado' }
+
+  const data = Object.fromEntries(formData)
+  const parsed = unlinkCylinderSchema.safeParse(data)
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const result = await unlinkCylinderFromVehicle(
+    parsed.data.id,
+    parsed.data.inspectionId,
+  )
+
+  if (!result.success) {
+    return { error: result.error }
+  }
+
+  // Notification
+  try {
+    await createNotification(session.sub, {
+      type: 'cylinder_sent_to_plant',
+      title: 'Cilindro desvinculado',
+      message: 'Un cilindro fue desvinculado del vehículo',
+      relatedEntityType: 'cylinder',
+      relatedEntityId: parsed.data.id,
+    })
   } catch (e) {
     console.error('Failed to create notification:', e)
   }
