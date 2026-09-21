@@ -14,6 +14,8 @@ import { FileText, Camera, CheckSquare, Truck, User, Database } from 'lucide-rea
 import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
+import { VideoQueuePanel } from '@/components/inspections/video-queue-panel'
+import { AttachmentTile } from '@/components/inspections/attachment-tile'
 import { formatMonthYear } from '@/lib/utils/format-month-year'
 
 interface PageProps {
@@ -40,17 +42,10 @@ export default async function UtpDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  // Get image URLs for attachments
-  const attachmentsWithUrls = await Promise.all(
-    inspection.attachments.map(async (att) => {
-      try {
-        const url = await getObjectUrl(att.minioKey)
-        return { ...att, url }
-      } catch {
-        return { ...att, url: undefined }
-      }
-    }),
-  )
+  const attachmentsWithUrls = inspection.attachments.map((att) => ({
+    ...att,
+    url: `/api/attachments/${att.id}`,
+  }))
 
   // Get signature URL
   let signatureUrl: string | null = null
@@ -387,27 +382,21 @@ export default async function UtpDetailPage({ params }: PageProps) {
             </CardHeader>
             <CardContent className="space-y-4">
               <ExpedienteUploader inspectionId={resolvedParams.id} />
+              <VideoQueuePanel inspectionId={resolvedParams.id} />
 
               {attachmentsWithUrls.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Sin fotos.</p>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   {attachmentsWithUrls.map((att) => (
-                    <div key={att.id} className="relative aspect-square rounded-xl overflow-hidden border border-border">
-                      {att.url ? (
-                        <a href={att.url} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={att.url}
-                            alt={att.fileName}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform"
-                          />
-                        </a>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-muted">
-                          <Camera className="w-6 h-6 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
+                    <AttachmentTile
+                      key={att.id}
+                      id={att.id}
+                      fileName={att.fileName}
+                      fileType={att.fileType}
+                      category={att.category}
+                      url={att.url}
+                    />
                   ))}
                 </div>
               )}

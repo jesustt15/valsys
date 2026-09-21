@@ -23,9 +23,13 @@ import {
 } from "@/lib/actions/utp";
 import { PhotoUpload } from "@/components/inspections/photo-upload";
 import { SignaturePad } from "@/components/inspections/signature-pad";
+import { CreatedWithVideosView } from "@/components/inspections/created-with-videos-view";
 import { DocumentScanner } from "@/components/ui/document-scanner";
 import { useFormDraft } from "@/hooks/use-form-draft";
+import { useSubmitWatchdog } from "@/hooks/use-submit-watchdog";
 import { formatDraftAge } from "@/lib/draft-storage";
+import { queue as videoQueue } from "@/lib/video-upload-queue";
+import { assertPayloadUnderLimit } from "@/lib/payload-guard";
 import {
   Card,
   CardContent,
@@ -210,12 +214,6 @@ export function UtpInspectionForm({
     FormData
   >(createUtpInspectionAction, null);
 
-  useEffect(() => {
-    if (state?.success) {
-      router.push("/utp")
-    }
-  }, [state?.success, router])
-
   // ── Draft restoration ─────────────────────────────────────────
   // Restoration happens in an effect, NOT in useState initializers.
   //
@@ -233,6 +231,13 @@ export function UtpInspectionForm({
   // Photos are tracked as state so the snapshot (and therefore the draft
   // auto-save) reacts when the user adds/removes photos.
   const [photos, setPhotos] = useState<File[]>([]);
+  // Videos travel through a separate background queue — never in FormData.
+  const [pendingVideos, setPendingVideos] = useState<File[]>([]);
+  // Set when inspection was created and videos are queued — suppresses redirect.
+  const [createdInspectionId, setCreatedInspectionId] = useState<string | null>(null);
+  // Shared watchdog: size-scaled timer + offline banner + reset.
+  const { banner: watchdogBanner, arm: armWatchdog, reset: resetWatchdog } =
+    useSubmitWatchdog();
 
   // ── Field Errors ──────────────────────────────────────────
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -460,6 +465,8 @@ export function UtpInspectionForm({
   carnetFileRef.current = carnetFile;
   const photosRef = useRef(photos);
   photosRef.current = photos;
+  const pendingVideosRef = useRef(pendingVideos);
+  pendingVideosRef.current = pendingVideos;
 
   // Hydrate files from IDB once they load.
   const hydratedRef = useRef(false);
@@ -527,6 +534,64 @@ export function UtpInspectionForm({
     [saveDraftFiles],
   );
 
+  const handleVideosSelected = useCallback((files: File[]) => {
+    const current = pendingVideosRef.current;
+    if (
+      files.length === current.length &&
+      files.every((f, i) => f === current[i])
+    ) {
+      return;
+    }
+    setPendingVideos(files);
+    pendingVideosRef.current = files;
+  }, []);
+
+  // ── Success effect ────────────────────────────────────────────
+  // Clear the draft on success (P0-5 fix — idempotent via createdInspectionId
+  // so the same success state can't enqueue videos twice).
+  //
+  // StrictMode dev double-effect guard: React 19 StrictMode runs effects
+  // twice. Run 1 enqueues videos + empties pendingVideosRef + sets state;
+  // run 2 sees the SAME videos=[] (ref was cleared by run 1) and would
+  // fall through to router.push, breaking the success view.
+  // `successHandledRef` is set synchronously on first run so run 2 sees it
+  // already set and skips entirely.
+  const successHandledRef = useRef(false);
+  useEffect(() => {
+    if (!state?.success) return;
+    if (createdInspectionId) return; // already handled (state-driven idempotency)
+    if (successHandledRef.current) return; // StrictMode run 2
+    successHandledRef.current = true;
+
+    resetWatchdog();
+    clearDraft();
+
+    const inspectionId = state.data?.inspectionId;
+    const videos = pendingVideosRef.current;
+
+    if (inspectionId && videos.length > 0) {
+      for (const file of videos) {
+        videoQueue.enqueue(inspectionId, "initial", file);
+      }
+      setPendingVideos([]);
+      pendingVideosRef.current = [];
+      setCreatedInspectionId(inspectionId);
+      return;
+    }
+    router.push("/utp");
+  }, [state?.success, clearDraft, createdInspectionId, resetWatchdog, router]);
+
+  // Disarm the watchdog ONLY when `pending` transitions from true → false.
+  // See the unified-inspection-form.tsx comment explaining why we don't
+  // include `state` in the condition (stale truthy state on retry).
+  const wasPendingRef = useRef(false);
+  useEffect(() => {
+    if (wasPendingRef.current && !pending) {
+      resetWatchdog();
+    }
+    wasPendingRef.current = pending;
+  }, [pending, resetWatchdog]);
+
   // SignaturePad re-exports on every `onChange` identity change, so this must
   // be stable or the restored-signature path re-renders forever.
   const handleSignatureChange = useCallback(
@@ -570,6 +635,10 @@ export function UtpInspectionForm({
     setCarnetFile(null);
     setPhotos([]);
     photosRef.current = [];
+    setPendingVideos([]);
+    pendingVideosRef.current = [];
+    setCreatedInspectionId(null);
+    resetWatchdog();
     cedulaFileRef.current = null;
     carnetFileRef.current = null;
     setFieldErrors({});
@@ -799,10 +868,26 @@ export function UtpInspectionForm({
   };
 
   // ── Submit ──────────────────────────────────────────────────
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
     if (!validate()) {
       return
     }
+
+    // ── Pre-submit size guard ──
+    const payloadFiles: File[] = [
+      ...photos,
+      cedulaFile,
+      carnetFile,
+    ].filter((f): f is File => !!f && f.size > 0);
+    const payloadError = assertPayloadUnderLimit(payloadFiles);
+    if (payloadError) {
+      setFieldError("payload", payloadError);
+      return;
+    }
+
+    resetWatchdog();
 
     // Create a fresh FormData to ensure we control exactly what's sent
     const submitData = new FormData();
@@ -855,22 +940,40 @@ export function UtpInspectionForm({
       submitData.set("cylinders", JSON.stringify(cylinders));
     }
 
-    // Photos
+    // Photos (videos travel via background queue, not FormData).
     for (const file of photos) {
       if (file && file.size > 0) {
         submitData.append("photos", file);
       }
     }
 
-    formAction(submitData);
+    // Arm shared watchdog (size-scaled timer + offline banner).
+    armWatchdog(payloadFiles);
+
+    await formAction(submitData);
   };
 
-  if (state?.success) {
+  if (state?.success && !createdInspectionId) {
     return null
   }
 
+  // Success + videos pending — stay on page, delegate to shared view.
+  if (state?.success && createdInspectionId) {
+    return (
+      <CreatedWithVideosView
+        inspectionId={createdInspectionId}
+        inspectionLabel="Inspección UTP"
+        inspectionHref={`/utp/${createdInspectionId}`}
+        listHref="/utp"
+        onBackToList={() => {
+          router.push("/utp");
+        }}
+      />
+    );
+  }
+
   return (
-    <form action={handleSubmit} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       {/* ── Draft restoration banner ────────────────────────── */}
       <AnimatePresence>
         {hasDraft && restored && (
@@ -929,6 +1032,43 @@ export function UtpInspectionForm({
             <Alert variant="warning">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{state.photoError}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+        {fieldErrors.payload && (
+          <motion.div
+            key="payload-error"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{fieldErrors.payload}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+        {watchdogBanner && (
+          <motion.div
+            key="watchdog"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex flex-col gap-2">
+                <span>{watchdogBanner}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                  className="self-start"
+                >
+                  Recargar página
+                </Button>
+              </AlertDescription>
             </Alert>
           </motion.div>
         )}
@@ -1542,6 +1682,7 @@ export function UtpInspectionForm({
               category="initial"
               label="Fotos de la inspección UTP"
               onFilesChange={handlePhotosChange}
+              onVideosSelected={handleVideosSelected}
               initialFiles={draftFiles.photos}
             />
           )}

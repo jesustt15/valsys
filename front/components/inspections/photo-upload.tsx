@@ -2,12 +2,27 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { PhotoCamera } from './photo-camera'
-import { compressVideo, validateVideoDuration, validateVideoFile } from '@/lib/video-compressor'
+import { validateVideoDuration, validateVideoFile } from '@/lib/video-compressor'
 
 interface PhotoUploadProps {
   category: 'initial' | 'removal' | 'post_mount'
   label: string
+  /** Called with only IMAGE files. These are the ones that travel in FormData. */
   onFilesChange?: (files: File[]) => void
+  /**
+   * CONTRACT — always emits the FULL current list of video Files in the
+   * component (existing previews + new batch, after any removal). The parent
+   * form should REPLACE its video state with this list (not append).
+   *
+   * Rationale: the component is the single source of truth for "which videos
+   * are currently selected"; the parent does not track video identity itself.
+   * Callers that appended the delta would silently drop previously-selected
+   * videos (MAX_VIDEOS=2 → pick A then B → A lost if caller appended).
+   *
+   * Files are validated (duration ≤2min, size ≤100MB) but NOT compressed —
+   * compression is deferred to the background video queue.
+   */
+  onVideosSelected?: (files: File[]) => void
   /**
    * Files to seed the picker with (e.g. restored from an IndexedDB draft).
    * Must be available on FIRST render — this component is uncontrolled and
@@ -20,7 +35,6 @@ interface PhotoUploadProps {
 const MAX_PHOTOS = 25
 const MAX_VIDEOS = 2
 const MAX_FILE_SIZE = 15 * 1024 * 1024
-const MAX_VIDEO_SIZE = 100 * 1024 * 1024
 const CAMERA_TIMEOUT_MS = 120_000
 
 function useIsTouchDevice() {
@@ -36,17 +50,24 @@ function useIsTouchDevice() {
   return isTouch
 }
 
-export function PhotoUpload({ category, label, onFilesChange, initialFiles }: PhotoUploadProps) {
+export function PhotoUpload({ category, label, onFilesChange, onVideosSelected, initialFiles }: PhotoUploadProps) {
   // Seeded synchronously from `initialFiles` so the very first render already
   // holds restored photos. This matters because the notify effect below fires
   // on mount — if previews started empty it would push [] to the parent and
   // clobber the restored draft (and its IndexedDB copy).
+  //
+  // NOTE: initialFiles only restores IMAGES. Videos travel via a separate
+  // callback (onVideosSelected) and are not persisted across navigation —
+  // the queue holds them in memory and surfaces pending state on the detail
+  // page via localStorage metadata.
   const [previews, setPreviews] = useState<{ file: File; url: string; type: 'image' | 'video' }[]>(() =>
-    (initialFiles ?? []).map((file) => ({
-      file,
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
-    })),
+    (initialFiles ?? [])
+      .filter((f) => f.type.startsWith('image/'))
+      .map((file) => ({
+        file,
+        url: URL.createObjectURL(file),
+        type: 'image' as const,
+      })),
   )
   const [error, setError] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<{ url: string; type: 'image' | 'video' } | null>(null)
@@ -59,8 +80,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
   const isTouch = useIsTouchDevice()
   const [cameraSupported, setCameraSupported] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
-  const [videoCompressing, setVideoCompressing] = useState(false)
-  const [compressProgress, setCompressProgress] = useState(0)
+  const [videoValidating, setVideoValidating] = useState(false)
 
   // Feature detection: can we use getUserMedia for in-app camera?
   useEffect(() => {
@@ -70,11 +90,15 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
     )
   }, [])
 
+  // syncAccumulator only puts IMAGE files into the hidden input that feeds
+  // the form's FormData. Videos travel through a separate callback.
   const syncAccumulator = useCallback(() => {
     if (!accumulatorRef.current) return
     try {
       const dt = new DataTransfer()
-      previews.forEach(p => dt.items.add(p.file))
+      previews
+        .filter((p) => p.type === 'image')
+        .forEach((p) => dt.items.add(p.file))
       accumulatorRef.current.files = dt.files
     } catch {
       // DataTransfer not supported — fallback: files won't be in accumulator
@@ -82,9 +106,12 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
     }
   }, [previews])
 
+  // Emit only images via onFilesChange (the legacy photos channel).
+  // Videos are emitted separately via onVideosSelected.
   useEffect(() => {
     syncAccumulator()
-    onFilesChange?.(previews.map((p) => p.file))
+    const images = previews.filter((p) => p.type === 'image').map((p) => p.file)
+    onFilesChange?.(images)
   }, [previews, syncAccumulator, onFilesChange])
 
   const stopMultiShot = useCallback(() => {
@@ -114,89 +141,104 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
       const fileArray = Array.from(files as ArrayLike<File>)
 
       // Separate images and videos
-      const images = fileArray.filter(f => f.type.startsWith('image/'))
-      const videos = fileArray.filter(f => f.type.startsWith('video/'))
+      const images = fileArray.filter((f) => f.type.startsWith('image/'))
+      const rawVideos = fileArray.filter((f) => f.type.startsWith('video/'))
 
-      // Handle videos (if any)
-      const compressedVideos: { file: File; url: string; type: 'video' }[] = []
-      
-      if (videos.length > 0) {
-        const currentVideos = previews.filter(p => p.type === 'video').length
-        
-        if (currentVideos + videos.length > MAX_VIDEOS) {
+      // ── Videos: validate only, DO NOT compress ──
+      // Compression is deferred to the background queue (see
+      // use-video-upload-queue / video-upload-queue).
+      //
+      // Read the CURRENT previews (not the closure-captured state) so that
+      // videos removed during the validation window don't get resurrected
+      // via the onVideosSelected emit. previewsRef is synced with state on
+      // every render.
+      let videosToProcess = rawVideos
+      if (rawVideos.length > 0) {
+        // Read current video count from the ref — not the stale `previews`.
+        const currentVideos = previewsRef.current.filter((p) => p.type === 'video').length
+        const slotsAvailable = MAX_VIDEOS - currentVideos
+        if (slotsAvailable <= 0) {
           setError(`Máximo ${MAX_VIDEOS} videos permitidos (ya tenés ${currentVideos})`)
-          return
-        }
-
-        // Validate all videos first
-        for (const video of videos) {
-          const sizeError = validateVideoFile(video)
-          if (sizeError) {
-            setError(sizeError)
-            return
-          }
-          
-          const durationError = await validateVideoDuration(video)
-          if (durationError) {
-            setError(durationError)
-            return
-          }
-        }
-
-        // Compress videos
-        setVideoCompressing(true)
-        setCompressProgress(0)
-
-        try {
-          for (let i = 0; i < videos.length; i++) {
-            const video = videos[i]
-            const compressed = await compressVideo(video, (progress) => {
-              const overallProgress = ((i + progress / 100) / videos.length) * 100
-              setCompressProgress(overallProgress)
-            })
-            
-            compressedVideos.push({
-              file: compressed,
-              url: URL.createObjectURL(compressed),
-              type: 'video',
-            })
-          }
-        } catch (err) {
-          setVideoCompressing(false)
-          setCompressProgress(0)
-          setError(err instanceof Error ? err.message : 'Error al comprimir video')
-          return
-        } finally {
-          setVideoCompressing(false)
-          setCompressProgress(0)
+          videosToProcess = []
+        } else if (rawVideos.length > slotsAvailable) {
+          // Reject only the EXCESS videos, keep the rest + process photos.
+          setError(`Máximo ${MAX_VIDEOS} videos permitidos (ya tenés ${currentVideos}). Se tomaron solo ${slotsAvailable}.`)
+          videosToProcess = rawVideos.slice(0, slotsAvailable)
         }
       }
 
-      // Handle images (if any)
-      const validImages: { file: File; url: string; type: 'image' }[] = []
-      
+      if (videosToProcess.length > 0) {
+        setVideoValidating(true)
+        try {
+          // Validate all videos first (duration + size).
+          const validated: File[] = []
+          for (const video of videosToProcess) {
+            const sizeError = validateVideoFile(video)
+            if (sizeError) {
+              setError(sizeError)
+              break
+            }
+            const durationError = await validateVideoDuration(video)
+            if (durationError) {
+              setError(durationError)
+              break
+            }
+            validated.push(video)
+          }
+
+          if (validated.length > 0) {
+            // Add videos to previews (raw File — queue handles compression).
+            const videoPreviews = validated.map((file) => ({
+              file,
+              url: URL.createObjectURL(file),
+              type: 'video' as const,
+            }))
+
+            // Compute the NEXT previews value outside the updater so we can
+            // emit from it without creating a side effect in the updater
+            // (StrictMode could double-invoke the updater and double-fire
+            // onVideosSelected). previewsRef is synced with state on every
+            // render, so this is race-safe.
+            const nextPreviews = [...previewsRef.current, ...videoPreviews]
+            setPreviews(nextPreviews)
+
+            // Emit the FULL video list AFTER the state update — see
+            // onVideosSelected contract. Parent must REPLACE state.
+            const nextVideos = nextPreviews
+              .filter((p) => p.type === 'video')
+              .map((p) => p.file)
+            onVideosSelected?.(nextVideos)
+          }
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Error al validar video')
+        } finally {
+          setVideoValidating(false)
+        }
+      }
+
+      // ── Images ──
       if (images.length > 0) {
-        const currentImages = previews.filter(p => p.type === 'image').length
-        
+        // Read current image count from the ref — not the stale `previews`.
+        const currentImages = previewsRef.current.filter((p) => p.type === 'image').length
+
         if (currentImages + images.length > MAX_PHOTOS) {
           setError(`Máximo ${MAX_PHOTOS} fotos permitidas (ya tenés ${currentImages})`)
           return
         }
 
+        const validImages: { file: File; url: string; type: 'image' }[] = []
         for (const file of images) {
           if (file.size > MAX_FILE_SIZE) {
             setError(`La imagen "${file.name}" supera los 15MB`)
             return
           }
-
           validImages.push({ file, url: URL.createObjectURL(file), type: 'image' })
         }
-      }
 
-      // Add both videos and images to previews
-      setPreviews((prev) => [...prev, ...compressedVideos, ...validImages])
+        setPreviews((prev) => [...prev, ...validImages])
+      }
     },
-    [previews],
+    [onVideosSelected],
   )
 
   const handleCameraCapture = useCallback(
@@ -240,12 +282,27 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
     [addFiles],
   )
 
-  const removePhoto = useCallback((index: number) => {
-    setPreviews((prev) => {
-      URL.revokeObjectURL(prev[index].url)
-      return prev.filter((_, i) => i !== index)
-    })
-  }, [])
+  const removePhoto = useCallback(
+    (index: number) => {
+      // Compute the remaining videos BEFORE calling setPreviews so the
+      // onVideosSelected emit isn't inside the updater (StrictMode could
+      // invoke the updater twice and double-fire the callback).
+      const removed = previews[index]
+      if (!removed) return
+      URL.revokeObjectURL(removed.url)
+      const next = previews.filter((_, i) => i !== index)
+      setPreviews(next)
+      if (removed.type === 'video') {
+        // Emit the FULL remaining video list — parent must REPLACE state.
+        // See onVideosSelected contract in PhotoUploadProps.
+        const remainingVideos = next
+          .filter((p) => p.type === 'video')
+          .map((p) => p.file)
+        onVideosSelected?.(remainingVideos)
+      }
+    },
+    [previews, onVideosSelected],
+  )
 
   // ── In-app camera: receive captured files and feed them into addFiles ──
   const handleCameraPhotos = useCallback(
@@ -275,6 +332,9 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
     }
   }, [])
 
+  const imageCount = previews.filter((p) => p.type === 'image').length
+  const videoCount = previews.filter((p) => p.type === 'video').length
+
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-foreground">{label}</label>
@@ -297,12 +357,13 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
         className="hidden"
       />
 
-      {/* Accumulator input — holds ALL files for form submission */}
+      {/* Accumulator input — holds ONLY IMAGES for form submission.
+          Videos travel through a dedicated background queue. */}
       <input
         ref={accumulatorRef}
         name="photos"
         type="file"
-        accept="image/*,video/*"
+        accept="image/*"
         multiple
         className="hidden"
       />
@@ -317,7 +378,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                   </span>
-                  {previews.length} / {MAX_PHOTOS}
+                  {imageCount} / {MAX_PHOTOS}
                 </span>
                 <button
                   type="button"
@@ -336,7 +397,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
               <button
                 type="button"
                 onClick={() => (cameraSupported ? setCameraOpen(true) : startMultiShot())}
-                disabled={previews.length >= MAX_PHOTOS}
+                disabled={imageCount >= MAX_PHOTOS}
                 className="inline-flex items-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 📷 Tomar fotos
@@ -345,7 +406,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
               <button
                 type="button"
                 onClick={() => galleryRef.current?.click()}
-                disabled={previews.length >= MAX_PHOTOS}
+                disabled={imageCount >= MAX_PHOTOS && videoCount >= MAX_VIDEOS}
                 className="inline-flex items-center gap-2 rounded-xl border border-dashed border-input bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 📁 Fotos o videos
@@ -388,17 +449,11 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
         </div>
       )}
 
-      {videoCompressing && (
+      {videoValidating && (
         <div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
-          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium mb-1">
-            Comprimiendo video... {Math.round(compressProgress)}%
+          <p className="text-sm text-blue-700 dark:text-blue-300 font-medium">
+            Validando video...
           </p>
-          <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
-            <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${compressProgress}%` }}
-            />
-          </div>
         </div>
       )}
 
@@ -495,7 +550,7 @@ export function PhotoUpload({ category, label, onFilesChange, initialFiles }: Ph
 
       {cameraOpen && (
         <PhotoCamera
-          maxPhotos={MAX_PHOTOS - previews.length}
+          maxPhotos={MAX_PHOTOS - imageCount}
           onPhotos={handleCameraPhotos}
           onClose={() => setCameraOpen(false)}
           onFallback={() => {

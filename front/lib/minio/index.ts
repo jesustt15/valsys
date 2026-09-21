@@ -47,3 +47,7 @@ export async function getObjectUrl(key: string) {
   const urlClient = createUrlClient()
   return urlClient.presignedGetObject(BUCKET, key, 60 * 60) // 1 hour
 }
+
+export async function deleteObject(key: string) {
+  await minioClient.removeObject(BUCKET, key)
+}

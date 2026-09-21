@@ -5,7 +5,7 @@ import { db } from '@/lib/db'
 import { inspections, inspectionAnswers, inspectionAttachments, signatures, gncCylinders, certificates, owners, vehicles } from '@/db/schema'
 import { createInspectionSchema, checklistAnswersSchema, toggleAnswerSchema, unifiedInspectionSchema, updateInspectionSchema } from '@/lib/validations/inspection'
 import { ALL_QUESTIONS } from '@/lib/checklist'
-import { putObject } from '@/lib/minio'
+import { putObject, deleteObject } from '@/lib/minio'
 import { getSession } from '@/lib/auth/get-session'
 import { upsertDoc } from '@/lib/services/vehicle-document'
 import { createNotification } from '@/lib/services/notification'
@@ -1100,5 +1100,194 @@ export async function restoreInspectionAction(
   } catch (e) {
     console.error('Error restoring inspection:', e)
     return { error: 'Error al restaurar la inspección' }
+  }
+}
+
+// ── Dedicated video attachment action ─────────────────────────────
+// Used by the background video queue to attach a single video file to an
+// already-created inspection. Mirrors the photo upload pattern used in
+// createUnifiedInspectionAction / uploadInspectionFileAction.
+//
+// Trust model: this is a global-access server action gated by an
+// authenticated session with operator/admin role. It is intended to be
+// called only from authenticated staff tablets behind Cloudflare Tunnel.
+// It does NOT accept anonymous callers.
+//
+// KNOWN ASYMMETRY: `uploadInspectionFileAction` (photos) has no role gate —
+// that's a pre-existing product decision pending unification. This action's
+// role gate is the NEW policy; the photo action will be aligned in a follow-
+// up, NOT in this changeset.
+
+import { VIDEO_UPLOAD_LIMIT_BYTES } from '@/lib/video-policy'
+import {
+  validateVideoUploadInputSync,
+  checkFileMagicBytes,
+  sanitizeFileName,
+  sanitizeIdempotencyKey,
+  type VideoUploadInput,
+} from '@/lib/validations/video-upload'
+
+export type VideoUploadState = {
+  success?: boolean
+  error?: string
+  data?: { attachmentId: string }
+}
+
+export async function uploadInspectionVideoAction(
+  _prev: VideoUploadState | null,
+  formData: FormData,
+): Promise<VideoUploadState> {
+  const session = await getSession()
+
+  const file = formData.get('file') as File | null
+  const input: VideoUploadInput = {
+    inspectionId: formData.get('inspectionId') as string,
+    file,
+    role: session?.role ?? null,
+    category: (formData.get('category') as string) || 'initial',
+    idempotencyKey: formData.get('idempotencyKey') as string,
+  }
+
+  // 1. Pure validation (auth, required fields, MIME, size, category).
+  const validation = validateVideoUploadInputSync(input)
+  if (!validation.ok) {
+    return { error: validation.error }
+  }
+  // Belt-and-suspenders: getSession() already checked — but be explicit.
+  if (!session) {
+    return { error: 'No hay sesión activa. Inicie sesión nuevamente.' }
+  }
+
+  // 2. Magic-byte sniff (the only I/O in validation — reads first 16 bytes).
+  const magicCheck = await checkFileMagicBytes(file)
+  if (!magicCheck.ok) {
+    return { error: magicCheck.error }
+  }
+
+  const safeCategory = (['initial', 'removal', 'post_mount', 'plant'] as const).includes(
+    input.category as 'initial' | 'removal' | 'post_mount' | 'plant',
+  )
+    ? (input.category as 'initial' | 'removal' | 'post_mount' | 'plant')
+    : 'initial'
+
+  const safeFileName = sanitizeFileName(file!.name)
+  const inspectionId = input.inspectionId as string
+
+  // Verify inspection exists and is not soft-deleted.
+  try {
+    const [existing] = await db
+      .select({ id: inspections.id })
+      .from(inspections)
+      .where(and(eq(inspections.id, inspectionId), isNull(inspections.deletedAt)))
+      .limit(1)
+    if (!existing) {
+      return { error: 'Inspección no encontrada o ya no está disponible' }
+    }
+  } catch (e) {
+    console.error('Error verifying inspection:', e)
+    return { error: 'Error al verificar la inspección' }
+  }
+
+  // Idempotent minioKey — derived from the idempotencyKey (queue item id) so
+  // retries of the same item produce the same key. putObject overwrites on
+  // collision; the DB insert below is guarded by checking for existing rows
+  // with the same key.
+  const stableKeyPart = sanitizeIdempotencyKey(input.idempotencyKey) || `${Date.now()}`
+  const minioKey = `inspections/${inspectionId}/${safeCategory}/${stableKeyPart}-${safeFileName}`
+
+  try {
+    // Idempotency: check if an attachment with this minioKey already exists.
+    // If so, re-upload over the same key (putObject is idempotent on key) and
+    // return the existing row's id.
+    const [existingAttachment] = await db
+      .select({ id: inspectionAttachments.id })
+      .from(inspectionAttachments)
+      .where(eq(inspectionAttachments.minioKey, minioKey))
+      .limit(1)
+
+    if (existingAttachment) {
+      await putObject(minioKey, file!)
+      revalidatePath(`/inspections/${inspectionId}`)
+      revalidatePath(`/utp/${inspectionId}`)
+      return { success: true, data: { attachmentId: existingAttachment.id } }
+    }
+
+    // Fresh insert — putObject first so we don't orphan rows on upload failure.
+    await putObject(minioKey, file!)
+
+    const [inserted] = await db
+      .insert(inspectionAttachments)
+      .values({
+        inspectionId,
+        fileName: safeFileName,
+        minioKey,
+        fileType: file!.type,
+        fileSize: file!.size,
+        category: safeCategory,
+      })
+      .returning({ id: inspectionAttachments.id })
+
+    revalidatePath(`/inspections/${inspectionId}`)
+    revalidatePath(`/utp/${inspectionId}`)
+    return { success: true, data: { attachmentId: inserted.id } }
+  } catch (e) {
+    console.error('Error uploading inspection video:', e)
+    return { error: 'Error al subir el video. Intente de nuevo.' }
+  }
+}
+
+export type DeleteAttachmentState = {
+  success?: boolean
+  error?: string
+}
+
+export async function deleteInspectionAttachmentAction(
+  _prev: DeleteAttachmentState | null,
+  formData: FormData,
+): Promise<DeleteAttachmentState> {
+  const session = await getSession()
+  if (!session) return { error: 'No hay sesión activa' }
+  if (session.role !== 'admin' && session.role !== 'operator') {
+    return { error: 'No tiene permisos para eliminar archivos' }
+  }
+
+  const attachmentId = formData.get('attachmentId') as string
+  if (!attachmentId) return { error: 'Falta el identificador del archivo' }
+
+  try {
+    const [attachment] = await db
+      .select({
+        id: inspectionAttachments.id,
+        minioKey: inspectionAttachments.minioKey,
+        inspectionId: inspectionAttachments.inspectionId,
+      })
+      .from(inspectionAttachments)
+      .where(eq(inspectionAttachments.id, attachmentId))
+      .limit(1)
+
+    if (!attachment) {
+      return { error: 'Archivo no encontrado' }
+    }
+
+    try {
+      await deleteObject(attachment.minioKey)
+    } catch {
+      // MinIO object may already be gone — continue with DB cleanup.
+    }
+
+    await db
+      .delete(inspectionAttachments)
+      .where(eq(inspectionAttachments.id, attachmentId))
+
+    const inspectionId = attachment.inspectionId
+    if (inspectionId) {
+      revalidatePath(`/inspections/${inspectionId}`)
+      revalidatePath(`/utp/${inspectionId}`)
+    }
+
+    return { success: true }
+  } catch (e) {
+    console.error('Error deleting attachment:', e)
+    return { error: 'Error al eliminar el archivo' }
   }
 }

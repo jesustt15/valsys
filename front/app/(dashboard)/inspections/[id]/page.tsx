@@ -14,6 +14,8 @@ import { CylinderFatePanel } from '@/components/cylinders/cylinder-fate-panel'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { CertificateCard } from '@/components/certificates/certificate-card'
+import { VideoQueuePanel } from '@/components/inspections/video-queue-panel'
+import { AttachmentTile } from '@/components/inspections/attachment-tile'
 import { getPendingSummary } from '@/lib/services/inspection-pending'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -43,16 +45,10 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
     && ['inspeccion_inicial', 'recalificacion', 'por_programar', 'cita'].includes(inspection.status)
     && recertCylinders.some(c => c.status === 'en_planta')
 
-  const attachmentsWithUrls = await Promise.all(
-    inspection.attachments.map(async (att) => {
-      try {
-        const url = await getObjectUrl(att.minioKey)
-        return { ...att, url }
-      } catch {
-        return { ...att, url: undefined }
-      }
-    }),
-  )
+  const attachmentsWithUrls = inspection.attachments.map((att) => ({
+    ...att,
+    url: `/api/attachments/${att.id}`,
+  }))
 
   const postMountPhotos = attachmentsWithUrls.filter(
     (att) => att.category === 'post_mount',
@@ -372,6 +368,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             </CardHeader>
             <CardContent className="space-y-6">
               <ExpedienteUploader inspectionId={resolvedParams.id} />
+              <VideoQueuePanel inspectionId={resolvedParams.id} />
 
               {attachmentsWithUrls.length === 0 ? (
                 <div className="text-sm text-muted-foreground text-center py-4">
@@ -379,46 +376,16 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {attachmentsWithUrls.map((att) => {
-                    const isLink = att.url != null
-                    const content = att.fileType.startsWith('image/') && att.url ? (
-                      <img
-                        src={att.url}
-                        alt={att.fileName}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
-                        <FileText className="w-8 h-8 text-muted-foreground mb-2" />
-                        <span className="text-xs text-center px-2 truncate w-full">{att.fileName}</span>
-                        {!att.url && <span className="text-[10px] text-muted-foreground mt-1">No disponible</span>}
-                      </div>
-                    )
-                    const className = 'group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm ' + (isLink ? 'hover:ring-2 hover:ring-primary transition-all' : 'opacity-60')
-
-                    if (isLink) {
-                      return (
-                        <a key={att.id} href={att.url!} target="_blank" rel="noopener noreferrer" className={className}>
-                          {content}
-                          <div className="absolute top-2 left-2">
-                            <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
-                              {att.category}
-                            </Badge>
-                          </div>
-                        </a>
-                      )
-                    }
-                    return (
-                      <div key={att.id} className={className}>
-                        {content}
-                        <div className="absolute top-2 left-2">
-                          <Badge variant="secondary" className="text-[10px] uppercase shadow-sm">
-                            {att.category}
-                          </Badge>
-                        </div>
-                      </div>
-                    )
-                  })}
+                  {attachmentsWithUrls.map((att) => (
+                    <AttachmentTile
+                      key={att.id}
+                      id={att.id}
+                      fileName={att.fileName}
+                      fileType={att.fileType}
+                      category={att.category}
+                      url={att.url}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>

@@ -21,9 +21,13 @@ import {
 } from "@/lib/actions/inspection";
 import { PhotoUpload } from "@/components/inspections/photo-upload";
 import { SignaturePad } from "@/components/inspections/signature-pad";
+import { CreatedWithVideosView } from "@/components/inspections/created-with-videos-view";
 import { DocumentScanner } from "@/components/ui/document-scanner";
 import { useFormDraft } from "@/hooks/use-form-draft";
+import { useSubmitWatchdog } from "@/hooks/use-submit-watchdog";
 import { formatDraftAge } from "@/lib/draft-storage";
+import { queue as videoQueue } from "@/lib/video-upload-queue";
+import { assertPayloadUnderLimit } from "@/lib/payload-guard";
 import {
   Card,
   CardContent,
@@ -229,6 +233,16 @@ export function UnifiedInspectionForm({
   // Photos are tracked as state so the snapshot (and therefore the draft
   // auto-save) reacts when the user adds/removes photos.
   const [photos, setPhotos] = useState<File[]>([]);
+  // Videos are tracked separately and NEVER travel in the creation FormData.
+  // They are handed to the background video queue after the inspection is
+  // created successfully.
+  const [pendingVideos, setPendingVideos] = useState<File[]>([]);
+  // Tracks the newly-created inspection id while the queue drains, so we can
+  // render the queue panel in-page instead of redirecting.
+  const [createdInspectionId, setCreatedInspectionId] = useState<string | null>(null);
+  // Shared watchdog: size-scaled timer + offline banner + reset.
+  const { banner: watchdogBanner, arm: armWatchdog, reset: resetWatchdog } =
+    useSubmitWatchdog();
 
   // ── Branch ──────────────────────────────────────────────────
   const [branch, setBranch] = useState<"montados" | "desmontados">("montados");
@@ -448,6 +462,8 @@ export function UnifiedInspectionForm({
   carnetFileRef.current = carnetFile;
   const photosRef = useRef(photos);
   photosRef.current = photos;
+  const pendingVideosRef = useRef(pendingVideos);
+  pendingVideosRef.current = pendingVideos;
 
   // Hydrate files from IDB once they load.
   const hydratedRef = useRef(false);
@@ -508,6 +524,21 @@ export function UnifiedInspectionForm({
     },
     [saveDraftFiles],
   );
+
+  // Videos travel through a separate channel. PhotoUpload emits the validated
+  // raw Files here; the form holds them and feeds the background queue AFTER
+  // the inspection is created (we need the inspectionId first).
+  const handleVideosSelected = useCallback((files: File[]) => {
+    const current = pendingVideosRef.current;
+    if (
+      files.length === current.length &&
+      files.every((f, i) => f === current[i])
+    ) {
+      return;
+    }
+    setPendingVideos(files);
+    pendingVideosRef.current = files;
+  }, []);
 
   // ── Owner Selection (SearchableSelect) ──────────────────────
   const applyOwner = (owner: OwnerRecord) => {
@@ -729,10 +760,28 @@ export function UnifiedInspectionForm({
   };
 
   // ── Submit ──────────────────────────────────────────────────
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
     if (!validate()) {
       return; // formError is set by validate()
     }
+
+    // ── Pre-submit size guard ──
+    // Videos are NOT included here (they travel through the queue).
+    const payloadFiles: File[] = [
+      ...photos,
+      cedulaFile,
+      carnetFile,
+    ].filter((f): f is File => !!f && f.size > 0);
+    const payloadError = assertPayloadUnderLimit(payloadFiles);
+    if (payloadError) {
+      setFormError(payloadError);
+      return;
+    }
+
+    setFormError(null);
+    resetWatchdog();
 
     // Create a fresh FormData to ensure we control exactly what's sent
     const submitData = new FormData();
@@ -797,13 +846,17 @@ export function UnifiedInspectionForm({
     }
 
     // Photos - collect from PhotoUpload via ref (avoids DataTransfer issues on Safari)
+    // NOTE: videos are excluded — they travel through the background queue.
     for (const file of photos) {
       if (file && file.size > 0) {
         submitData.append("photos", file);
       }
     }
 
-    formAction(submitData);
+    // Arm shared watchdog (size-scaled timer + offline banner).
+    armWatchdog(payloadFiles);
+
+    await formAction(submitData);
   };
 
   // ── Draft banner: discard action ──────────────────────────────
@@ -844,18 +897,69 @@ export function UnifiedInspectionForm({
     photosRef.current = [];
     cedulaFileRef.current = null;
     carnetFileRef.current = null;
+    setPendingVideos([]);
+    pendingVideosRef.current = [];
+    setCreatedInspectionId(null);
+    resetWatchdog();
     setFormError(null);
     setDraftEpoch((n) => n + 1);
   };
 
   // ── Success State ───────────────────────────────────────────
-  // Wipe the draft once the inspection is actually created so we don't
-  // restore stale data on the next visit.
+  // Clear the draft on success (regardless of videos — P0-5 fix). Mark the
+  // effect idempotent via `createdInspectionId` so a re-render with the same
+  // success state does not enqueue the same videos twice.
+  //
+  // StrictMode dev double-effect guard: React 19 StrictMode runs effects
+  // twice. Run 1 enqueues videos + empties pendingVideosRef; run 2 would see
+  // videos=[] and skip the video-branch. `successHandledRef` is set
+  // synchronously on first run so run 2 is a safe no-op.
+  const successHandledRef = useRef(false);
   useEffect(() => {
-    if (state?.success) clearDraft();
-  }, [state?.success, clearDraft]);
+    if (!state?.success) return;
+    if (createdInspectionId) return; // already handled (state-driven idempotency)
+    if (successHandledRef.current) return; // StrictMode run 2
+    successHandledRef.current = true;
 
-  if (state?.success) {
+    // Clear watchdog + draft.
+    resetWatchdog();
+    clearDraft();
+
+    const inspectionId = state.data?.inspectionId;
+    const videos = pendingVideosRef.current;
+
+    if (inspectionId && videos.length > 0) {
+      // Enqueue videos into the background queue. The queue runs async;
+      // we stay on this page to show live progress.
+      const category = branch === "montados" ? "initial" : "removal";
+      for (const file of videos) {
+        videoQueue.enqueue(inspectionId, category, file);
+      }
+      setPendingVideos([]);
+      pendingVideosRef.current = [];
+      setCreatedInspectionId(inspectionId);
+    }
+  }, [state?.success, clearDraft, branch, createdInspectionId, resetWatchdog]);
+
+  // Disarm the watchdog ONLY when `pending` transitions from true → false.
+  //
+  // The previous version watched both `pending` and `state`, which was broken:
+  // on a resubmit after a settled server error, useActionState still holds the
+  // STALE truthy state, so this effect re-ran and instantly reset the freshly
+  // armed watchdog — every retry ran unprotected. Pending-edge detection (via
+  // `wasPendingRef`) is the honest signal: the watchdog is armed at submit
+  // start and disarmed at submit end.
+  const wasPendingRef = useRef(false);
+  useEffect(() => {
+    if (wasPendingRef.current && !pending) {
+      resetWatchdog();
+    }
+    wasPendingRef.current = pending;
+  }, [pending, resetWatchdog]);
+
+  // Plain success (no pending videos) — show the success card (user navigates
+  // manually via the buttons; there is no router.push here).
+  if (state?.success && !createdInspectionId) {
     return (
       <Card className="max-w-2xl mx-auto mt-8">
         <CardContent className="p-12 text-center space-y-4">
@@ -879,8 +983,23 @@ export function UnifiedInspectionForm({
     );
   }
 
+  // Success + videos pending — stay on page, delegate to shared view.
+  if (state?.success && createdInspectionId) {
+    return (
+      <CreatedWithVideosView
+        inspectionId={createdInspectionId}
+        inspectionLabel="Inspección"
+        inspectionHref={`/inspections/${createdInspectionId}`}
+        listHref="/inspections"
+        onBackToList={() => {
+          router.push("/inspections");
+        }}
+      />
+    );
+  }
+
   return (
-    <form action={handleSubmit} className="space-y-6" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       {/* ── Draft restoration banner ────────────────────────── */}
       <AnimatePresence>
         {hasDraft && restored && (
@@ -1568,6 +1687,7 @@ export function UnifiedInspectionForm({
               category="initial"
               label="Fotos de inspección inicial"
               onFilesChange={handlePhotosChange}
+              onVideosSelected={handleVideosSelected}
               initialFiles={draftFiles.photos}
             />
           )}
@@ -1764,6 +1884,30 @@ export function UnifiedInspectionForm({
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{state?.error ?? formError}</AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+        {watchdogBanner && (
+          <motion.div
+            key="watchdog"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="flex flex-col gap-2">
+                <span>{watchdogBanner}</span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.location.reload()}
+                  className="self-start"
+                >
+                  Recargar página
+                </Button>
+              </AlertDescription>
             </Alert>
           </motion.div>
         )}
