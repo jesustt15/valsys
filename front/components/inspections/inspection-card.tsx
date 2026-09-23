@@ -34,9 +34,11 @@ export function InspectionCard({ inspection: insp, pending }: InspectionCardProp
       href={`/inspections/${insp.id}`}
       className="block rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow active:scale-[0.99]"
     >
-      {/* Header: plate + status */}
+      {/* Header: plate badge (Stitch style) + status */}
       <div className="flex items-center justify-between mb-3">
-        <span className="font-mono font-bold text-base text-foreground">
+        <span
+          className="inline-block rounded-full border-2 border-[#334155] bg-[#020617] px-3 py-1 font-mono text-[15px] font-bold tracking-[0.12em] text-[#F8FAFC] uppercase"
+        >
           {insp.licensePlate ?? '—'}
         </span>
         <StatusBadge status={insp.status} />

@@ -2,18 +2,9 @@
 
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
 import type { RecentInspectionRow } from '@/lib/services/inspection'
-
-const statusConfig: Record<string, { variant: 'success' | 'warning' | 'info' | 'destructive'; label: string }> = {
-  certificado: { variant: 'success', label: 'Certificado' },
-  recalificacion: { variant: 'warning', label: 'Recalificación' },
-  por_programar: { variant: 'destructive', label: 'Por Programar' },
-  inspeccion_inicial: { variant: 'info', label: 'Inspección Inicial' },
-  standby: { variant: 'warning', label: 'Standby' },
-  cita: { variant: 'info', label: 'Cita' },
-}
 
 interface RecentInspectionsListProps {
   inspections: RecentInspectionRow[]
@@ -41,7 +32,6 @@ export function RecentInspectionsList({ inspections }: RecentInspectionsListProp
       <CardContent className="px-6 pb-4">
         <div className="divide-y divide-border">
           {inspections.map((insp, i) => {
-            const status = statusConfig[insp.status] ?? { variant: 'default' as const, label: insp.status }
             return (
               <motion.div
                 key={insp.id}
@@ -50,17 +40,17 @@ export function RecentInspectionsList({ inspections }: RecentInspectionsListProp
                 transition={{ delay: 0.3 + i * 0.05 }}
                 className="flex items-center justify-between py-3.5 hover:bg-secondary/30 rounded-lg px-2 -mx-2 transition-colors"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center text-sm font-mono font-bold text-green-600 dark:text-green-400">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-11 h-11 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center text-sm font-mono font-bold text-green-600 dark:text-green-400 shrink-0">
                     {insp.licensePlate ? insp.licensePlate.slice(-3) : '---'}
                   </div>
-                  <div>
-                    <p className="font-medium text-foreground font-mono">{insp.licensePlate ?? 'Sin placa'}</p>
-                    <p className="text-sm text-muted-foreground">{insp.ownerName ?? 'Sin propietario'}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground font-mono truncate">{insp.licensePlate ?? 'Sin placa'}</p>
+                    <p className="text-sm text-muted-foreground truncate">{insp.ownerName ?? 'Sin propietario'}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={status.variant}>{status.label}</Badge>
+                <div className="flex items-center gap-3 shrink-0">
+                  <StatusBadge status={insp.status} />
                   <span className="text-sm text-muted-foreground hidden sm:inline">
                     {formatRelativeTime(insp.createdAt)}
                   </span>

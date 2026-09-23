@@ -3,22 +3,11 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Search } from 'lucide-react'
 import { DeleteInspectionButton } from '@/components/inspections/delete-inspection-button'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { UtpCard } from '@/components/inspections/utp-card'
 import type { UtpInspectionRow } from '@/lib/services/utp'
-
-const STATUS_LABELS: Record<string, string> = {
-  inspeccion_inicial: 'Inspección Inicial',
-  standby: 'Standby',
-  certificado: 'Certificado',
-}
-
-const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive'> = {
-  inspeccion_inicial: 'info',
-  standby: 'warning',
-  certificado: 'success',
-}
 
 const STATUS_TABS = [
   { value: 'all', label: 'Todas' },
@@ -81,7 +70,7 @@ export function UtpTable({ inspections, canDelete = false, initialStatus = 'all'
             placeholder="Buscar por placa, dueño, correlativo..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-12"
           />
         </div>
         <div className="flex gap-1.5 flex-wrap">
@@ -89,7 +78,7 @@ export function UtpTable({ inspections, canDelete = false, initialStatus = 'all'
             <button
               key={tab.value}
               onClick={() => setStatusFilter(tab.value)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              className={`min-h-[44px] px-3.5 py-2 text-sm font-medium rounded-md transition-colors ${
                 statusFilter === tab.value
                   ? 'bg-green-600 text-white'
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -101,8 +90,17 @@ export function UtpTable({ inspections, canDelete = false, initialStatus = 'all'
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile: card list */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <p className="text-center text-muted-foreground py-8">Sin resultados</p>
+        ) : (
+          filtered.map((row) => <UtpCard key={row.id} inspection={row} />)
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-muted-foreground">
@@ -141,9 +139,7 @@ export function UtpTable({ inspections, canDelete = false, initialStatus = 'all'
                     </Link>
                   </td>
                   <td className="py-3 px-3">
-                    <Badge variant={STATUS_BADGE[row.status] ?? 'info'}>
-                      {STATUS_LABELS[row.status] ?? row.status}
-                    </Badge>
+                    <StatusBadge status={row.status} />
                   </td>
                   <td className="py-3 px-3 font-mono text-xs">
                     <Link href={`/utp/${row.id}`} className="hover:text-green-600 transition-colors" onClick={(e) => e.stopPropagation()}>

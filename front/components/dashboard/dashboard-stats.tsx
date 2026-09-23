@@ -153,7 +153,7 @@ export function DashboardStats({ statusCounts, todayCount, vehicleCount, utpCoun
                       {stat.icon}
                     </div>
                   </div>
-                  <div className={`text-2xl md:text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                  <div className={`text-2xl md:text-3xl font-bold font-mono ${stat.color}`}>{stat.value}</div>
                   <div className="text-xs md:text-sm text-muted-foreground mt-1">{stat.label}</div>
                 </CardContent>
               </Card>
@@ -176,7 +176,7 @@ export function DashboardStats({ statusCounts, todayCount, vehicleCount, utpCoun
                         {stat.icon}
                       </div>
                     </div>
-                    <div className={`text-2xl md:text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                    <div className={`text-2xl md:text-3xl font-bold font-mono ${stat.color}`}>{stat.value}</div>
                     <div className="text-xs md:text-sm text-muted-foreground mt-1">{stat.label}</div>
                   </CardContent>
                 </Card>

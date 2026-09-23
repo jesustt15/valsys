@@ -54,16 +54,16 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
   const gateMessages = missingReasons.map((key) => GATE_MESSAGES[key] ?? key)
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="p-4 sm:p-6">
+      <CardHeader className="px-0 pt-0">
         <CardTitle className="text-lg">Acciones</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="px-0 pb-0 space-y-4">
         {isTerminal && (
-          <div className="text-center py-4">
-            <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
-            <p className="text-sm font-medium text-green-600">Certificado emitido</p>
-            <p className="text-xs text-muted-foreground mt-1">Esta inspección ya fue certificada.</p>
+          <div className="text-center py-6">
+            <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-3" />
+            <p className="text-base font-semibold text-green-600">Certificado emitido</p>
+            <p className="text-sm text-muted-foreground mt-1">Esta inspección ya fue certificada.</p>
           </div>
         )}
 
@@ -76,17 +76,18 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
                   type="button"
                   onClick={() => setShowCertificateForm(true)}
                   disabled={!canIssue}
-                  className="w-full bg-green-600 hover:bg-green-500"
+                  className="w-full h-12 text-base font-semibold bg-green-600 hover:bg-green-500"
                 >
-                  <FileText className="w-4 h-4 mr-2" />
+                  <FileText className="w-5 h-5 mr-2" />
                   Emitir Certificado
                 </Button>
 
                 {!canIssue && gateMessages.length > 0 && (
-                  <div className="space-y-1">
+                  <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20 p-3 space-y-1.5">
                     {gateMessages.map((msg, i) => (
-                      <p key={i} className="text-xs text-red-500 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> {msg}
+                      <p key={i} className="text-sm text-red-700 dark:text-red-400 flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <span>{msg}</span>
                       </p>
                     ))}
                   </div>
@@ -96,9 +97,9 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
                   type="button"
                   variant="outline"
                   onClick={() => setShowStandbyForm(true)}
-                  className="w-full"
+                  className="w-full h-12 text-base"
                 >
-                  <Clock className="w-4 h-4 mr-2" />
+                  <Clock className="w-5 h-5 mr-2" />
                   Marcar Standby
                 </Button>
               </div>
@@ -116,21 +117,21 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
                   </Alert>
                 )}
 
-                <div>
+                <div className="space-y-2">
                   <Label>Número Correlativo</Label>
-                  <Input name="correlativeNumber" placeholder="Ej: UTP-2025-001" required />
+                  <Input name="correlativeNumber" placeholder="Ej: UTP-2025-001" required className="h-12" />
                 </div>
 
-                <div>
+                <div className="space-y-2">
                   <Label>Documento Escaneado (opcional)</Label>
-                  <Input name="scanDoc" type="file" accept=".pdf,.jpg,.jpeg,.png" />
+                  <Input name="scanDoc" type="file" accept=".pdf,.jpg,.jpeg,.png" className="h-12" />
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     type="submit"
                     disabled={certPending}
-                    className="flex-1 bg-green-600 hover:bg-green-500"
+                    className="flex-1 h-12 bg-green-600 hover:bg-green-500"
                   >
                     {certPending ? 'Emitiendo...' : 'Confirmar Emisión'}
                   </Button>
@@ -138,6 +139,7 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
                     type="button"
                     variant="outline"
                     onClick={() => setShowCertificateForm(false)}
+                    className="h-12"
                   >
                     Cancelar
                   </Button>
@@ -157,22 +159,23 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
                   </Alert>
                 )}
 
-                <div>
+                <div className="space-y-2">
                   <Label>Observaciones (requeridas)</Label>
                   <Textarea
                     name="observations"
                     placeholder="Describa el motivo del standby..."
                     rows={3}
                     required
+                    className="min-h-[120px]"
                   />
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Button
                     type="submit"
                     disabled={standbyPending}
                     variant="outline"
-                    className="flex-1 border-amber-500 text-amber-600 hover:bg-amber-50"
+                    className="flex-1 h-12 border-amber-500 text-amber-600 hover:bg-amber-50"
                   >
                     {standbyPending ? 'Marcando...' : 'Confirmar Standby'}
                   </Button>
@@ -180,6 +183,7 @@ export function UtpActions({ inspectionId, status, canIssue, missingReasons }: P
                     type="button"
                     variant="ghost"
                     onClick={() => setShowStandbyForm(false)}
+                    className="h-12"
                   >
                     Cancelar
                   </Button>

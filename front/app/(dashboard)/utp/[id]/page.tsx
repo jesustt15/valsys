@@ -10,6 +10,7 @@ import { EditVehicleModal } from '@/components/vehicles/edit-vehicle-modal'
 import { EditInspectionFields } from '@/components/inspections/edit-inspection-fields'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { FileText, Camera, CheckSquare, Truck, User, Database } from 'lucide-react'
 import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
@@ -20,18 +21,6 @@ import { formatMonthYear } from '@/lib/utils/format-month-year'
 
 interface PageProps {
   params: Promise<{ id: string }>
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  inspeccion_inicial: 'Inspección Inicial',
-  standby: 'Standby',
-  certificado: 'Certificado',
-}
-
-const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success'> = {
-  inspeccion_inicial: 'info',
-  standby: 'warning',
-  certificado: 'success',
 }
 
 export default async function UtpDetailPage({ params }: PageProps) {
@@ -110,14 +99,12 @@ export default async function UtpDetailPage({ params }: PageProps) {
       </nav>
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Inspección UTP</h1>
-          <p className="text-muted-foreground mt-1 font-mono text-sm">ID: {resolvedParams.id}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Inspección UTP</h1>
+          <p className="text-muted-foreground mt-1 font-mono text-sm break-all">ID: {resolvedParams.id}</p>
         </div>
-        <Badge variant={STATUS_BADGE[status] ?? 'info'} className="text-sm px-3 py-1">
-          {STATUS_LABELS[status] ?? status}
-        </Badge>
+        <StatusBadge status={status} className="text-sm px-3 py-1 self-start sm:self-auto" />
       </div>
 
       {/* Inspection Info */}
@@ -125,7 +112,7 @@ export default async function UtpDetailPage({ params }: PageProps) {
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Datos de la Inspección</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+        <CardContent className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Fecha:</span>
             <p className="font-medium">
@@ -140,13 +127,13 @@ export default async function UtpDetailPage({ params }: PageProps) {
           </div>
           <div>
             <span className="text-muted-foreground">Kilómetros:</span>
-            <p className="font-medium">
+            <p className="font-medium font-mono">
               {inspection.kmCurrent != null ? `${inspection.kmCurrent.toLocaleString('es-AR')} km` : '—'}
             </p>
           </div>
           <div>
             <span className="text-muted-foreground">Operador:</span>
-            <p className="font-medium">{inspection.operator?.fullName ?? '—'}</p>
+            <p className="font-medium truncate">{inspection.operator?.fullName ?? '—'}</p>
           </div>
         </CardContent>
       </Card>
@@ -192,9 +179,11 @@ export default async function UtpDetailPage({ params }: PageProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between border-b pb-1">
+            <div className="flex justify-between items-center border-b pb-1">
               <span className="text-muted-foreground">Placa:</span>
-              <span className="font-mono font-medium">{inspection.vehicle.licensePlate}</span>
+              <span className="inline-block rounded-full border-2 border-[#334155] bg-[#020617] px-3 py-0.5 font-mono text-[13px] font-bold tracking-[0.12em] text-[#F8FAFC] uppercase">
+                {inspection.vehicle.licensePlate}
+              </span>
             </div>
             <div className="flex justify-between border-b pb-1">
               <span className="text-muted-foreground">Marca/Modelo:</span>
