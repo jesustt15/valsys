@@ -3,11 +3,14 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Plus, Search, FileText, AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { DeleteInspectionButton } from '@/components/inspections/delete-inspection-button'
+import { PendingBadge } from '@/components/inspections/pending-badge'
+import { StatusBadge } from '@/components/ui/status-badge'
+import { STATUS_META, getStatusLabel } from '@/lib/status-display'
+import { InspectionCard } from '@/components/inspections/inspection-card'
 import type { PendingItems } from '@/lib/services/inspection-pending'
 
 interface InspectionsTableProps {
@@ -27,24 +30,6 @@ interface InspectionsTableProps {
   pendingSummaries?: Record<string, PendingItems>
   canDelete?: boolean
   initialStatus?: string
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  inspeccion_inicial: 'Inspección Inicial',
-  recalificacion: 'Recalificación',
-  por_programar: 'Por Programar',
-  cita: 'Cita',
-  certificado: 'Certificado',
-  standby: 'Standby',
-}
-
-const STATUS_BADGE: Record<string, 'info' | 'warning' | 'success' | 'destructive' | 'purple'> = {
-  inspeccion_inicial: 'info',
-  recalificacion: 'warning',
-  por_programar: 'destructive',
-  cita: 'purple',
-  certificado: 'success',
-  standby: 'warning',
 }
 
 const STATUS_TABS = [
@@ -162,7 +147,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar por cliente, placa o correlativo..."
-            className="pl-9 h-11"
+            className="pl-9 h-12"
           />
         </div>
 
@@ -170,7 +155,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
           id="inspections-pending-filter"
           value={pendingFilter}
           onChange={(e) => setPendingFilter(e.target.value)}
-          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+          className="flex h-12 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
           <option value="all">Pendientes</option>
           <option value="blocking">Con bloqueos</option>
@@ -182,7 +167,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
           id="inspections-operator-filter"
           value={operatorFilter}
           onChange={(e) => setOperatorFilter(e.target.value)}
-          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+          className="flex h-12 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
           <option value="all">Operador</option>
           {operators.map((name) => (
@@ -194,7 +179,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
           id="inspections-sort-filter"
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as 'createdAt' | 'inspectionDate')}
-          className="flex h-11 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
+          className="flex h-12 rounded-xl border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
         >
           <option value="createdAt">Recientes</option>
           <option value="inspectionDate">Por fecha</option>
@@ -202,7 +187,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
 
         <Link
           href="/inspections/new"
-          className="inline-flex items-center justify-center gap-2 h-11 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]"
+          className="inline-flex items-center justify-center gap-2 h-12 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 shadow-sm hover:shadow-md transition-all duration-200 active:scale-[0.98]"
         >
           <Plus className="w-4 h-4" />
           Nueva
@@ -216,8 +201,29 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
         </p>
       ) : null}
 
-      {/* Table */}
-      <Card className="overflow-hidden">
+      {/* ── Mobile Card List (< md) ── */}
+      <div className="md:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            {query || pendingFilter !== 'all' || operatorFilter !== 'all'
+              ? 'No se encontraron inspecciones con esos filtros'
+              : inspections.length === 0
+                ? 'No hay inspecciones registradas. Cree la primera para comenzar.'
+                : 'No hay inspecciones en esta categoría'}
+          </div>
+        ) : (
+          filtered.map((insp) => (
+            <InspectionCard
+              key={insp.id}
+              inspection={insp}
+              pending={pendingSummaries[insp.id]}
+            />
+          ))
+        )}
+      </div>
+
+      {/* ── Desktop Table (≥ md) ── */}
+      <Card className="hidden md:block overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-muted/50 border-b border-border">
@@ -260,7 +266,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                   key={insp.id}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.03 }}
+                  transition={{ delay: Math.min(i * 0.03, 0.3) }}
                   className="hover:bg-muted/30 transition-colors"
                 >
                   <td className="px-4 py-3.5 text-sm text-muted-foreground">
@@ -293,9 +299,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                       : insp.brand || insp.model || '—'}
                   </td>
                   <td className="px-4 py-3.5 text-sm">
-                    <Badge variant={STATUS_BADGE[insp.status] ?? 'info'}>
-                      {STATUS_LABELS[insp.status] ?? insp.status}
-                    </Badge>
+                    <StatusBadge status={insp.status} />
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden lg:table-cell">
                     {insp.appointmentDate
@@ -316,7 +320,7 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
                       <Link
                         href={`/inspections/${insp.id}`}
                         title="Ver Expediente"
-                        className="inline-flex items-center justify-center h-8 w-8 rounded-lg hover:bg-secondary hover:text-secondary-foreground transition-all"
+                        className="inline-flex items-center justify-center h-12 w-12 rounded-lg hover:bg-secondary hover:text-secondary-foreground transition-all"
                       >
                         <FileText className="h-4 w-4 text-green-600" />
                         <span className="sr-only">Ver Expediente</span>
@@ -346,63 +350,103 @@ export function InspectionsTable({ inspections, pendingSummaries = {}, canDelete
   )
 }
 
-// ─── Pending Badge Component ────────────────────────────────────
-
-function PendingBadge({
-  pending,
-  status,
-}: {
-  pending?: PendingItems
-  status: string
-}) {
-  if (!pending) return <span className="text-xs text-muted-foreground">—</span>
-
-  // Certificado con todo ok
-  if (status === 'certificado' && pending.totalPending === 0 && pending.hasCertificate) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-        <CheckCircle2 className="w-3.5 h-3.5" />
-        Completo
-      </span>
-    )
-  }
-
-  // Blocking issues
-  if (pending.totalBlocking > 0) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 font-medium" title={getPendingTitle(pending)}>
-        <AlertCircle className="w-3.5 h-3.5" />
-        {pending.totalBlocking} bloqueo{pending.totalBlocking > 1 ? 's' : ''}
-      </span>
-    )
-  }
-
-  // Warnings
-  if (pending.totalWarnings > 0) {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400" title={getPendingTitle(pending)}>
-        <AlertTriangle className="w-3.5 h-3.5" />
-        {pending.totalWarnings} pendiente{pending.totalWarnings > 1 ? 's' : ''}
-      </span>
-    )
-  }
-
-  // No issues
+/**
+ * Skeleton placeholder for a single inspection card (mobile view).
+ * Mimics the shape of InspectionCard for loading states.
+ */
+function InspectionCardSkeleton() {
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-      <CheckCircle2 className="w-3.5 h-3.5" />
-      Sin novedad
-    </span>
+    <div className="rounded-xl border border-border bg-card p-4 animate-pulse" aria-hidden="true">
+      <div className="flex items-center justify-between mb-3">
+        <div className="h-5 w-20 bg-muted rounded" />
+        <div className="h-5 w-24 bg-muted rounded-full" />
+      </div>
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          <div className="h-4 w-16 bg-muted rounded" />
+          <div className="h-4 w-28 bg-muted rounded" />
+        </div>
+        <div className="flex justify-between">
+          <div className="h-4 w-16 bg-muted rounded" />
+          <div className="h-4 w-24 bg-muted rounded" />
+        </div>
+        <div className="flex justify-between">
+          <div className="h-4 w-16 bg-muted rounded" />
+          <div className="h-4 w-20 bg-muted rounded" />
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+        <div className="h-5 w-20 bg-muted rounded-full" />
+        <div className="h-12 w-32 bg-muted rounded-lg" />
+      </div>
+    </div>
   )
 }
 
-function getPendingTitle(pending: PendingItems): string {
-  const parts: string[] = []
-  if (pending.nonCompliantCount > 0) parts.push(`${pending.nonCompliantCount} ítem(s) no conforme(s)`)
-  if (pending.cylindersInPlant > 0) parts.push(`${pending.cylindersInPlant} cilindro(s) en planta`)
-  if (pending.cylindersPendingReinstall > 0) parts.push(`${pending.cylindersPendingReinstall} cilindro(s) pendiente(s) de reinstalación`)
-  if (!pending.hasSignature) parts.push('Sin firma del titular')
-  if (!pending.hasPostMountPhotos) parts.push('Sin fotos post-montaje')
-  if (!pending.hasCertificate) parts.push('Sin certificado')
-  return parts.join(' · ') || 'Sin novedad'
+/**
+ * Skeleton placeholder for the inspections table (desktop view).
+ * Renders 5 skeleton rows to match typical list height.
+ */
+function InspectionsTableSkeletonDesktop() {
+  return (
+    <Card className="hidden md:block overflow-hidden" aria-hidden="true">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-muted/50 border-b border-border">
+            <tr>
+              {['Fecha', 'Cliente', 'Patente', 'Correlativo', 'Estado'].map((h) => (
+                <th key={h} className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <tr key={i} className="animate-pulse">
+                <td className="px-4 py-3.5"><div className="h-4 w-20 bg-muted rounded" /></td>
+                <td className="px-4 py-3.5"><div className="h-4 w-32 bg-muted rounded" /></td>
+                <td className="px-4 py-3.5"><div className="h-4 w-20 bg-muted rounded" /></td>
+                <td className="px-4 py-3.5"><div className="h-4 w-16 bg-muted rounded" /></td>
+                <td className="px-4 py-3.5"><div className="h-5 w-24 bg-muted rounded-full" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
+
+/**
+ * Full skeleton replacement for InspectionsTable — shows loading placeholder
+ * for both mobile (card list) and desktop (table row) views.
+ * Use inside Suspense boundaries or while data is loading.
+ */
+export function InspectionsTableSkeleton({ count = 5 }: { count?: number }) {
+  return (
+    <div className="space-y-4" aria-label="Cargando inspecciones..." role="status">
+      {/* Tab bar skeleton */}
+      <div className="border-b border-border">
+        <div className="flex gap-2 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-10 w-20 bg-muted rounded animate-pulse shrink-0" />
+          ))}
+        </div>
+      </div>
+      {/* Search bar skeleton */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 h-12 bg-muted rounded-xl animate-pulse" />
+        <div className="hidden sm:block h-12 w-32 bg-muted rounded-xl animate-pulse" />
+      </div>
+      {/* Mobile card skeletons */}
+      <div className="md:hidden space-y-3">
+        {Array.from({ length: count }).map((_, i) => (
+          <InspectionCardSkeleton key={i} />
+        ))}
+      </div>
+      {/* Desktop table skeleton */}
+      <InspectionsTableSkeletonDesktop />
+    </div>
+  )
 }

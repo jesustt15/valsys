@@ -49,6 +49,7 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
   AlertCircle,
   CheckCircle,
@@ -247,6 +248,20 @@ export function UnifiedInspectionForm({
   // ── Branch ──────────────────────────────────────────────────
   const [branch, setBranch] = useState<"montados" | "desmontados">("montados");
   const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const setFieldError = (field: string, message: string) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: message }));
+  };
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   // ── Owner State ─────────────────────────────────────────────
   const [ownerDocumentType, setOwnerDocumentType] = useState("V");
@@ -315,6 +330,34 @@ export function UnifiedInspectionForm({
   const [scannerOpen, setScannerOpen] = useState<"cedula" | "carnet" | null>(
     null,
   );
+
+  // ── Accordion state (mobile collapsible sections) ──────────
+  // All sections open by default; validate() can auto-open specific ones.
+  const [openSections, setOpenSections] = useState<Set<string>>(() =>
+    new Set(['owner', 'vehicle', 'inspection', 'checklist-front', 'checklist-rear', 'cylinders', 'photos', 'signature', 'documents'])
+  );
+
+  const handleSectionToggle = useCallback((id: string) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const openSectionAndScroll = useCallback((id: string) => {
+    setOpenSections((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    // Scroll to section after state update
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`collapsible-header-${id}`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
 
   // ── Draft persistence ─────────────────────────────────────────
   // Build the JSON-serializable snapshot on every render. Files are excluded
@@ -675,20 +718,26 @@ export function UnifiedInspectionForm({
   };
 
   // ── Pre-submit validation ───────────────────────────────────
+  // Each validation failure tags the sectionId so we can auto-open + scroll.
   const validate = (): boolean => {
     setFormError(null);
+    setFieldErrors({});
 
     // Owner validation
     if (!foundOwner && !ownerFullName.trim()) {
+      setFieldError('owner', "Busque un propietario existente o complete los datos para crear uno nuevo");
       setFormError(
         "Debe proporcionar un propietario (buscar existente o crear nuevo)",
       );
+      openSectionAndScroll('owner');
       return false;
     }
 
     // Vehicle validation
     if (!foundVehicle && !licensePlate.trim()) {
+      setFieldError('licensePlate', "La placa es obligatoria");
       setFormError("Debe proporcionar la placa del vehículo");
+      openSectionAndScroll('vehicle');
       return false;
     }
 
@@ -697,19 +746,25 @@ export function UnifiedInspectionForm({
       licensePlate.trim() &&
       !/^[A-Z0-9][A-Z0-9]{5,6}$/.test(licensePlate.trim())
     ) {
+      setFieldError('licensePlate', "Debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos");
       setFormError(
-        "La placa debe comenzar con una letra o número y tener entre 6 y 7 caracteres alfanuméricos",
+        "La placa debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos",
       );
+      openSectionAndScroll('vehicle');
       return false;
     }
 
     if (!foundVehicle && brand.trim() && brand.trim().length < 2) {
+      setFieldError('brand', "La marca debe tener al menos 2 caracteres");
       setFormError("La marca debe tener al menos 2 caracteres");
+      openSectionAndScroll('vehicle');
       return false;
     }
 
     if (!foundVehicle && model.trim() && model.trim().length < 1) {
+      setFieldError('model', "El modelo es requerido");
       setFormError("El modelo es requerido");
+      openSectionAndScroll('vehicle');
       return false;
     }
 
@@ -718,7 +773,9 @@ export function UnifiedInspectionForm({
       kmCurrent !== "" &&
       (Number.isNaN(Number(kmCurrent)) || Number(kmCurrent) <= 0)
     ) {
+      setFieldError('kmCurrent', "Los kilómetros deben ser mayores a 0");
       setFormError("Los kilómetros deben ser mayores a 0");
+      openSectionAndScroll('inspection');
       return false;
     }
 
@@ -728,22 +785,32 @@ export function UnifiedInspectionForm({
         (q) => answers.get(q.key)?.answer === undefined,
       );
       if (unanswered.length > 0) {
+        setFieldError('checklist', `Faltan ${unanswered.length} preguntas por responder`);
         setFormError(
           `Faltan responder ${unanswered.length} preguntas del checklist`,
         );
+        // Open the first checklist section that has unanswered questions
+        const frontUnanswered = FRONT_QUESTIONS.filter(
+          (q) => answers.get(q.key)?.answer === undefined,
+        );
+        openSectionAndScroll(frontUnanswered.length > 0 ? 'checklist-front' : 'checklist-rear');
         return false;
       }
     }
 
     // Signature required for both montados and desmontados branches
     if (!signature) {
+      setFieldError('signature', "La firma del propietario es obligatoria");
       setFormError("La firma del propietario es obligatoria");
+      openSectionAndScroll('signature');
       return false;
     }
 
     // Desmontados: must have at least one cylinder
     if (branch === "desmontados" && cylinders.length === 0) {
+      setFieldError('cylinders', "Debe agregar al menos un cilindro");
       setFormError("Debe agregar al menos un cilindro");
+      openSectionAndScroll('cylinders');
       return false;
     }
 
@@ -752,7 +819,9 @@ export function UnifiedInspectionForm({
       (c) => !c.brand || !c.capacity || !c.initialSerial || !c.manufactureDate || !c.location,
     );
     if (incompleteCyl) {
+      setFieldError('cylinders', "Complete todos los campos de los cilindros o elimínelos");
       setFormError("Complete todos los campos de los cilindros o elimínelos");
+      openSectionAndScroll('cylinders');
       return false;
     }
 
@@ -1104,22 +1173,13 @@ export function UnifiedInspectionForm({
       </Card>
 
       {/* ── Owner Section ────────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
-              <User className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>Propietario</CardTitle>
-              <CardDescription>
-                {foundOwner
-                  ? "Propietario existente seleccionado"
-                  : "Ingrese los datos del propietario"}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <CollapsibleSection
+        id="owner"
+        title="Propietario"
+        icon={<User className="w-5 h-5 text-primary" />}
+        isOpen={openSections.has('owner')}
+        onToggle={handleSectionToggle}
+      >
         <CardContent className="space-y-4">
           {/* Owner SearchableSelect */}
           <div className="flex gap-2 items-end">
@@ -1160,6 +1220,9 @@ export function UnifiedInspectionForm({
               </Button>
             )}
           </div>
+          {fieldErrors.owner && (
+            <p className="text-sm text-destructive -mt-2" role="alert">{fieldErrors.owner}</p>
+          )}
 
           {/* Nombre Completo */}
           <div className="space-y-2">
@@ -1238,25 +1301,16 @@ export function UnifiedInspectionForm({
             />
           </div>
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── Vehicle Section ──────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 dark:bg-primary/20 rounded-xl flex items-center justify-center">
-              <Truck className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle>Vehículo</CardTitle>
-              <CardDescription>
-                {foundVehicle
-                  ? "Vehículo existente seleccionado"
-                  : "Ingrese los datos del vehículo"}
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <CollapsibleSection
+        id="vehicle"
+        title="Vehículo"
+        icon={<Truck className="w-5 h-5 text-primary" />}
+        isOpen={openSections.has('vehicle')}
+        onToggle={handleSectionToggle}
+      >
         <CardContent className="space-y-4">
           {/* Vehicle SearchableSelect */}
           <div className="flex gap-2 items-end">
@@ -1332,6 +1386,9 @@ export function UnifiedInspectionForm({
                 disabled={pending || !!foundVehicle}
                 placeholder="Marca"
               />
+              {fieldErrors.brand && (
+                <p className="text-sm text-destructive" role="alert">{fieldErrors.brand}</p>
+              )}
             </div>
 
             {/* Modelo */}
@@ -1345,6 +1402,9 @@ export function UnifiedInspectionForm({
                 disabled={pending || !!foundVehicle}
                 placeholder="Modelo"
               />
+              {fieldErrors.model && (
+                <p className="text-sm text-destructive" role="alert">{fieldErrors.model}</p>
+              )}
             </div>
           </div>
 
@@ -1361,10 +1421,16 @@ export function UnifiedInspectionForm({
                 disabled={pending || !!foundVehicle}
                 maxLength={7}
                 placeholder="Ej: A123BC4 o AB123C"
+                aria-invalid={fieldErrors.licensePlate ? true : undefined}
+                aria-describedby={fieldErrors.licensePlate ? 'licensePlate-error' : undefined}
               />
-              <p className="text-xs text-muted-foreground">
-                6 a 7 caracteres alfanuméricos (comienza con letra)
-              </p>
+              {fieldErrors.licensePlate ? (
+                <p id="licensePlate-error" className="text-sm text-destructive" role="alert">{fieldErrors.licensePlate}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  6 a 7 caracteres alfanuméricos (comienza con letra)
+                </p>
+              )}
             </div>
 
             {/* Código Único GNC */}
@@ -1421,23 +1487,16 @@ export function UnifiedInspectionForm({
             </Select>
           </div>
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── Inspection Fields ─────────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-xl flex items-center justify-center">
-              <ClipboardCheck className="w-5 h-5 text-amber-600" />
-            </div>
-            <div>
-              <CardTitle>Datos de Inspección</CardTitle>
-              <CardDescription>
-                Kilometraje y observaciones generales
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <CollapsibleSection
+        id="inspection"
+        title="Datos de Inspección"
+        icon={<ClipboardCheck className="w-5 h-5 text-amber-600" />}
+        isOpen={openSections.has('inspection')}
+        onToggle={handleSectionToggle}
+      >
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
@@ -1465,8 +1524,14 @@ export function UnifiedInspectionForm({
               onChange={(e) => setKmCurrent(e.target.value)}
               disabled={pending || kmNoMarca}
               placeholder={kmNoMarca ? "No marca (N/M)" : "Ej: 45000 (Opcional)"}
+              aria-invalid={fieldErrors.kmCurrent ? true : undefined}
+              aria-describedby={fieldErrors.kmCurrent ? 'kmCurrent-error' : undefined}
             />
-            <p className="text-xs text-muted-foreground">Opcional</p>
+            {fieldErrors.kmCurrent ? (
+              <p id="kmCurrent-error" className="text-sm text-destructive" role="alert">{fieldErrors.kmCurrent}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">Opcional</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="observations">Observaciones</Label>
@@ -1481,13 +1546,23 @@ export function UnifiedInspectionForm({
             />
           </div>
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── Checklist (Montados only) ─────────────────────────── */}
       {branch === "montados" && (
         <>
           {/* Front Questions */}
-          <Card>
+          <CollapsibleSection
+            id="checklist-front"
+            title="Checklist - Frente"
+            isOpen={openSections.has('checklist-front')}
+            onToggle={handleSectionToggle}
+          >
+            {fieldErrors.checklist && (
+              <div className="px-4 pb-2">
+                <p className="text-sm text-destructive" role="alert">{fieldErrors.checklist}</p>
+              </div>
+            )}
             <ChecklistSection
               title="Checklist - Frente"
               questions={FRONT_QUESTIONS}
@@ -1496,10 +1571,15 @@ export function UnifiedInspectionForm({
               setObservation={setObservation}
               disabled={pending}
             />
-          </Card>
+          </CollapsibleSection>
 
           {/* Rear Questions */}
-          <Card>
+          <CollapsibleSection
+            id="checklist-rear"
+            title="Checklist - Parte Trasera"
+            isOpen={openSections.has('checklist-rear')}
+            onToggle={handleSectionToggle}
+          >
             <ChecklistSection
               title="Checklist - Parte Trasera"
               questions={REAR_QUESTIONS}
@@ -1508,37 +1588,23 @@ export function UnifiedInspectionForm({
               setObservation={setObservation}
               disabled={pending}
             />
-          </Card>
+          </CollapsibleSection>
         </>
       )}
 
       {/* ── Cylinders (both paths) ─────────────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center">
-                <Database className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <CardTitle>Cilindros GNC</CardTitle>
-                <CardDescription>
-                  {branch === "montados"
-                    ? "Opcional: Registre los cilindros actuales del vehículo"
-                    : "Requerido: Registre los cilindros desmontados"}
-                </CardDescription>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={addCylinder}
-              disabled={pending}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Añadir Cilindro
-            </Button>
+      <CollapsibleSection
+        id="cylinders"
+        title="Cilindros GNC"
+        icon={<Database className="w-5 h-5 text-indigo-600" />}
+        isOpen={openSections.has('cylinders')}
+        onToggle={handleSectionToggle}
+      >
+        {fieldErrors.cylinders && (
+          <div className="px-4 pb-2">
+            <p className="text-sm text-destructive" role="alert">{fieldErrors.cylinders}</p>
           </div>
-        </CardHeader>
+        )}
         <CardContent className="space-y-4">
           {cylinders.length === 0 ? (
             <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-xl">
@@ -1663,23 +1729,16 @@ export function UnifiedInspectionForm({
             </div>
           )}
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* Photos */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-violet-50 dark:bg-violet-900/20 rounded-xl flex items-center justify-center">
-              <Camera className="w-5 h-5 text-violet-600" />
-            </div>
-            <div>
-              <CardTitle>Fotografías</CardTitle>
-              <CardDescription>
-                Fotos del estado actual del vehículo (opcional)
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <CollapsibleSection
+        id="photos"
+        title="Fotografías"
+        icon={<Camera className="w-5 h-5 text-violet-600" />}
+        isOpen={openSections.has('photos')}
+        onToggle={handleSectionToggle}
+      >
         <CardContent>
           {filesReady && (
             <PhotoUpload
@@ -1692,23 +1751,16 @@ export function UnifiedInspectionForm({
             />
           )}
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── Signature (both montados and desmontados) ── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-rose-50 dark:bg-rose-900/20 rounded-xl flex items-center justify-center">
-              <PenLine className="w-5 h-5 text-rose-600" />
-            </div>
-            <div>
-              <CardTitle>Firma del Propietario</CardTitle>
-              <CardDescription>
-                El propietario debe firmar en la pantalla
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <CollapsibleSection
+        id="signature"
+        title="Firma del Propietario"
+        icon={<PenLine className="w-5 h-5 text-rose-600" />}
+        isOpen={openSections.has('signature')}
+        onToggle={handleSectionToggle}
+      >
         <CardContent>
           {filesReady && (
             <SignaturePad
@@ -1718,27 +1770,23 @@ export function UnifiedInspectionForm({
               initialValue={restored?.signature}
             />
           )}
+          {fieldErrors.signature && (
+            <p className="text-sm text-destructive mt-1" role="alert">{fieldErrors.signature}</p>
+          )}
           <p className="text-xs text-muted-foreground mt-2">
             Esta firma quedará registrada como constancia de la inspección.
           </p>
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── Vehicle Documents (both paths) ─────────────────────── */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-teal-50 dark:bg-teal-900/20 rounded-xl flex items-center justify-center">
-              <FileText className="w-5 h-5 text-teal-600" />
-            </div>
-            <div>
-              <CardTitle>Documentos del Vehículo</CardTitle>
-              <CardDescription>
-                Cédula y carnet de circulación (opcional)
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
+      <CollapsibleSection
+        id="documents"
+        title="Documentos del Vehículo"
+        icon={<FileText className="w-5 h-5 text-teal-600" />}
+        isOpen={openSections.has('documents')}
+        onToggle={handleSectionToggle}
+      >
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Cédula */}
@@ -1852,7 +1900,7 @@ export function UnifiedInspectionForm({
             </div>
           </div>
         </CardContent>
-      </Card>
+      </CollapsibleSection>
 
       {/* ── Document Scanner Modal ──────────────────────── */}
       {scannerOpen && (

@@ -189,7 +189,7 @@ export function SignaturePad({ onChange, disabled, initialValue }: SignaturePadP
       <div className="relative rounded-xl border-2 border-border overflow-hidden bg-white touch-none">
         <canvas
           ref={canvasRef}
-          className="w-full h-48 cursor-crosshair"
+          className="w-full min-h-[200px] md:h-52 cursor-crosshair"
           style={{ touchAction: 'none' }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
@@ -213,7 +213,7 @@ export function SignaturePad({ onChange, disabled, initialValue }: SignaturePadP
           size="sm"
           onClick={clear}
           disabled={disabled || !hasContent}
-          className="h-9"
+          className="min-h-12"
         >
           <Eraser className="w-4 h-4 mr-1.5" />
           Borrar

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { RecentInspectionsList } from '@/components/dashboard/recent-inspections-list'
 import { PendingAlerts } from '@/components/dashboard/pending-alerts'
@@ -78,13 +79,40 @@ export default async function DashboardPage() {
     // All sections fall back to zeros/empty — page stays alive
   }
 
+  const totalInspections = Object.values(statusCounts).reduce((sum, v) => sum + v, 0)
+  const isEmpty = totalInspections === 0 && vehicleCount === 0
+
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-muted-foreground mt-1 text-base">Resumen general del sistema de inspección GNC</p>
+        <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">Dashboard</h1>
+        <p className="text-muted-foreground mt-1 text-sm md:text-base">Resumen general del sistema de inspección GNC</p>
       </div>
+
+      {/* Empty State */}
+      {isEmpty && (
+        <Card className="border-2 border-dashed border-border bg-muted/20">
+          <CardContent className="flex flex-col items-center justify-center py-12 md:py-16 text-center space-y-4">
+            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+              <svg className="w-10 h-10 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-xl font-semibold text-foreground">No hay inspecciones aún</h2>
+              <p className="text-sm text-muted-foreground max-w-sm">
+                Comienza registrando tu primera inspección de vehículo GNC para ver el resumen del sistema.
+              </p>
+            </div>
+            <Link href="/inspections/new">
+              <Button className="min-h-12 px-6">
+                Crear primera inspección
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Grid */}
       <DashboardStats
@@ -97,24 +125,24 @@ export default async function DashboardPage() {
       {/* Quick Actions */}
       <div>
         <h2 className="text-lg font-semibold text-foreground mb-4">Acciones Rápidas</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {quickActions.map((action) => (
             <Link key={action.href} href={action.href}
-              className={`group block ${action.featured ? 'md:col-span-3' : ''}`}>
+              className={`group block min-h-[48px] ${action.featured ? 'md:col-span-3' : ''}`}>
               <Card className={`hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-0 bg-gradient-to-br from-secondary/50 to-secondary group-hover:from-primary/5 group-hover:to-primary/10 ${
                 action.featured ? 'ring-2 ring-amber-400 dark:ring-amber-600' : ''
               }`}>
-                <CardContent className={`${action.featured ? 'p-6' : 'p-5'}`}>
+                <CardContent className={`${action.featured ? 'p-5 md:p-6' : 'p-4 md:p-5'}`}>
                   <div className="flex items-start justify-between">
-                    <div className={`${action.featured ? 'w-14 h-14' : 'w-12 h-12'} rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white shadow-sm`}>
-                      <Icon name={action.icon} className={action.featured ? 'w-7 h-7' : 'w-6 h-6'} />
+                    <div className={`${action.featured ? 'w-12 h-12 md:w-14 md:h-14' : 'w-11 h-11 md:w-12 md:h-12'} rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center text-white shadow-sm`}>
+                      <Icon name={action.icon} className={action.featured ? 'w-6 h-6 md:w-7 md:h-7' : 'w-5 h-5 md:w-6 md:h-6'} />
                     </div>
                     <div className="text-muted-foreground group-hover:text-primary transition-colors">
                       <Icon name="arrow" className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <div className={`${action.featured ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
+                  <div className="mt-3 md:mt-4">
+                    <div className={`text-base md:${action.featured ? 'text-xl' : 'text-lg'} font-semibold text-foreground`}>
                       {action.title}
                       {action.featured && (
                         <span className="ml-2 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-normal">
@@ -122,7 +150,7 @@ export default async function DashboardPage() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground mt-1">{action.desc}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground mt-1">{action.desc}</p>
                   </div>
                 </CardContent>
               </Card>

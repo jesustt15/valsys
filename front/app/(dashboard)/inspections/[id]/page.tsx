@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { LazyImage } from '@/components/inspections/lazy-image'
 import { getInspectionById } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
 import { getCylindersByVehicleId, getCylindersByInspectionId } from '@/lib/services/cylinder'
@@ -19,6 +20,7 @@ import { AttachmentTile } from '@/components/inspections/attachment-tile'
 import { getPendingSummary } from '@/lib/services/inspection-pending'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/ui/status-badge'
 import { FileText, Camera, CheckSquare, Truck, User } from 'lucide-react'
 import { ChecklistCard } from '@/components/inspections/checklist-card'
 import { EditOwnerModal } from '@/components/owners/edit-owner-modal'
@@ -114,9 +116,12 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
       </nav>
 
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Expediente de Inspección</h1>
-        <p className="text-muted-foreground mt-1 font-mono text-sm">ID: {resolvedParams.id}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-headline font-bold text-foreground">Expediente de Inspección</h1>
+          <p className="text-muted-foreground mt-1 font-mono text-xs md:text-sm">ID: {resolvedParams.id}</p>
+        </div>
+        <StatusBadge status={inspection.status || 'inspeccion_inicial'} />
       </div>
 
       {/* Pending Summary Alert */}
@@ -128,9 +133,9 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
       )}
 
       {/* Main Layout: Content + Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Left Column — Main Content */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
           <InspectionStatusUpdater
             inspectionId={resolvedParams.id}
             currentStatus={inspection.status || 'inspeccion_inicial'}
@@ -150,7 +155,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
           )}
 
           {/* Vehicle + Owner */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             <Card>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -326,7 +331,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
         </div>
 
         {/* Right Column — Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Signature */}
           <Card>
             <CardHeader>
@@ -341,6 +346,8 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                   <img
                     src={signatureUrl}
                     alt="Firma del titular"
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-auto object-contain"
                   />
                 </div>
@@ -375,18 +382,33 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                   No hay fotos registradas.
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {attachmentsWithUrls.map((att) => (
-                    <AttachmentTile
-                      key={att.id}
-                      id={att.id}
-                      fileName={att.fileName}
-                      fileType={att.fileType}
-                      category={att.category}
-                      url={att.url}
-                    />
-                  ))}
-                </div>
+                <>
+                  {/* Mobile: horizontal scrollable gallery */}
+                  <div className="md:hidden flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
+                    {attachmentsWithUrls.map((att) => (
+                      <div key={att.id} className="shrink-0 w-[80vw] max-w-[300px] snap-start">
+                        <LazyImage
+                          src={att.url}
+                          alt={att.fileName || att.category}
+                          className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm min-h-[200px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop: grid */}
+                  <div className="hidden md:grid grid-cols-2 gap-3">
+                    {attachmentsWithUrls.map((att) => (
+                      <AttachmentTile
+                        key={att.id}
+                        id={att.id}
+                        fileName={att.fileName}
+                        fileType={att.fileType}
+                        category={att.category}
+                        url={att.url}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -412,7 +434,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                     const className = 'group block relative aspect-square rounded-xl overflow-hidden border border-border shadow-sm ' + (isLink ? 'hover:ring-2 hover:ring-primary transition-all' : 'opacity-60')
 
                     const content = doc.url ? (
-                      <img
+                      <LazyImage
                         src={doc.url}
                         alt={doc.originalName || doc.type}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"

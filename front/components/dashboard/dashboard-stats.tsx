@@ -140,21 +140,21 @@ export function DashboardStats({ statusCounts, todayCount, vehicleCount, utpCoun
   ]
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-8">
       {/* GNC stats */}
-      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {gncStats.map((stat) => (
           <motion.div key={stat.label} variants={item}>
             <Link href={stat.href} className="block h-full">
-              <Card className="hover:shadow-md transition-shadow duration-300 h-full">
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
+              <Card className="hover:shadow-md transition-shadow duration-300 h-full min-h-[120px]">
+                <CardContent className="p-4 md:p-5">
+                  <div className="flex items-center justify-between mb-2 md:mb-3">
+                    <div className={`w-9 h-9 md:w-10 md:h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
                       {stat.icon}
                     </div>
                   </div>
-                  <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-                  <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+                  <div className={`text-2xl md:text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                  <div className="text-xs md:text-sm text-muted-foreground mt-1">{stat.label}</div>
                 </CardContent>
               </Card>
             </Link>
@@ -164,26 +164,68 @@ export function DashboardStats({ statusCounts, todayCount, vehicleCount, utpCoun
 
       {/* UTP stats */}
       <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Inspecciones UTP</h2>
-        <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <h2 className="text-base md:text-lg font-semibold text-foreground mb-3 md:mb-4">Inspecciones UTP</h2>
+        <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {utpStats.map((stat) => (
             <motion.div key={stat.label} variants={item}>
               <Link href={stat.href} className="block h-full">
-                <Card className="hover:shadow-md transition-shadow duration-300 h-full">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-10 h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
+                <Card className="hover:shadow-md transition-shadow duration-300 h-full min-h-[120px]">
+                  <CardContent className="p-4 md:p-5">
+                    <div className="flex items-center justify-between mb-2 md:mb-3">
+                      <div className={`w-9 h-9 md:w-10 md:h-10 ${stat.bg} rounded-xl flex items-center justify-center ${stat.color}`}>
                         {stat.icon}
                       </div>
                     </div>
-                    <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-                    <div className="text-sm text-muted-foreground mt-1">{stat.label}</div>
+                    <div className={`text-2xl md:text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                    <div className="text-xs md:text-sm text-muted-foreground mt-1">{stat.label}</div>
                   </CardContent>
                 </Card>
               </Link>
             </motion.div>
           ))}
         </motion.div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Skeleton placeholder for DashboardStats — renders 8 GNC + 4 UTP skeleton cards.
+ * Use inside Suspense boundaries or while data is loading.
+ */
+export function DashboardStatsSkeleton() {
+  return (
+    <div className="space-y-6 md:space-y-8" aria-label="Cargando estadísticas..." role="status">
+      {/* GNC skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Card key={i} className="h-full min-h-[120px] animate-pulse">
+            <CardContent className="p-4 md:p-5">
+              <div className="flex items-center justify-between mb-2 md:mb-3">
+                <div className="w-9 h-9 md:w-10 md:h-10 bg-muted rounded-xl" />
+              </div>
+              <div className="h-8 w-12 bg-muted rounded mb-1" />
+              <div className="h-4 w-20 bg-muted rounded" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      {/* UTP skeleton */}
+      <div>
+        <div className="h-6 w-40 bg-muted rounded mb-3 md:mb-4 animate-pulse" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i} className="h-full min-h-[120px] animate-pulse">
+              <CardContent className="p-4 md:p-5">
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <div className="w-9 h-9 md:w-10 md:h-10 bg-muted rounded-xl" />
+                </div>
+                <div className="h-8 w-12 bg-muted rounded mb-1" />
+                <div className="h-4 w-20 bg-muted rounded" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </div>
   )

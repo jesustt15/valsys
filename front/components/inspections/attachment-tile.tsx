@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import { FileText, Camera } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { DeleteAttachmentButton } from '@/components/inspections/delete-attachment-button'
@@ -31,6 +34,7 @@ export function AttachmentTile({
   url,
   clickable = true,
 }: AttachmentTileProps) {
+  const [imageLoaded, setImageLoaded] = useState(false)
   const isLink = Boolean(url)
   const isVideo = fileType.startsWith('video/')
   const isImage = fileType.startsWith('image/')
@@ -47,11 +51,19 @@ export function AttachmentTile({
     )
   } else if (isImage && url) {
     content = (
-      <img
-        src={url}
-        alt={fileName}
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-      />
+      <>
+        {!imageLoaded && (
+          <div className="absolute inset-0 bg-muted animate-pulse" aria-hidden="true" />
+        )}
+        <img
+          src={url}
+          alt={fileName}
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setImageLoaded(true)}
+          className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 transition-opacity ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+        />
+      </>
     )
   } else {
     content = (
