@@ -139,6 +139,10 @@ export function SignaturePad({ onChange, disabled, initialValue }: SignaturePadP
     const canvas = canvasRef.current
     if (!canvas || !hasContent) return
 
+    // N1b guard: bail on 0×0 canvas (e.g. mounted inside display:none panel).
+    // Prevents IndexSizeError from getImageData and corrupt "data:," export.
+    if (canvas.width === 0 || canvas.height === 0) return
+
     // Trim whitespace around signature
     const ctx2d = canvas.getContext('2d')
     if (!ctx2d) return

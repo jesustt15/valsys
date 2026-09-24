@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { History, ChevronRight } from 'lucide-react'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { formatRelativeTime } from '@/lib/utils/format-relative-time'
 import type { RecentInspectionRow } from '@/lib/services/inspection'
@@ -13,53 +14,72 @@ interface RecentInspectionsListProps {
 export function RecentInspectionsList({ inspections }: RecentInspectionsListProps) {
   if (inspections.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Inspecciones Recientes</CardTitle>
-        </CardHeader>
-        <CardContent className="px-6 pb-4">
-          <p className="text-sm text-muted-foreground py-6 text-center">No hay inspecciones recientes</p>
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <History className="w-4 h-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold text-foreground">Inspecciones Recientes</h2>
+        </div>
+        <div className="rounded-xl bg-card border border-border p-6 text-center">
+          <p className="text-sm text-muted-foreground">No hay inspecciones recientes</p>
+        </div>
+      </div>
     )
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Inspecciones Recientes</CardTitle>
-      </CardHeader>
-      <CardContent className="px-6 pb-4">
-        <div className="divide-y divide-border">
-          {inspections.map((insp, i) => {
-            return (
-              <motion.div
-                key={insp.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 + i * 0.05 }}
-                className="flex items-center justify-between py-3.5 hover:bg-secondary/30 rounded-lg px-2 -mx-2 transition-colors"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="w-11 h-11 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center text-sm font-mono font-bold text-green-600 dark:text-green-400 shrink-0">
-                    {insp.licensePlate ? insp.licensePlate.slice(-3) : '---'}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-medium text-foreground font-mono truncate">{insp.licensePlate ?? 'Sin placa'}</p>
-                    <p className="text-sm text-muted-foreground truncate">{insp.ownerName ?? 'Sin propietario'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <StatusBadge status={insp.status} />
-                  <span className="text-sm text-muted-foreground hidden sm:inline">
-                    {formatRelativeTime(insp.createdAt)}
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <History className="w-4 h-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">Inspecciones Recientes</h2>
+        <span className="ml-auto text-[11px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          En vivo
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {inspections.map((insp, i) => (
+          <motion.div
+            key={insp.id}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 + i * 0.04 }}
+          >
+            <Link
+              href={`/inspections/${insp.id}`}
+              className="rounded-xl bg-card border border-border p-3 flex items-center justify-between gap-3 hover:bg-muted transition-colors"
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                {/* Plate badge */}
+                <div className="w-24 h-11 rounded-lg bg-background border border-border flex items-center justify-center shrink-0 overflow-hidden">
+                  <span className="font-mono text-[15px] font-bold tracking-[0.12em] text-foreground px-1 truncate max-w-full">
+                    {insp.licensePlate?.toUpperCase() ?? 'SIN PLACA'}
                   </span>
                 </div>
-              </motion.div>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
+
+                {/* Owner + meta */}
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[16px] text-foreground font-semibold truncate">
+                    {insp.ownerName ?? 'Sin propietario'}
+                  </span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <StatusBadge status={insp.status} />
+                    <span className="text-muted-foreground" aria-hidden="true">·</span>
+                    <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                      {formatRelativeTime(insp.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chevron button */}
+              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0">
+                <ChevronRight className="w-5 h-5" />
+              </div>
+            </Link>
+          </motion.div>
+        ))}
+      </div>
+    </div>
   )
 }

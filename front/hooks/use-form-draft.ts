@@ -56,6 +56,8 @@ export function useFormDraft<T extends object>(
   });
   const [filesLoaded, setFilesLoaded] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  /** Timestamp of the most recent write (debounced or manual flush). */
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,11 +85,13 @@ export function useFormDraft<T extends object>(
     if (json === lastSavedJsonRef.current) return;
 
     const timer = setTimeout(() => {
-      const withTimestamp = { ...snapshot, savedAt: Date.now() } as T & {
+      const now = Date.now();
+      const withTimestamp = { ...snapshot, savedAt: now } as T & {
         savedAt: number;
       };
       lsSaveState(draftKey, withTimestamp);
       lastSavedJsonRef.current = json;
+      setLastSavedAt(now);
       // NOTE: we deliberately do NOT setSavedAt() here. Doing so re-renders the
       // consumer on every debounced save, which (combined with unstable
       // callbacks downstream) can produce render loops. `savedAt` reflects the
@@ -107,12 +111,14 @@ export function useFormDraft<T extends object>(
     const flushNow = () => {
       const json = safeStringify(snapshotRef.current);
       if (json === null) return;
+      const now = Date.now();
       const withTimestamp = {
         ...snapshotRef.current,
-        savedAt: Date.now(),
+        savedAt: now,
       } as T & { savedAt: number };
       lsSaveState(draftKey, withTimestamp);
       lastSavedJsonRef.current = json;
+      setLastSavedAt(now);
     };
 
     const onVisibility = () => {
@@ -144,7 +150,27 @@ export function useFormDraft<T extends object>(
     lastSavedJsonRef.current = null;
     setFiles({ cedula: null, carnet: null, photos: [] });
     setSavedAt(null);
+    setLastSavedAt(null);
     await clearDraft(draftKey);
+  }, [draftKey]);
+
+  /**
+   * Synchronously flush the pending debounced snapshot to localStorage now.
+   * Call before SPA navigation (router.push) since the debounced timer won't
+   * fire and visibilitychange/pagehide don't fire for in-app transitions.
+   */
+  const flush = useCallback(() => {
+    const json = safeStringify(snapshotRef.current);
+    if (json === null) return;
+    if (json === lastSavedJsonRef.current) return; // already persisted
+    const now = Date.now();
+    const withTimestamp = {
+      ...snapshotRef.current,
+      savedAt: now,
+    } as T & { savedAt: number };
+    lsSaveState(draftKey, withTimestamp);
+    lastSavedJsonRef.current = json;
+    setLastSavedAt(now);
   }, [draftKey]);
 
   return {
@@ -154,10 +180,14 @@ export function useFormDraft<T extends object>(
     files,
     /** True once IDB load completed (initial + async files). */
     loaded: syncLoadedRef.current && filesLoaded,
-    /** Timestamp of last save (from localStorage). */
+    /** Timestamp of the restored draft (for "draft restored" banner age). */
     savedAt,
+    /** Timestamp of the most recent write (debounced or flush). Null until first save. */
+    lastSavedAt,
     /** Persist files to IDB now. */
     saveFiles: saveFilesNow,
+    /** Synchronously flush the pending snapshot to localStorage. */
+    flush,
     /** Wipe both localStorage and IDB for this draft key. */
     clear,
   };

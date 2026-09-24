@@ -310,6 +310,8 @@ export function UtpInspectionForm({
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() =>
     rebuildAnswersMap(undefined),
   );
+  const [checklistFrontGeneralObservation, setChecklistFrontGeneralObservation] = useState("");
+  const [checklistRearGeneralObservation, setChecklistRearGeneralObservation] = useState("");
 
   // ── Vehicle Documents ───────────────────────────────────────
   const [cedulaFile, setCedulaFile] = useState<File | null>(null);
@@ -1502,6 +1504,8 @@ export function UtpInspectionForm({
           setAnswer={setAnswer}
           setObservation={setObservation}
           disabled={pending}
+          generalObservation={checklistFrontGeneralObservation}
+          setGeneralObservation={setChecklistFrontGeneralObservation}
         />
         {fieldErrors.checklistFront && (
           <div className="px-6 pb-4">
@@ -1525,6 +1529,8 @@ export function UtpInspectionForm({
           setAnswer={setAnswer}
           setObservation={setObservation}
           disabled={pending}
+          generalObservation={checklistRearGeneralObservation}
+          setGeneralObservation={setChecklistRearGeneralObservation}
         />
         {fieldErrors.checklistRear && (
           <div className="px-6 pb-4">
@@ -1929,6 +1935,8 @@ interface ChecklistSectionProps {
   setAnswer: (key: string, answer: boolean | null) => void;
   setObservation: (key: string, obs: string) => void;
   disabled: boolean;
+  generalObservation?: string;
+  setGeneralObservation?: (obs: string) => void;
 }
 
 function ChecklistSection({
@@ -1938,7 +1946,13 @@ function ChecklistSection({
   setAnswer,
   setObservation,
   disabled,
+  generalObservation = "",
+  setGeneralObservation,
 }: ChecklistSectionProps) {
+  const handlePreloadAll = () => {
+    questions.forEach((q) => setAnswer(q.key, true));
+  };
+
   return (
     <div className="space-y-5">
       <CardHeader>
@@ -1946,6 +1960,18 @@ function ChecklistSection({
         <CardDescription>Marque cada ítem según corresponda</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Preload button */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handlePreloadAll}
+            disabled={disabled}
+            className="text-xs font-semibold text-primary hover:text-primary/80 underline transition-colors"
+          >
+            Precargar todo como Sí
+          </button>
+        </div>
+
         {questions.map((q, idx) => {
           const current = answers.get(q.key) ?? {
             answer: undefined,
@@ -2002,36 +2028,28 @@ function ChecklistSection({
                       />
                       No
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setAnswer(q.key, null)}
-                      disabled={disabled}
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
-                        current.answer === null
-                          ? "bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400 shadow-sm"
-                          : "bg-background border-border text-muted-foreground hover:border-amber-200 hover:text-amber-600"
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === null ? "bg-amber-500" : "bg-muted"}`}
-                      />
-                      Pendiente
-                    </button>
                   </div>
-
-                  <Input
-                    value={current.observations}
-                    onChange={(e) => setObservation(q.key, e.target.value)}
-                    disabled={disabled}
-                    placeholder="Observaciones (opcional)..."
-                    className="h-10 text-sm"
-                  />
                 </div>
               </div>
             </motion.div>
           );
         })}
+
+        {/* General observation for this section */}
+        {setGeneralObservation && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <Label className="text-sm font-bold text-foreground">
+              Observaciones Generales de esta Sección
+            </Label>
+            <Textarea
+              value={generalObservation}
+              onChange={(e) => setGeneralObservation(e.target.value)}
+              disabled={disabled}
+              placeholder="Observaciones generales sobre esta sección (opcional)..."
+              className="mt-2 min-h-[80px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        )}
       </CardContent>
     </div>
   );

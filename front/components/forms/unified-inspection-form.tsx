@@ -28,13 +28,11 @@ import { useSubmitWatchdog } from "@/hooks/use-submit-watchdog";
 import { formatDraftAge } from "@/lib/draft-storage";
 import { queue as videoQueue } from "@/lib/video-upload-queue";
 import { assertPayloadUnderLimit } from "@/lib/payload-guard";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { WizardStepper } from "@/components/inspections/wizard-stepper";
+import { SectionCard } from "@/components/inspections/section-card";
+import { InlineError } from "@/components/inspections/inline-error";
+import { SegmentedSwitch } from "@/components/inspections/segmented-switch";
+import { PlateInput } from "@/components/inspections/plate-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -49,23 +47,24 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { MonthYearPicker } from "@/components/ui/month-year-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CollapsibleSection } from "@/components/ui/collapsible-section";
 import {
   AlertCircle,
   CheckCircle,
   Plus,
   Trash2,
   User,
-  Truck,
+  Car,
   ClipboardCheck,
   Camera,
   PenLine,
-  Database,
+  Fuel,
   FileText,
   ScanLine,
   X,
-  CardSim,
   Save,
+  ArrowLeft,
+  ArrowRight,
+  ListOrdered,
 } from "lucide-react";
 import type { OwnerRecord } from "@/lib/services/owner";
 import type { VehicleRecord } from "@/lib/services/vehicle";
@@ -78,17 +77,16 @@ interface UnifiedInspectionFormProps {
 // ─── Draft Persistence ─────────────────────────────────────────────
 const DRAFT_KEY = "unified-inspection";
 
-// Serializable snapshot — everything EXCEPT File objects (those go to IDB).
-// The Map<key, AnswerState> is flattened to an array for JSON safety.
 interface DraftAnswerEntry {
   key: string;
   answer: boolean | null | undefined;
   observations: string;
 }
 
+// FIX 9: optional step — backward-compatible (old drafts without it → default 0)
 interface DraftSnapshot {
   branch: "montados" | "desmontados";
-  // owner
+  step?: number;
   ownerDocumentType: string;
   ownerDocumentNumber: string;
   ownerFullName: string;
@@ -102,7 +100,6 @@ interface DraftSnapshot {
     phone: string | null;
     email: string | null;
   } | null;
-  // vehicle
   vinSerial: string;
   codigoUnicoGnc: string;
   licensePlate: string;
@@ -128,17 +125,12 @@ interface DraftSnapshot {
       email: string | null;
     } | null;
   } | null;
-  // inspection
   kmCurrent: string;
   kmNoMarca: boolean;
   observations: string;
-  // checklist (flattened map)
   answers: DraftAnswerEntry[];
-  // cylinders
   cylinders: CylinderEntry[];
-  // signature (base64)
   signature: string;
-  // file metadata (just names, for banner display)
   fileMeta: {
     cedulaName: string | null;
     carnetName: string | null;
@@ -163,12 +155,6 @@ function rebuildAnswersMap(
   return map;
 }
 
-/**
- * True when the restored draft actually holds user input.
- *
- * The hook also persists an all-default snapshot (e.g. when you open the form
- * and leave without typing), and showing "draft restored" for that is noise.
- */
 function draftHasContent(d: DraftSnapshot | null): boolean {
   if (!d) return false;
   return Boolean(
@@ -205,6 +191,45 @@ interface CylinderEntry {
   status: "desmontado";
 }
 
+// ─── FIX 7: Stable step IDs ──────────────────────────────────────
+type StepId = "vehicle" | "initial" | "cylinders" | "photos";
+
+interface StepDef {
+  id: StepId;
+  label: string;
+  /** Section IDs that live in this step (used to derive sectionToStep). */
+  sections: string[];
+}
+
+const MONTADOS_STEPS: StepDef[] = [
+  {
+    id: "vehicle",
+    label: "Vehículo",
+    sections: ["branch", "owner", "vehicle", "inspection", "documents"],
+  },
+  {
+    id: "initial",
+    label: "Inicial",
+    sections: ["checklist-front", "checklist-rear"],
+  },
+  { id: "cylinders", label: "Cilindros", sections: ["cylinders"] },
+  { id: "photos", label: "Fotos", sections: ["photos", "signature"] },
+];
+
+const DESMONTADOS_STEPS: StepDef[] = [
+  {
+    id: "vehicle",
+    label: "Vehículo",
+    sections: ["branch", "owner", "vehicle", "inspection", "documents"],
+  },
+  { id: "cylinders", label: "Cilindros", sections: ["cylinders"] },
+  { id: "photos", label: "Fotos", sections: ["photos", "signature"] },
+];
+
+// ─── Shared select trigger class ──────────────────────────────────
+const SELECT_TRIGGER_CLS =
+  "flex h-[52px] w-full rounded-lg border border-border bg-background px-3.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none";
+
 // ─── Main Component ───────────────────────────────────────────────
 export function UnifiedInspectionForm({
   owners,
@@ -218,30 +243,14 @@ export function UnifiedInspectionForm({
   >(createUnifiedInspectionAction, null);
 
   // ── Draft restoration ─────────────────────────────────────────
-  // Restoration happens in an effect, NOT in useState initializers.
-  //
-  // Reading localStorage during render makes the client's first render differ
-  // from the server's (localStorage does not exist during SSR), which breaks
-  // hydration and forces React to regenerate the whole tree. So the first
-  // render uses plain defaults on both sides, then we apply the draft after
-  // mount.
   const [restored, setRestored] = useState<DraftSnapshot | null>(null);
   const [restoreAttempted, setRestoreAttempted] = useState(false);
   const hasDraft = draftHasContent(restored);
-  // Bumped by discardDraft to remount the uncontrolled pickers clean.
   const [draftEpoch, setDraftEpoch] = useState(0);
 
-  // Photos are tracked as state so the snapshot (and therefore the draft
-  // auto-save) reacts when the user adds/removes photos.
   const [photos, setPhotos] = useState<File[]>([]);
-  // Videos are tracked separately and NEVER travel in the creation FormData.
-  // They are handed to the background video queue after the inspection is
-  // created successfully.
   const [pendingVideos, setPendingVideos] = useState<File[]>([]);
-  // Tracks the newly-created inspection id while the queue drains, so we can
-  // render the queue panel in-page instead of redirecting.
   const [createdInspectionId, setCreatedInspectionId] = useState<string | null>(null);
-  // Shared watchdog: size-scaled timer + offline banner + reset.
   const { banner: watchdogBanner, arm: armWatchdog, reset: resetWatchdog } =
     useSubmitWatchdog();
 
@@ -262,6 +271,36 @@ export function UnifiedInspectionForm({
       return next;
     });
   };
+
+  // ── FIX 7: Wizard Step State with stable IDs ────────────────
+  const [step, setStep] = useState(0);
+  const steps: StepDef[] = branch === "montados" ? MONTADOS_STEPS : DESMONTADOS_STEPS;
+  const lastStepIdx = steps.length - 1;
+  const stepId: StepId = steps[step].id;
+
+  // FIX 7: Derive sectionToStep from a SINGLE source of truth (the steps array)
+  const sectionToStep = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (let i = 0; i < steps.length; i++) {
+      for (const sectionId of steps[i].sections) {
+        map[sectionId] = i;
+      }
+    }
+    return map;
+  }, [steps]);
+
+  // Jump to the step containing the failing section + scroll to it
+  const jumpToSection = useCallback(
+    (id: string) => {
+      const targetStep = sectionToStep[id];
+      if (targetStep !== undefined) setStep(targetStep);
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`section-${id}`);
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [sectionToStep],
+  );
 
   // ── Owner State ─────────────────────────────────────────────
   const [ownerDocumentType, setOwnerDocumentType] = useState("V");
@@ -314,58 +353,44 @@ export function UnifiedInspectionForm({
   const [answers, setAnswers] = useState<Map<string, AnswerState>>(() =>
     rebuildAnswersMap(undefined),
   );
+  const [checklistFrontGeneralObservation, setChecklistFrontGeneralObservation] = useState("");
+  const [checklistRearGeneralObservation, setChecklistRearGeneralObservation] = useState("");
 
   // ── Signature ───────────────────────────────────────────────
   const [signature, setSignature] = useState("");
 
   // ── Cylinders ───────────────────────────────────────────────
   const [cylinders, setCylinders] = useState<CylinderEntry[]>([]);
+  // FIX 10: Stable client IDs parallel to cylinders (survives deletion/reorder)
+  const [cylinderIds, setCylinderIds] = useState<string[]>([]);
+
+  // N1a: Lazy-mount gate for Fotos step children.
+  // SignaturePad reads its canvas rect ONCE at mount; if mounted while the
+  // panel is hidden (display:none), rect is 0×0 → corrupt export.
+  // Flip true the first time stepId === "photos" (panel is visible → non-zero rect).
+  // After first flip, stays true forever → children remain mounted across
+  // step navigation → C1/C2/C3 stay closed (no remount clobber).
+  const [hasVisitedPhotos, setHasVisitedPhotos] = useState(false);
+  useEffect(() => {
+    if (stepId === "photos" && !hasVisitedPhotos) {
+      setHasVisitedPhotos(true);
+    }
+  }, [stepId, hasVisitedPhotos]);
 
   // ── Vehicle Documents (inline) ──────────────────────────────
   const [cedulaFile, setCedulaFile] = useState<File | null>(null);
   const [carnetFile, setCarnetFile] = useState<File | null>(null);
   const cedulaInputRef = useRef<HTMLInputElement>(null);
   const carnetInputRef = useRef<HTMLInputElement>(null);
-  // Scanner states
   const [scannerOpen, setScannerOpen] = useState<"cedula" | "carnet" | null>(
     null,
   );
 
-  // ── Accordion state (mobile collapsible sections) ──────────
-  // All sections open by default; validate() can auto-open specific ones.
-  const [openSections, setOpenSections] = useState<Set<string>>(() =>
-    new Set(['owner', 'vehicle', 'inspection', 'checklist-front', 'checklist-rear', 'cylinders', 'photos', 'signature', 'documents'])
-  );
-
-  const handleSectionToggle = useCallback((id: string) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
-  const openSectionAndScroll = useCallback((id: string) => {
-    setOpenSections((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
-    // Scroll to section after state update
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`collapsible-header-${id}`);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    });
-  }, []);
-
   // ── Draft persistence ─────────────────────────────────────────
-  // Build the JSON-serializable snapshot on every render. Files are excluded
-  // (their names go in fileMeta for the banner; the actual File objects are
-  // persisted to IndexedDB separately via `saveFiles`).
   const snapshot = useMemo<DraftSnapshot>(
     () => ({
       branch,
+      step, // FIX 9: persist step
       ownerDocumentType,
       ownerDocumentNumber,
       ownerFullName,
@@ -404,6 +429,7 @@ export function UnifiedInspectionForm({
     }),
     [
       branch,
+      step,
       ownerDocumentType,
       ownerDocumentNumber,
       ownerFullName,
@@ -433,24 +459,16 @@ export function UnifiedInspectionForm({
     ],
   );
 
-  // Hook: auto-saves snapshot to localStorage (debounced), flushes on
-  // visibilitychange/pagehide, exposes IDB-backed file storage.
-  //
-  // Destructured (not used as `draft.x`) because `saveDraftFiles` and
-  // `clearDraft` are the hook's stable useCallback identities — the wrapper
-  // object itself is new every render and would defeat useCallback below.
-  //
-  // `paused` until restoration runs: otherwise the all-default first render
-  // would be written over the stored draft before we ever read it.
   const {
     files: draftFiles,
     loaded: draftLoaded,
+    lastSavedAt, // FIX 11: actual save activity
     saveFiles: saveDraftFiles,
+    flush: flushDraft, // FIX 2: synchronous flush for SPA navigation
     clear: clearDraft,
   } = useFormDraft(DRAFT_KEY, snapshot, { paused: !restoreAttempted });
 
-  // Apply the persisted draft after mount. Batched into a single re-render by
-  // React 18+, so the snapshot the hook sees next already holds real data.
+  // Apply the persisted draft after mount
   useEffect(() => {
     let draft: DraftSnapshot | null = null;
     try {
@@ -484,21 +502,22 @@ export function UnifiedInspectionForm({
       setAnswers(rebuildAnswersMap(draft.answers));
       setSignature(draft.signature ?? "");
       setCylinders(draft.cylinders ?? []);
+      // FIX 10: regenerate stable IDs for restored cylinders
+      setCylinderIds((draft.cylinders ?? []).map(() => crypto.randomUUID()));
+      // FIX 9: restore step, clamped to valid range for the restored branch
+      const restoredSteps = (draft.branch ?? "montados") === "montados" ? MONTADOS_STEPS : DESMONTADOS_STEPS;
+      const restoredStep = draft.step ?? 0;
+      // N2: robust clamp — floor at 0, truncate to integer, cap at max index
+      setStep(Math.max(0, Math.min(Math.trunc(restoredStep) || 0, restoredSteps.length - 1)));
     }
 
     setRestored(draft);
     setRestoreAttempted(true);
   }, []);
 
-  // PhotoUpload/SignaturePad read their restored value only on first mount, so
-  // we hold them back until both the state restore and the IDB file load are
-  // done. Without a draft there is nothing to wait for beyond the restore.
   const filesReady = restoreAttempted && (!hasDraft || draftLoaded);
 
-  // "Latest value" refs so the file handlers below can stay referentially
-  // stable (empty-ish deps) while still reading current state. Stable handler
-  // identity is what breaks the render loop: PhotoUpload re-fires its notify
-  // effect whenever `onFilesChange` changes identity.
+  // "Latest value" refs for stable file handlers
   const cedulaFileRef = useRef(cedulaFile);
   cedulaFileRef.current = cedulaFile;
   const carnetFileRef = useRef(carnetFile);
@@ -508,7 +527,7 @@ export function UnifiedInspectionForm({
   const pendingVideosRef = useRef(pendingVideos);
   pendingVideosRef.current = pendingVideos;
 
-  // Hydrate files from IDB once they load.
+  // Hydrate files from IDB
   const hydratedRef = useRef(false);
   useEffect(() => {
     if (!draftLoaded || hydratedRef.current) return;
@@ -518,7 +537,7 @@ export function UnifiedInspectionForm({
     if (draftFiles.photos.length > 0) setPhotos(draftFiles.photos);
   }, [draftLoaded, draftFiles]);
 
-  // File setters — update local state AND persist to IDB.
+  // File setters — update local state AND persist to IDB
   const handleCedulaChange = useCallback(
     (file: File | null) => {
       setCedulaFile(file);
@@ -547,9 +566,6 @@ export function UnifiedInspectionForm({
 
   const handlePhotosChange = useCallback(
     (files: File[]) => {
-      // Identity guard — PhotoUpload passes a freshly-mapped array on every
-      // notify, so without this check each call would setState with a new
-      // reference, re-render, re-notify, and loop forever.
       const current = photosRef.current;
       if (
         files.length === current.length &&
@@ -568,9 +584,6 @@ export function UnifiedInspectionForm({
     [saveDraftFiles],
   );
 
-  // Videos travel through a separate channel. PhotoUpload emits the validated
-  // raw Files here; the form holds them and feeds the background queue AFTER
-  // the inspection is created (we need the inspectionId first).
   const handleVideosSelected = useCallback((files: File[]) => {
     const current = pendingVideosRef.current;
     if (
@@ -583,7 +596,7 @@ export function UnifiedInspectionForm({
     pendingVideosRef.current = files;
   }, []);
 
-  // ── Owner Selection (SearchableSelect) ──────────────────────
+  // ── Owner Selection ──────────────────────────────────────────
   const applyOwner = (owner: OwnerRecord) => {
     setFoundOwner(owner);
     const parts = owner.documentId.split("-");
@@ -617,7 +630,7 @@ export function UnifiedInspectionForm({
     setOwnerEmail("");
   };
 
-  // ── Vehicle Selection (SearchableSelect) ────────────────────
+  // ── Vehicle Selection ────────────────────────────────────────
   const applyVehicle = (vehicle: VehicleRecord) => {
     setFoundVehicle({
       id: vehicle.id,
@@ -638,7 +651,6 @@ export function UnifiedInspectionForm({
     setModel(vehicle.model || "");
     setMarcaKit(vehicle.marcaKit || "");
 
-    // If the vehicle has an owner, auto-populate the owner section
     if (vehicle.ownerId) {
       const owner = owners.find((o) => o.id === vehicle.ownerId);
       if (owner) {
@@ -692,152 +704,141 @@ export function UnifiedInspectionForm({
     });
   };
 
-  // ── Cylinder Handlers ───────────────────────────────────────
+  // ── FIX 10: Cylinder Handlers with stable IDs ───────────────
   const addCylinder = () => {
-    setCylinders([
-      ...cylinders,
+    setCylinderIds((prev) => [...prev, crypto.randomUUID()]);
+    setCylinders((prev) => [
+      ...prev,
       {
         brand: "",
         capacity: "",
         initialSerial: "",
         manufactureDate: "",
         location: "",
-        status: "desmontado",
+        status: "desmontado" as const,
       },
     ]);
   };
 
   const updateCylinder = (idx: number, field: keyof CylinderEntry, value: string) => {
     setCylinders((prev) =>
-      prev.map((cyl, i) => (i === idx ? { ...cyl, [field]: value } : cyl))
+      prev.map((cyl, i) => (i === idx ? { ...cyl, [field]: value } : cyl)),
     );
   };
 
   const removeCylinder = (idx: number) => {
-    setCylinders(cylinders.filter((_, i) => i !== idx));
+    setCylinderIds((prev) => prev.filter((_, i) => i !== idx));
+    setCylinders((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // ── Pre-submit validation ───────────────────────────────────
-  // Each validation failure tags the sectionId so we can auto-open + scroll.
-  const validate = (): boolean => {
+  // ── FIX 6: Unified validation ──────────────────────────────────
+  // One parameterized rule runner. Both per-step gate and final submit call it.
+  // `stepOnly` limits checks to one step; `null` runs the FULL suite.
+  // `jump` controls whether jumpToSection fires on error.
+  const runValidation = (opts: {
+    stepOnly: StepId | null;
+    jump: boolean;
+  }): boolean => {
     setFormError(null);
     setFieldErrors({});
 
-    // Owner validation
-    if (!foundOwner && !ownerFullName.trim()) {
-      setFieldError('owner', "Busque un propietario existente o complete los datos para crear uno nuevo");
-      setFormError(
-        "Debe proporcionar un propietario (buscar existente o crear nuevo)",
-      );
-      openSectionAndScroll('owner');
+    const fail = (field: string, section: string, msg: string): false => {
+      setFieldError(field, msg);
+      setFormError(msg);
+      if (opts.jump) jumpToSection(section);
       return false;
+    };
+
+    const inScope = (s: StepId) =>
+      opts.stepOnly === null || opts.stepOnly === s;
+
+    // ── Vehicle-step rules ──
+    if (inScope("vehicle")) {
+      if (!foundOwner && !ownerFullName.trim()) {
+        return fail("owner", "owner", "Busque un propietario existente o complete los datos para crear uno nuevo");
+      }
+      if (!foundVehicle && !licensePlate.trim()) {
+        return fail("licensePlate", "vehicle", "La placa es obligatoria");
+      }
+      if (
+        !foundVehicle &&
+        licensePlate.trim() &&
+        !/^[A-Z0-9][A-Z0-9]{5,6}$/.test(licensePlate.trim())
+      ) {
+        return fail("licensePlate", "vehicle", "Debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos");
+      }
+      // FIX 4: VIN required
+      if (!vinSerial.trim()) {
+        return fail("vinSerial", "vehicle", "El serial VIN es obligatorio");
+      }
+      if (!foundVehicle && brand.trim() && brand.trim().length < 2) {
+        return fail("brand", "vehicle", "La marca debe tener al menos 2 caracteres");
+      }
+      if (!foundVehicle && model.trim() && model.trim().length < 1) {
+        return fail("model", "vehicle", "El modelo es requerido");
+      }
+      if (
+        !kmNoMarca &&
+        kmCurrent !== "" &&
+        (Number.isNaN(Number(kmCurrent)) || Number(kmCurrent) <= 0)
+      ) {
+        return fail("kmCurrent", "inspection", "Los kilómetros deben ser mayores a 0");
+      }
     }
 
-    // Vehicle validation
-    if (!foundVehicle && !licensePlate.trim()) {
-      setFieldError('licensePlate', "La placa es obligatoria");
-      setFormError("Debe proporcionar la placa del vehículo");
-      openSectionAndScroll('vehicle');
-      return false;
-    }
-
-    if (
-      !foundVehicle &&
-      licensePlate.trim() &&
-      !/^[A-Z0-9][A-Z0-9]{5,6}$/.test(licensePlate.trim())
-    ) {
-      setFieldError('licensePlate', "Debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos");
-      setFormError(
-        "La placa debe comenzar con una letra y tener entre 6 y 7 caracteres alfanuméricos",
-      );
-      openSectionAndScroll('vehicle');
-      return false;
-    }
-
-    if (!foundVehicle && brand.trim() && brand.trim().length < 2) {
-      setFieldError('brand', "La marca debe tener al menos 2 caracteres");
-      setFormError("La marca debe tener al menos 2 caracteres");
-      openSectionAndScroll('vehicle');
-      return false;
-    }
-
-    if (!foundVehicle && model.trim() && model.trim().length < 1) {
-      setFieldError('model', "El modelo es requerido");
-      setFormError("El modelo es requerido");
-      openSectionAndScroll('vehicle');
-      return false;
-    }
-
-    if (
-      !kmNoMarca &&
-      kmCurrent !== "" &&
-      (Number.isNaN(Number(kmCurrent)) || Number(kmCurrent) <= 0)
-    ) {
-      setFieldError('kmCurrent', "Los kilómetros deben ser mayores a 0");
-      setFormError("Los kilómetros deben ser mayores a 0");
-      openSectionAndScroll('inspection');
-      return false;
-    }
-
-    // Montados: validate checklist completeness
-    if (branch === "montados") {
+    // ── Initial-step rules (montados only) ──
+    if (branch === "montados" && inScope("initial")) {
       const unanswered = [...FRONT_QUESTIONS, ...REAR_QUESTIONS].filter(
         (q) => answers.get(q.key)?.answer === undefined,
       );
       if (unanswered.length > 0) {
-        setFieldError('checklist', `Faltan ${unanswered.length} preguntas por responder`);
-        setFormError(
-          `Faltan responder ${unanswered.length} preguntas del checklist`,
-        );
-        // Open the first checklist section that has unanswered questions
-        const frontUnanswered = FRONT_QUESTIONS.filter(
-          (q) => answers.get(q.key)?.answer === undefined,
-        );
-        openSectionAndScroll(frontUnanswered.length > 0 ? 'checklist-front' : 'checklist-rear');
+        setFieldError("checklist", `Faltan ${unanswered.length} preguntas por responder`);
+        const msg = `Faltan responder ${unanswered.length} preguntas del checklist`;
+        setFormError(msg);
+        if (opts.jump) {
+          const frontUnanswered = FRONT_QUESTIONS.filter(
+            (q) => answers.get(q.key)?.answer === undefined,
+          );
+          jumpToSection(frontUnanswered.length > 0 ? "checklist-front" : "checklist-rear");
+        }
         return false;
       }
     }
 
-    // Signature required for both montados and desmontados branches
-    if (!signature) {
-      setFieldError('signature', "La firma del propietario es obligatoria");
-      setFormError("La firma del propietario es obligatoria");
-      openSectionAndScroll('signature');
-      return false;
+    // ── Cylinders-step rules ──
+    if (inScope("cylinders")) {
+      if (branch === "desmontados" && cylinders.length === 0) {
+        return fail("cylinders", "cylinders", "Debe agregar al menos un cilindro");
+      }
+      const incompleteCyl = cylinders.some(
+        (c) => !c.brand || !c.capacity || !c.initialSerial || !c.manufactureDate || !c.location,
+      );
+      if (incompleteCyl) {
+        return fail("cylinders", "cylinders", "Complete todos los campos de los cilindros o elimínelos");
+      }
     }
 
-    // Desmontados: must have at least one cylinder
-    if (branch === "desmontados" && cylinders.length === 0) {
-      setFieldError('cylinders', "Debe agregar al menos un cilindro");
-      setFormError("Debe agregar al menos un cilindro");
-      openSectionAndScroll('cylinders');
-      return false;
-    }
-
-    // Cylinder completeness
-    const incompleteCyl = cylinders.some(
-      (c) => !c.brand || !c.capacity || !c.initialSerial || !c.manufactureDate || !c.location,
-    );
-    if (incompleteCyl) {
-      setFieldError('cylinders', "Complete todos los campos de los cilindros o elimínelos");
-      setFormError("Complete todos los campos de los cilindros o elimínelos");
-      openSectionAndScroll('cylinders');
-      return false;
+    // ── Full-submit-only rules ──
+    if (opts.stepOnly === null) {
+      if (!signature) {
+        return fail("signature", "signature", "La firma del propietario es obligatoria");
+      }
     }
 
     return true;
   };
 
+  const validateCurrentStep = () => runValidation({ stepOnly: stepId, jump: false });
+  const validate = () => runValidation({ stepOnly: null, jump: true });
+
   // ── Submit ──────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    
+
     if (!validate()) {
-      return; // formError is set by validate()
+      return;
     }
 
-    // ── Pre-submit size guard ──
-    // Videos are NOT included here (they travel through the queue).
     const payloadFiles: File[] = [
       ...photos,
       cedulaFile,
@@ -852,13 +853,10 @@ export function UnifiedInspectionForm({
     setFormError(null);
     resetWatchdog();
 
-    // Create a fresh FormData to ensure we control exactly what's sent
     const submitData = new FormData();
 
-    // Branch
     submitData.set("branch", branch);
 
-    // Owner
     if (foundOwner) {
       submitData.set("existingOwnerDocumentId", foundOwner.documentId);
     }
@@ -868,7 +866,6 @@ export function UnifiedInspectionForm({
     if (ownerPhone) submitData.set("phone", ownerPhone);
     if (ownerEmail) submitData.set("email", ownerEmail);
 
-    // Vehicle
     if (foundVehicle) {
       submitData.set("existingLicensePlate", foundVehicle.licensePlate);
     }
@@ -880,11 +877,9 @@ export function UnifiedInspectionForm({
     submitData.set("model", model);
     submitData.set("marcaKit", marcaKit);
 
-    // Inspection
     if (!kmNoMarca) submitData.set("kmCurrent", kmCurrent);
     if (observations) submitData.set("observations", observations);
 
-    // Answers (montados)
     if (branch === "montados") {
       const allQuestions = [...FRONT_QUESTIONS, ...REAR_QUESTIONS];
       const answersArray = allQuestions.map((q) => ({
@@ -898,15 +893,12 @@ export function UnifiedInspectionForm({
       submitData.set("answers", "[]");
     }
 
-    // Signature — required for both montados and desmontados branches
     submitData.set("signature", signature);
 
-    // Cylinders
     if (cylinders.length > 0) {
       submitData.set("cylinders", JSON.stringify(cylinders));
     }
 
-    // Vehicle documents
     if (cedulaFile) {
       submitData.set("cedula", cedulaFile);
     }
@@ -914,27 +906,17 @@ export function UnifiedInspectionForm({
       submitData.set("carnet", carnetFile);
     }
 
-    // Photos - collect from PhotoUpload via ref (avoids DataTransfer issues on Safari)
-    // NOTE: videos are excluded — they travel through the background queue.
     for (const file of photos) {
       if (file && file.size > 0) {
         submitData.append("photos", file);
       }
     }
 
-    // Arm shared watchdog (size-scaled timer + offline banner).
     armWatchdog(payloadFiles);
-
     await formAction(submitData);
   };
 
-  // ── Draft banner: discard action ──────────────────────────────
-  // Resets every local state back to its default AND clears the draft
-  // from localStorage + IDB.
-  //
-  // PhotoUpload and SignaturePad are uncontrolled (they own their previews /
-  // canvas), so resetting our state is not enough to clear what the user sees.
-  // Bumping `draftEpoch` changes their `key`, which remounts them clean.
+  // ── Draft discard ────────────────────────────────────────────
   const discardDraft = async () => {
     await clearDraft();
     setBranch("montados");
@@ -960,6 +942,7 @@ export function UnifiedInspectionForm({
     setAnswers(rebuildAnswersMap(undefined));
     setSignature("");
     setCylinders([]);
+    setCylinderIds([]);
     setCedulaFile(null);
     setCarnetFile(null);
     setPhotos([]);
@@ -972,25 +955,50 @@ export function UnifiedInspectionForm({
     resetWatchdog();
     setFormError(null);
     setDraftEpoch((n) => n + 1);
+    setStep(0);
+    // N1c: clear restored so the "Borrador restaurado" banner disappears
+    // AND a remounted SignaturePad doesn't redraw the discarded signature.
+    setRestored(null);
+    setHasVisitedPhotos(false);
+  };
+
+  // ── FIX 2: Navigation helpers that flush draft first ─────────
+  const saveAndNavigate = (href: string) => {
+    flushDraft();
+    router.push(href);
+  };
+
+  // ── Step navigation ──────────────────────────────────────────
+  const goNext = () => {
+    if (step < lastStepIdx && validateCurrentStep()) {
+      setStep((s) => s + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const goBack = () => {
+    if (step > 0) {
+      setStep((s) => s - 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // FIX 8: Only backward navigation from stepper taps (matches WizardStepper contract)
+  const handleStepClick = (idx: number) => {
+    if (idx < step) {
+      setStep(idx);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // ── Success State ───────────────────────────────────────────
-  // Clear the draft on success (regardless of videos — P0-5 fix). Mark the
-  // effect idempotent via `createdInspectionId` so a re-render with the same
-  // success state does not enqueue the same videos twice.
-  //
-  // StrictMode dev double-effect guard: React 19 StrictMode runs effects
-  // twice. Run 1 enqueues videos + empties pendingVideosRef; run 2 would see
-  // videos=[] and skip the video-branch. `successHandledRef` is set
-  // synchronously on first run so run 2 is a safe no-op.
   const successHandledRef = useRef(false);
   useEffect(() => {
     if (!state?.success) return;
-    if (createdInspectionId) return; // already handled (state-driven idempotency)
-    if (successHandledRef.current) return; // StrictMode run 2
+    if (createdInspectionId) return;
+    if (successHandledRef.current) return;
     successHandledRef.current = true;
 
-    // Clear watchdog + draft.
     resetWatchdog();
     clearDraft();
 
@@ -998,8 +1006,6 @@ export function UnifiedInspectionForm({
     const videos = pendingVideosRef.current;
 
     if (inspectionId && videos.length > 0) {
-      // Enqueue videos into the background queue. The queue runs async;
-      // we stay on this page to show live progress.
       const category = branch === "montados" ? "initial" : "removal";
       for (const file of videos) {
         videoQueue.enqueue(inspectionId, category, file);
@@ -1010,14 +1016,6 @@ export function UnifiedInspectionForm({
     }
   }, [state?.success, clearDraft, branch, createdInspectionId, resetWatchdog]);
 
-  // Disarm the watchdog ONLY when `pending` transitions from true → false.
-  //
-  // The previous version watched both `pending` and `state`, which was broken:
-  // on a resubmit after a settled server error, useActionState still holds the
-  // STALE truthy state, so this effect re-ran and instantly reset the freshly
-  // armed watchdog — every retry ran unprotected. Pending-edge detection (via
-  // `wasPendingRef`) is the honest signal: the watchdog is armed at submit
-  // start and disarmed at submit end.
   const wasPendingRef = useRef(false);
   useEffect(() => {
     if (wasPendingRef.current && !pending) {
@@ -1026,33 +1024,30 @@ export function UnifiedInspectionForm({
     wasPendingRef.current = pending;
   }, [pending, resetWatchdog]);
 
-  // Plain success (no pending videos) — show the success card (user navigates
-  // manually via the buttons; there is no router.push here).
+  // Plain success (no pending videos)
   if (state?.success && !createdInspectionId) {
     return (
-      <Card className="max-w-2xl mx-auto mt-8">
-        <CardContent className="p-12 text-center space-y-4">
-          <div className="w-16 h-16 bg-green-100 dark:bg-green-900/20 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold">Inspección Creada</h2>
-          <p className="text-muted-foreground">
-            La inspección se registró correctamente.
-          </p>
-          <div className="flex gap-4 justify-center pt-4">
-            <Button onClick={() => router.push("/inspections")}>
-              Ver Inspecciones
-            </Button>
-            <Button variant="outline" onClick={() => router.push("/dashboard")}>
-              Volver al Inicio
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="max-w-2xl mx-auto mt-8 bg-card border border-border rounded-xl p-12 text-center space-y-4">
+        <div className="w-16 h-16 bg-status-success/10 rounded-full flex items-center justify-center mx-auto">
+          <CheckCircle className="w-8 h-8 text-status-success" />
+        </div>
+        <h2 className="text-2xl font-bold">Inspección Creada</h2>
+        <p className="text-muted-foreground">
+          La inspección se registró correctamente.
+        </p>
+        <div className="flex gap-4 justify-center pt-4">
+          <Button onClick={() => router.push("/inspections")}>
+            Ver Inspecciones
+          </Button>
+          <Button variant="outline" onClick={() => router.push("/dashboard")}>
+            Volver al Inicio
+          </Button>
+        </div>
+      </div>
     );
   }
 
-  // Success + videos pending — stay on page, delegate to shared view.
+  // Success + videos pending
   if (state?.success && createdInspectionId) {
     return (
       <CreatedWithVideosView
@@ -1067,200 +1062,228 @@ export function UnifiedInspectionForm({
     );
   }
 
+  // ── Derived values for rendering ─────────────────────────────
+  const isFinalStep = step === lastStepIdx;
+  const totalCylCapacity = cylinders.reduce(
+    (sum, c) => sum + (Number(c.capacity) || 0),
+    0,
+  );
+
+  // FIX 11: Guardado badge driven by actual save activity
+  const hasSaved = lastSavedAt !== null;
+
+  // ── Wizard layout ────────────────────────────────────────────
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
-      {/* ── Draft restoration banner ────────────────────────── */}
-      <AnimatePresence>
-        {hasDraft && restored && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+    <form onSubmit={handleSubmit} className="flex flex-col" noValidate>
+      {/* ── Sticky header: back + title + draft badge ─────────── */}
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
+        <div className="flex items-center justify-between px-4 h-14">
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={step === 0}
+            className="flex items-center justify-center w-10 h-10 rounded-lg text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-default transition-colors"
+            aria-label="Paso anterior"
           >
-            <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 p-4">
-              <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                <Save className="w-4 h-4 text-amber-700 dark:text-amber-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                  Borrador restaurado
-                </p>
-                <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
-                  Tenías datos sin enviar guardados {formatDraftAge(restored.savedAt)}
-                  . Los restauramos para que continúes donde lo dejaste.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={discardDraft}
-                className="shrink-0 text-amber-900 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/40"
-              >
-                Descartar
-              </Button>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h2 className="font-headline text-lg font-bold text-foreground truncate">
+            Nueva Inspección
+          </h2>
+          {/* FIX 11: only show "Guardado" after a real write */}
+          {hasSaved ? (
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-status-success/10 text-status-success"
+              aria-live="polite"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-status-success opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-status-success" />
+              </span>
+              <span className="text-xs font-bold">Guardado</span>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : (
+            <span className="text-xs text-muted-foreground px-2.5 py-1">
+              Borrador
+            </span>
+          )}
+        </div>
 
-      {/* ── Branch Toggle ──────────────────────────────────── */}
-      <Card>
-        <CardContent className="p-6">
-          <Label className="text-base font-semibold mb-3 block">
-            Tipo de Ingreso
-          </Label>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => {
-                setBranch("montados");
-                setFormError(null);
-              }}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                branch === "montados"
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border hover:border-primary/50"
-              }`}
+        {/* Stepper */}
+        <WizardStepper
+          steps={steps.map((s) => ({ id: s.id, label: s.label }))}
+          currentStep={step}
+          onStepClick={handleStepClick}
+        />
+      </div>
+
+      {/* ── Scrollable step content ────────────────────────────── */}
+      <div className="flex-1 px-4 py-4 space-y-4 pb-28">
+        {/* Draft restoration banner */}
+        <AnimatePresence>
+          {hasDraft && restored && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
             >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-3 h-3 rounded-full border-2 ${
-                    branch === "montados"
-                      ? "bg-primary border-primary"
-                      : "border-muted-foreground"
-                  }`}
-                />
-                <div>
-                  <div className="font-semibold">Cilindros Montados</div>
-                  <div className="text-sm text-muted-foreground">
-                    Inspección completa con checklist, fotos y firma
-                  </div>
+              <div className="flex items-start gap-3 rounded-xl border border-status-warning/40 bg-status-warning/10 p-4">
+                <div className="shrink-0 w-9 h-9 rounded-lg bg-status-warning/20 flex items-center justify-center">
+                  <Save className="w-4 h-4 text-status-warning" />
                 </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-status-warning">
+                    Borrador restaurado
+                  </p>
+                  <p className="text-xs text-status-warning/80 mt-0.5">
+                    Tenías datos sin enviar guardados {formatDraftAge(restored.savedAt)}
+                    . Los restauramos para que continúes donde lo dejaste.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={discardDraft}
+                  className="shrink-0 text-status-warning hover:bg-status-warning/20"
+                >
+                  Descartar
+                </Button>
               </div>
-            </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-            <button
-              type="button"
-              onClick={() => {
-                setBranch("desmontados");
+        {/* ═══════════════════════════════════════════════════════
+            FIX 1: ALL step panels are ALWAYS MOUNTED.
+            Inactive panels use `hidden` (display:none) — exactly like the
+            original CollapsibleSection. This prevents PhotoUpload/SignaturePad
+            from unmounting and losing their internal state on step navigation.
+            ═══════════════════════════════════════════════════════ */}
+
+        {/* ── STEP: Vehículo ── */}
+        <div className={stepId !== "vehicle" ? "hidden" : "space-y-4"}>
+          {/* 1. Tipo de Ingreso (Branch) */}
+          <SectionCard
+            id="section-branch"
+            title="Tipo de Ingreso"
+            stepNumber={1}
+            icon={<Car className="w-6 h-6" />}
+          >
+            <SegmentedSwitch
+              options={[
+                { value: "montados", label: "POR DESMONTAR" },
+                { value: "desmontados", label: "DESINSTALADO" },
+              ]}
+              value={branch}
+              onChange={(v) => {
+                setBranch(v);
                 setFormError(null);
+                setStep(0);
               }}
-              className={`p-4 rounded-xl border-2 text-left transition-all ${
-                branch === "desmontados"
-                  ? "border-primary bg-primary/5 shadow-sm"
-                  : "border-border hover:border-primary/50"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-3 h-3 rounded-full border-2 ${
-                    branch === "desmontados"
-                      ? "bg-primary border-primary"
-                      : "border-muted-foreground"
-                  }`}
-                />
-                <div>
-                  <div className="font-semibold">Cilindros Desmontados</div>
-                  <div className="text-sm text-muted-foreground">
-                    Solo vehículo y cilindros (sin checklist)
-                  </div>
-                </div>
-              </div>
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+              disabled={pending}
+              ariaLabel="Tipo de ingreso"
+            />
+            <p className="text-xs text-muted-foreground">
+              {branch === "montados"
+                ? "Desinstalar del vehículo — inspección completa con checklist, fotos y firma"
+                : "Cliente trajo cilindros — solo vehículo y cilindros (sin checklist)"}
+            </p>
+          </SectionCard>
 
-      {/* ── Owner Section ────────────────────────────────────── */}
-      <CollapsibleSection
-        id="owner"
-        title="Propietario"
-        icon={<User className="w-5 h-5 text-primary" />}
-        isOpen={openSections.has('owner')}
-        onToggle={handleSectionToggle}
-      >
-        <CardContent className="space-y-4">
-          {/* Owner SearchableSelect */}
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="ownerSelect">Propietario existente</Label>
-              <SearchableSelect
-                id="ownerSelect"
-                value={selectedOwnerId}
-                onChange={handleOwnerChange}
-                disabled={pending}
-                placeholder={
-                  owners.length === 0
-                    ? "No hay propietarios registrados"
-                    : "— Seleccionar propietario —"
-                }
-                options={owners.map((o) => ({
-                  value: o.id,
-                  label: `${o.documentId} — ${o.fullName}`,
-                }))}
-              />
+          {/* 2. Propietario */}
+          <SectionCard
+            id="section-owner"
+            title="Propietario"
+            stepNumber={2}
+            icon={<User className="w-6 h-6" />}
+          >
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-muted-foreground">
+                Propietario existente
+              </Label>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <SearchableSelect
+                    id="ownerSelect"
+                    value={selectedOwnerId}
+                    onChange={handleOwnerChange}
+                    disabled={pending}
+                    placeholder={
+                      owners.length === 0
+                        ? "No hay propietarios registrados"
+                        : "— Seleccionar propietario —"
+                    }
+                    options={owners.map((o) => ({
+                      value: o.id,
+                      label: `${o.documentId} — ${o.fullName}`,
+                    }))}
+                  />
+                </div>
+                {selectedOwnerId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={clearOwnerLookup}
+                    className="mb-0.5 text-status-danger"
+                    title="Crear propietario nuevo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
               {owners.length === 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-status-warning">
                   No hay propietarios registrados. Complete los datos abajo para
                   crear uno nuevo.
                 </p>
               )}
             </div>
-            {selectedOwnerId && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={clearOwnerLookup}
-                className="mb-0.5 text-red-500"
-                title="Crear propietario nuevo"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-          {fieldErrors.owner && (
-            <p className="text-sm text-destructive -mt-2" role="alert">{fieldErrors.owner}</p>
-          )}
+            {fieldErrors.owner && <InlineError message={fieldErrors.owner} />}
 
-          {/* Nombre Completo */}
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Nombre Completo</Label>
-            <Input
-              id="fullName"
-              name="fullName"
-              value={ownerFullName}
-              onChange={(e) => setOwnerFullName(e.target.value)}
-              disabled={pending || !!foundOwner}
-              placeholder="Nombre y apellido"
-            />
-          </div>
+            <div className="space-y-2">
+              <Label htmlFor="fullName" className="text-xs font-bold text-muted-foreground">
+                Nombre Completo <span className="text-status-danger">*</span>
+              </Label>
+              <Input
+                id="fullName"
+                name="fullName"
+                value={ownerFullName}
+                onChange={(e) => {
+                  setOwnerFullName(e.target.value);
+                  clearFieldError("owner");
+                }}
+                disabled={pending || !!foundOwner}
+                placeholder="Nombre y apellido"
+                autoComplete="name"
+                enterKeyHint="next"
+                className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
 
-          {/*Contenedor Tipo Doc, Nro Documento y Telefono*/}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {/*Contenedor Tipo Doc y Número Doc*/}
-            <div className="grid grid-cols-3 gap-2 md:col-span-3">
-              {/*Tipo Doc*/}
-              <div className="space-y-2 md:col-span-1">
-                <Label htmlFor="documentType">Tipo Doc.</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="documentType" className="text-xs font-bold text-muted-foreground">
+                  Tipo Doc.
+                </Label>
                 <select
                   id="documentType"
                   name="documentType"
                   value={ownerDocumentType}
                   onChange={(e) => setOwnerDocumentType(e.target.value)}
                   disabled={pending || !!foundOwner}
-                  className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="w-full h-[52px] rounded-lg border border-border bg-background px-3.5 text-sm text-foreground focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                 >
                   <option value="V">V</option>
                   <option value="E">E</option>
                   <option value="J">J</option>
                 </select>
               </div>
-
-              {/*Número Doc*/}
-              <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="documentNumber">Número de Documento</Label>
+              <div className="space-y-2">
+                <Label htmlFor="documentNumber" className="text-xs font-bold text-muted-foreground">
+                  Nro Documento <span className="text-status-danger">*</span>
+                </Label>
                 <Input
                   id="documentNumber"
                   name="documentNumber"
@@ -1268,100 +1291,179 @@ export function UnifiedInspectionForm({
                   onChange={(e) => setOwnerDocumentNumber(e.target.value)}
                   disabled={pending || !!foundOwner}
                   placeholder="12345678"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  enterKeyHint="next"
+                  className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
                 />
               </div>
             </div>
 
-            {/* Teléfono */}
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="phone">Teléfono</Label>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-xs font-bold text-muted-foreground">
+                Teléfono
+              </Label>
               <Input
                 id="phone"
                 name="phone"
+                type="tel"
                 value={ownerPhone}
                 onChange={(e) => setOwnerPhone(e.target.value)}
                 disabled={pending || !!foundOwner}
                 placeholder="0414-1234567"
+                inputMode="tel"
+                autoComplete="tel"
+                enterKeyHint="next"
+                className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
               />
             </div>
-          </div>
 
-          {/* Email */}
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="text"
-              inputMode="email"
-              value={ownerEmail}
-              onChange={(e) => setOwnerEmail(e.target.value)}
-              disabled={pending || !!foundOwner}
-              placeholder="correo@ejemplo.com"
-            />
-          </div>
-        </CardContent>
-      </CollapsibleSection>
-
-      {/* ── Vehicle Section ──────────────────────────────────── */}
-      <CollapsibleSection
-        id="vehicle"
-        title="Vehículo"
-        icon={<Truck className="w-5 h-5 text-primary" />}
-        isOpen={openSections.has('vehicle')}
-        onToggle={handleSectionToggle}
-      >
-        <CardContent className="space-y-4">
-          {/* Vehicle SearchableSelect */}
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="vehicleSelect">Vehículo existente</Label>
-              <SearchableSelect
-                id="vehicleSelect"
-                value={selectedVehicleId}
-                onChange={handleVehicleChange}
-                disabled={pending}
-                placeholder={
-                  vehicles.length === 0
-                    ? "No hay vehículos registrados"
-                    : "— Seleccionar vehículo —"
-                }
-                options={vehicles.map((v) => ({
-                  value: v.id,
-                  label: `${v.licensePlate}${v.codigoUnicoGnc ? ` — Código Único ${v.codigoUnicoGnc}` : ""}${v.brand ? ` (${v.brand}${v.model ? ` ${v.model}` : ""})` : ""}`,
-                }))}
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-xs font-bold text-muted-foreground">
+                Email
+              </Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={ownerEmail}
+                onChange={(e) => setOwnerEmail(e.target.value)}
+                disabled={pending || !!foundOwner}
+                placeholder="correo@ejemplo.com"
+                inputMode="email"
+                autoComplete="email"
+                enterKeyHint="next"
+                className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
               />
+            </div>
+          </SectionCard>
+
+          {/* 3. Vehículo */}
+          <SectionCard
+            id="section-vehicle"
+            title="Vehículo"
+            stepNumber={3}
+            icon={<Car className="w-6 h-6" />}
+          >
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-muted-foreground">
+                Vehículo existente
+              </Label>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <SearchableSelect
+                    id="vehicleSelect"
+                    value={selectedVehicleId}
+                    onChange={handleVehicleChange}
+                    disabled={pending}
+                    placeholder={
+                      vehicles.length === 0
+                        ? "No hay vehículos registrados"
+                        : "— Seleccionar vehículo —"
+                    }
+                    options={vehicles.map((v) => ({
+                      value: v.id,
+                      label: `${v.licensePlate}${v.codigoUnicoGnc ? ` — Código Único ${v.codigoUnicoGnc}` : ""}${v.brand ? ` (${v.brand}${v.model ? ` ${v.model}` : ""})` : ""}`,
+                    }))}
+                  />
+                </div>
+                {selectedVehicleId && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={clearVehicleLookup}
+                    className="mb-0.5 text-status-danger"
+                    title="Crear vehículo nuevo"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
               {vehicles.length === 0 && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-status-warning">
                   No hay vehículos registrados. Complete los datos abajo para
                   crear uno nuevo.
                 </p>
               )}
             </div>
-            {selectedVehicleId && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={clearVehicleLookup}
-                className="mb-0.5 text-red-500"
-                title="Crear vehículo nuevo"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
 
-          {/* Contenedor Tipo, Marca y Modelo*/}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Tipo */}
+            {/* Placa (badge input) — FIX 12a: describedBy */}
             <div className="space-y-2">
-              <Label htmlFor="vehicleType">Tipo</Label>
-              <Select value={vehicleType} onValueChange={setVehicleType}>
-                <SelectTrigger
+              <Label htmlFor="licensePlate" className="text-xs font-bold text-muted-foreground">
+                Placa <span className="text-status-danger">*</span>
+              </Label>
+              <PlateInput
+                id="licensePlate"
+                value={licensePlate}
+                onChange={(v) => {
+                  setLicensePlate(v);
+                  clearFieldError("licensePlate");
+                }}
+                disabled={pending || !!foundVehicle}
+                hasError={!!fieldErrors.licensePlate}
+                describedBy={fieldErrors.licensePlate ? "licensePlate-error" : undefined}
+              />
+              {fieldErrors.licensePlate ? (
+                <InlineError id="licensePlate-error" message={fieldErrors.licensePlate} />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  6 a 7 caracteres alfanuméricos (comienza con letra)
+                </p>
+              )}
+            </div>
+
+            {/* Marca / Modelo */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="brand" className="text-xs font-bold text-muted-foreground">
+                  Marca
+                </Label>
+                <Input
+                  id="brand"
+                  name="brand"
+                  value={brand}
+                  onChange={(e) => {
+                    setBrand(e.target.value);
+                    clearFieldError("brand");
+                  }}
                   disabled={pending || !!foundVehicle}
-                  className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
+                  placeholder="Marca"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
+                  className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                {fieldErrors.brand && <InlineError message={fieldErrors.brand} />}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="model" className="text-xs font-bold text-muted-foreground">
+                  Modelo
+                </Label>
+                <Input
+                  id="model"
+                  name="model"
+                  value={model}
+                  onChange={(e) => {
+                    setModel(e.target.value);
+                    clearFieldError("model");
+                  }}
+                  disabled={pending || !!foundVehicle}
+                  placeholder="Modelo"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
+                  className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                {fieldErrors.model && <InlineError message={fieldErrors.model} />}
+              </div>
+            </div>
+
+            {/* Tipo de vehículo */}
+            <div className="space-y-2">
+              <Label htmlFor="vehicleType" className="text-xs font-bold text-muted-foreground">
+                Tipo de Vehículo
+              </Label>
+              <Select value={vehicleType} onValueChange={setVehicleType}>
+                <SelectTrigger id="vehicleType" disabled={pending || !!foundVehicle} className={SELECT_TRIGGER_CLS}>
                   <SelectValue placeholder="Seleccione tipo" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1375,532 +1477,426 @@ export function UnifiedInspectionForm({
               </Select>
             </div>
 
-            {/* Marca */}
+            {/* FIX 4: Serial VIN with helper hint restored */}
             <div className="space-y-2">
-              <Label htmlFor="brand">Marca</Label>
+              <Label htmlFor="vinSerial" className="text-xs font-bold text-muted-foreground">
+                Serial VIN <span className="text-status-danger">*</span>
+              </Label>
               <Input
-                id="brand"
-                name="brand"
-                value={brand}
-                onChange={(e) => setBrand(e.target.value)}
+                id="vinSerial"
+                name="vinSerial"
+                value={vinSerial}
+                onChange={(e) => {
+                  setVinSerial(e.target.value.toUpperCase());
+                  clearFieldError("vinSerial");
+                }}
+                maxLength={50}
                 disabled={pending || !!foundVehicle}
-                placeholder="Marca"
+                placeholder="Ej: 1HGBH41JXMN109186"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="next"
+                className={`h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary font-mono text-[13px] ${
+                  fieldErrors.vinSerial ? "border-status-danger" : ""
+                }`}
+                aria-invalid={fieldErrors.vinSerial ? true : undefined}
+                aria-describedby={fieldErrors.vinSerial ? "vinSerial-error" : undefined}
               />
-              {fieldErrors.brand && (
-                <p className="text-sm text-destructive" role="alert">{fieldErrors.brand}</p>
-              )}
-            </div>
-
-            {/* Modelo */}
-            <div className="space-y-2">
-              <Label htmlFor="model">Modelo</Label>
-              <Input
-                id="model"
-                name="model"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-                disabled={pending || !!foundVehicle}
-                placeholder="Modelo"
-              />
-              {fieldErrors.model && (
-                <p className="text-sm text-destructive" role="alert">{fieldErrors.model}</p>
-              )}
-            </div>
-          </div>
-
-          {/* Contenedor Placa y Código Único GNC */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Placa */}
-            <div className="space-y-2">
-              <Label htmlFor="licensePlate">Placa</Label>
-              <Input
-                id="licensePlate"
-                name="licensePlate"
-                value={licensePlate}
-                onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
-                disabled={pending || !!foundVehicle}
-                maxLength={7}
-                placeholder="Ej: A123BC4 o AB123C"
-                aria-invalid={fieldErrors.licensePlate ? true : undefined}
-                aria-describedby={fieldErrors.licensePlate ? 'licensePlate-error' : undefined}
-              />
-              {fieldErrors.licensePlate ? (
-                <p id="licensePlate-error" className="text-sm text-destructive" role="alert">{fieldErrors.licensePlate}</p>
+              {fieldErrors.vinSerial ? (
+                <InlineError id="vinSerial-error" message={fieldErrors.vinSerial} />
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  6 a 7 caracteres alfanuméricos (comienza con letra)
-                </p>
+                <p className="text-xs text-muted-foreground">17 caracteres alfanuméricos (obligatorio)</p>
               )}
             </div>
 
-            {/* Código Único GNC */}
             <div className="space-y-2">
-              <Label htmlFor="codigoUnicoGnc">Código Único GNC</Label>
+              <Label htmlFor="codigoUnicoGnc" className="text-xs font-bold text-muted-foreground">
+                Código Único GNC
+              </Label>
               <Input
                 id="codigoUnicoGnc"
                 name="codigoUnicoGnc"
                 value={codigoUnicoGnc}
-                onChange={(e) =>
-                  setCodigoUnicoGnc(e.target.value.toUpperCase())
-                }
+                onChange={(e) => setCodigoUnicoGnc(e.target.value.toUpperCase())}
                 maxLength={50}
                 disabled={pending || !!foundVehicle}
                 placeholder="Código Único GNC (Opcional)"
+                autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
+                enterKeyHint="next"
+                className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary font-mono text-[13px]"
               />
             </div>
-          </div>
 
-          {/* Serial VIN */}
-          <div className="space-y-2">
-            <Label htmlFor="vinSerial">Serial VIN</Label>
-            <Input
-              id="vinSerial"
-              name="vinSerial"
-              value={vinSerial}
-              onChange={(e) => setVinSerial(e.target.value.toUpperCase())}
-              maxLength={50}
-              disabled={pending || !!foundVehicle}
-              placeholder="Ej: 1HGBH41JXMN109186"
-            />
-            <p className="text-xs text-muted-foreground">17 caracteres alfanuméricos (obligatorio)</p>
-          </div>
-
-          {/* Marca de KIT GNC */}
-          <div className="space-y-2">
-            <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
-            <Select value={marcaKit} onValueChange={setMarcaKit}>
-              <SelectTrigger
-                disabled={pending || !!foundVehicle}
-                className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <SelectValue placeholder="Seleccione una marca" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Landi Renzo">Landi Renzo</SelectItem>
-                <SelectItem value="Tomasetto">Tomasetto</SelectItem>
-                <SelectItem value="BRC">BRC</SelectItem>
-                <SelectItem value="Tartarini">Tartarini</SelectItem>
-                <SelectItem value="OMVL">OMVL</SelectItem>
-                <SelectItem value="Excion">Excion</SelectItem>
-                <SelectItem value="Bigas">Bigas</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </CollapsibleSection>
-
-      {/* ── Inspection Fields ─────────────────────────────────── */}
-      <CollapsibleSection
-        id="inspection"
-        title="Datos de Inspección"
-        icon={<ClipboardCheck className="w-5 h-5 text-amber-600" />}
-        isOpen={openSections.has('inspection')}
-        onToggle={handleSectionToggle}
-      >
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="kmCurrent">Kilómetros Actuales</Label>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={kmNoMarca}
-                  onChange={(e) => {
-                    setKmNoMarca(e.target.checked);
-                    if (e.target.checked) setKmCurrent("");
-                  }}
-                  disabled={pending}
-                  className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
-                />
-                No marca
-              </label>
+            {/* Marca KIT GNC */}
+            <div className="space-y-2">
+              <Label htmlFor="marcaKit" className="text-xs font-bold text-muted-foreground">
+                Marca de KIT GNC
+              </Label>
+              <Select value={marcaKit} onValueChange={setMarcaKit}>
+                <SelectTrigger id="marcaKit" disabled={pending || !!foundVehicle} className={SELECT_TRIGGER_CLS}>
+                  <SelectValue placeholder="Seleccione una marca" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Landi Renzo">Landi Renzo</SelectItem>
+                  <SelectItem value="Tomasetto">Tomasetto</SelectItem>
+                  <SelectItem value="BRC">BRC</SelectItem>
+                  <SelectItem value="Tartarini">Tartarini</SelectItem>
+                  <SelectItem value="OMVL">OMVL</SelectItem>
+                  <SelectItem value="Excion">Excion</SelectItem>
+                  <SelectItem value="Bigas">Bigas</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Input
-              id="kmCurrent"
-              name="kmCurrent"
-              type="number"
-              min={1}
-              value={kmNoMarca ? "" : kmCurrent}
-              onChange={(e) => setKmCurrent(e.target.value)}
-              disabled={pending || kmNoMarca}
-              placeholder={kmNoMarca ? "No marca (N/M)" : "Ej: 45000 (Opcional)"}
-              aria-invalid={fieldErrors.kmCurrent ? true : undefined}
-              aria-describedby={fieldErrors.kmCurrent ? 'kmCurrent-error' : undefined}
-            />
-            {fieldErrors.kmCurrent ? (
-              <p id="kmCurrent-error" className="text-sm text-destructive" role="alert">{fieldErrors.kmCurrent}</p>
-            ) : (
-              <p className="text-xs text-muted-foreground">Opcional</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="observations">Observaciones</Label>
-            <Textarea
-              id="observations"
-              name="observations"
-              rows={3}
-              value={observations}
-              onChange={(e) => setObservations(e.target.value)}
-              disabled={pending}
-              placeholder="Notas adicionales..."
-            />
-          </div>
-        </CardContent>
-      </CollapsibleSection>
+          </SectionCard>
 
-      {/* ── Checklist (Montados only) ─────────────────────────── */}
-      {branch === "montados" && (
-        <>
-          {/* Front Questions */}
-          <CollapsibleSection
-            id="checklist-front"
-            title="Checklist - Frente"
-            isOpen={openSections.has('checklist-front')}
-            onToggle={handleSectionToggle}
+          {/* 4. Datos de Inspección */}
+          <SectionCard
+            id="section-inspection"
+            title="Datos de Inspección"
+            stepNumber={4}
+            icon={<ClipboardCheck className="w-6 h-6" />}
+          >
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="kmCurrent" className="text-xs font-bold text-muted-foreground">
+                  Kilómetros Actuales
+                </Label>
+                <label className="flex items-center gap-2 min-h-[48px] text-sm text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={kmNoMarca}
+                    onChange={(e) => {
+                      setKmNoMarca(e.target.checked);
+                      if (e.target.checked) setKmCurrent("");
+                    }}
+                    disabled={pending}
+                    className="w-5 h-5 rounded border-border accent-primary cursor-pointer"
+                  />
+                  No marca
+                </label>
+              </div>
+              <Input
+                id="kmCurrent"
+                name="kmCurrent"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={kmNoMarca ? "" : kmCurrent}
+                onChange={(e) => {
+                  setKmCurrent(e.target.value);
+                  clearFieldError("kmCurrent");
+                }}
+                disabled={pending || kmNoMarca}
+                placeholder={kmNoMarca ? "No marca (N/M)" : "Ej: 45000 (Opcional)"}
+                enterKeyHint="next"
+                className={`h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary ${
+                  fieldErrors.kmCurrent ? "border-status-danger" : ""
+                }`}
+                aria-invalid={fieldErrors.kmCurrent ? true : undefined}
+                aria-describedby={fieldErrors.kmCurrent ? "kmCurrent-error" : undefined}
+              />
+              {fieldErrors.kmCurrent ? (
+                <InlineError id="kmCurrent-error" message={fieldErrors.kmCurrent} />
+              ) : (
+                <p className="text-xs text-muted-foreground">Opcional</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="observations" className="text-xs font-bold text-muted-foreground">
+                Observaciones
+              </Label>
+              <Textarea
+                id="observations"
+                name="observations"
+                rows={3}
+                value={observations}
+                onChange={(e) => setObservations(e.target.value)}
+                disabled={pending}
+                placeholder="Notas adicionales..."
+                enterKeyHint="done"
+                className="bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary min-h-[80px]"
+              />
+            </div>
+          </SectionCard>
+
+          {/* 5. Documentos */}
+          <SectionCard
+            id="section-documents"
+            title="Documentos del Vehículo"
+            stepNumber={5}
+            icon={<FileText className="w-6 h-6" />}
+          >
+            <div className="grid grid-cols-1 gap-4">
+              <DocumentUploadSlot
+                label="Cédula del Vehículo"
+                file={cedulaFile}
+                onPick={() => cedulaInputRef.current?.click()}
+                onScan={() => setScannerOpen("cedula")}
+                onClear={() => handleCedulaChange(null)}
+                disabled={pending}
+                inputRef={cedulaInputRef}
+                onChange={(e) => handleCedulaChange(e.target.files?.[0] || null)}
+              />
+              <DocumentUploadSlot
+                label="Carnet de Circulación"
+                file={carnetFile}
+                onPick={() => carnetInputRef.current?.click()}
+                onScan={() => setScannerOpen("carnet")}
+                onClear={() => handleCarnetChange(null)}
+                disabled={pending}
+                inputRef={carnetInputRef}
+                onChange={(e) => handleCarnetChange(e.target.files?.[0] || null)}
+              />
+            </div>
+          </SectionCard>
+        </div>
+
+        {/* ── STEP: Inicial (montados only) ── */}
+        <div className={stepId !== "initial" ? "hidden" : "space-y-4"}>
+          <SectionCard
+            id="section-checklist-front"
+            title="Checklist — Frente"
+            stepNumber={1}
+            icon={<ListOrdered className="w-6 h-6" />}
           >
             {fieldErrors.checklist && (
-              <div className="px-4 pb-2">
-                <p className="text-sm text-destructive" role="alert">{fieldErrors.checklist}</p>
-              </div>
+              <InlineError message={fieldErrors.checklist} />
             )}
             <ChecklistSection
-              title="Checklist - Frente"
               questions={FRONT_QUESTIONS}
               answers={answers}
               setAnswer={setAnswer}
               setObservation={setObservation}
               disabled={pending}
+              generalObservation={checklistFrontGeneralObservation}
+              setGeneralObservation={setChecklistFrontGeneralObservation}
             />
-          </CollapsibleSection>
+          </SectionCard>
 
-          {/* Rear Questions */}
-          <CollapsibleSection
-            id="checklist-rear"
-            title="Checklist - Parte Trasera"
-            isOpen={openSections.has('checklist-rear')}
-            onToggle={handleSectionToggle}
+          <SectionCard
+            id="section-checklist-rear"
+            title="Checklist — Parte Trasera"
+            stepNumber={2}
+            icon={<ListOrdered className="w-6 h-6" />}
           >
             <ChecklistSection
-              title="Checklist - Parte Trasera"
               questions={REAR_QUESTIONS}
               answers={answers}
               setAnswer={setAnswer}
               setObservation={setObservation}
               disabled={pending}
+              generalObservation={checklistRearGeneralObservation}
+              setGeneralObservation={setChecklistRearGeneralObservation}
             />
-          </CollapsibleSection>
-        </>
-      )}
+          </SectionCard>
+        </div>
 
-      {/* ── Cylinders (both paths) ─────────────────────────────── */}
-      <CollapsibleSection
-        id="cylinders"
-        title="Cilindros GNC"
-        icon={<Database className="w-5 h-5 text-indigo-600" />}
-        isOpen={openSections.has('cylinders')}
-        onToggle={handleSectionToggle}
-      >
-        {fieldErrors.cylinders && (
-          <div className="px-4 pb-2">
-            <p className="text-sm text-destructive" role="alert">{fieldErrors.cylinders}</p>
-          </div>
-        )}
-        <CardContent className="space-y-4">
-          {cylinders.length === 0 ? (
-            <div className="text-center py-6 text-muted-foreground border-2 border-dashed rounded-xl">
-              {branch === "montados"
-                ? "No hay cilindros registrados. Puede continuar sin ellos."
-                : "Agregue al menos un cilindro desmontado."}
+        {/* ── STEP: Cilindros ── */}
+        <div className={stepId !== "cylinders" ? "hidden" : "space-y-4"}>
+          <SectionCard
+            id="section-cylinders"
+            title="Cilindros GNC"
+            stepNumber={1}
+            icon={<Fuel className="w-6 h-6" />}
+          >
+            {fieldErrors.cylinders && (
+              <InlineError message={fieldErrors.cylinders} />
+            )}
+
+            <div className="grid grid-cols-2 gap-3 bg-background border border-border rounded-lg p-3">
+              <div className="text-center">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Total Cilindros
+                </p>
+                <p className="font-mono text-[32px] font-bold leading-none text-foreground mt-1">
+                  {cylinders.length}
+                </p>
+              </div>
+              <div className="text-center border-l border-border">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Capacidad Total
+                </p>
+                <p className="font-mono text-[32px] font-bold leading-none text-foreground mt-1">
+                  {totalCylCapacity}
+                  <span className="text-sm font-normal text-muted-foreground ml-1">L</span>
+                </p>
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {cylinders.map((cyl, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 bg-muted/30 border border-border rounded-xl space-y-4 relative"
-                >
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => removeCylinder(idx)}
-                    disabled={pending}
+
+            {cylinders.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                {branch === "montados"
+                  ? "No hay cilindros registrados. Puede continuar sin ellos."
+                  : "Agregue al menos un cilindro desmontado."}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {cylinders.map((cyl, idx) => (
+                  <div
+                    key={cylinderIds[idx] ?? `cyl-${idx}`}
+                    className="p-4 bg-background border border-border rounded-lg space-y-3 relative"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                  <h4 className="font-medium text-sm">Cilindro #{idx + 1}</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                      <Label>Marca</Label>
-                      <Select
-                        value={cyl.brand}
-                        onValueChange={(val) =>
-                          updateCylinder(idx, "brand", val)
-                        }
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-primary text-primary-foreground text-xs font-bold uppercase">
+                          CIL #{idx + 1}
+                        </span>
+                        {cyl.brand && (
+                          <span className="text-sm font-medium text-foreground">{cyl.brand}</span>
+                        )}
+                        {cyl.capacity && (
+                          <span className="text-sm text-muted-foreground">{cyl.capacity}L</span>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-status-danger hover:text-status-danger hover:bg-status-danger/10"
+                        onClick={() => removeCylinder(idx)}
+                        disabled={pending}
                       >
-                        <SelectTrigger
-                          disabled={pending}
-                          className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <SelectValue placeholder="Seleccione marca" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MAT">MAT</SelectItem>
-                          <SelectItem value="Sinoma">Sinoma</SelectItem>
-                          <SelectItem value="Kioshi">Kioshi</SelectItem>
-                          <SelectItem value="Cilbras">Cilbras</SelectItem>
-                          <SelectItem value="Faber">Faber</SelectItem>
-                          <SelectItem value="Inflex">Inflex</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Capacidad (L)</Label>
-                      <Select
-                        value={cyl.capacity}
-                        onValueChange={(val) =>
-                          updateCylinder(idx, "capacity", val)
-                        }
-                      >
-                        <SelectTrigger
-                          disabled={pending}
-                          className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <SelectValue placeholder="Seleccione capacidad" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="27">27 L</SelectItem>
-                          <SelectItem value="40">40 L</SelectItem>
-                          <SelectItem value="50">50 L</SelectItem>
-                          <SelectItem value="57">57 L</SelectItem>
-                          <SelectItem value="60">60 L</SelectItem>
-                          <SelectItem value="80">80 L</SelectItem>
-                          <SelectItem value="90">90 L</SelectItem>
-                          <SelectItem value="115">115 L</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-muted-foreground">Marca</Label>
+                        <Select value={cyl.brand} onValueChange={(val) => updateCylinder(idx, "brand", val)}>
+                          <SelectTrigger disabled={pending} className={SELECT_TRIGGER_CLS}>
+                            <SelectValue placeholder="Marca" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="MAT">MAT</SelectItem>
+                            <SelectItem value="Sinoma">Sinoma</SelectItem>
+                            <SelectItem value="Kioshi">Kioshi</SelectItem>
+                            <SelectItem value="Cilbras">Cilbras</SelectItem>
+                            <SelectItem value="Faber">Faber</SelectItem>
+                            <SelectItem value="Inflex">Inflex</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-muted-foreground">Capacidad (L)</Label>
+                        <Select value={cyl.capacity} onValueChange={(val) => updateCylinder(idx, "capacity", val)}>
+                          <SelectTrigger disabled={pending} className={SELECT_TRIGGER_CLS}>
+                            <SelectValue placeholder="Cap." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="27">27 L</SelectItem>
+                            <SelectItem value="40">40 L</SelectItem>
+                            <SelectItem value="50">50 L</SelectItem>
+                            <SelectItem value="57">57 L</SelectItem>
+                            <SelectItem value="60">60 L</SelectItem>
+                            <SelectItem value="80">80 L</SelectItem>
+                            <SelectItem value="90">90 L</SelectItem>
+                            <SelectItem value="115">115 L</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>N° Serie</Label>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-muted-foreground">N° Serie</Label>
                       <Input
                         value={cyl.initialSerial}
-                        onChange={(e) =>
-                          updateCylinder(idx, "initialSerial", e.target.value.toUpperCase())
-                        }
+                        onChange={(e) => updateCylinder(idx, "initialSerial", e.target.value.toUpperCase())}
                         disabled={pending}
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                        spellCheck={false}
+                        className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary font-mono text-[13px]"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Fecha de Prueba</Label>
-                      <MonthYearPicker
-                        value={cyl.manufactureDate}
-                        onChange={(val) =>
-                          updateCylinder(idx, "manufactureDate", val)
-                        }
-                        disabled={pending}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Ubicación</Label>
-                      <Select
-                        value={cyl.location}
-                        onValueChange={(val) =>
-                          updateCylinder(idx, "location", val)
-                        }
-                      >
-                        <SelectTrigger
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-muted-foreground">Fecha Prueba</Label>
+                        <MonthYearPicker
+                          value={cyl.manufactureDate}
+                          onChange={(val) => updateCylinder(idx, "manufactureDate", val)}
                           disabled={pending}
-                          className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <SelectValue placeholder="Seleccione ubicación" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Chasis">Chasis</SelectItem>
-                          <SelectItem value="Plataforma">Plataforma</SelectItem>
-                          <SelectItem value="Zona de Carga">Zona de Carga</SelectItem>
-                          <SelectItem value="Baul/maletero">Baúl/maletero</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-bold text-muted-foreground">Ubicación</Label>
+                        <Select value={cyl.location} onValueChange={(val) => updateCylinder(idx, "location", val)}>
+                          <SelectTrigger disabled={pending} className={SELECT_TRIGGER_CLS}>
+                            <SelectValue placeholder="Ubicación" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Chasis">Chasis</SelectItem>
+                            <SelectItem value="Plataforma">Plataforma</SelectItem>
+                            <SelectItem value="Zona de Carga">Zona de Carga</SelectItem>
+                            <SelectItem value="Baul/maletero">Baúl/maletero</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </CollapsibleSection>
+                ))}
+              </div>
+            )}
 
-      {/* Photos */}
-      <CollapsibleSection
-        id="photos"
-        title="Fotografías"
-        icon={<Camera className="w-5 h-5 text-violet-600" />}
-        isOpen={openSections.has('photos')}
-        onToggle={handleSectionToggle}
-      >
-        <CardContent>
-          {filesReady && (
-            <PhotoUpload
-              key={`photos-${draftEpoch}`}
-              category="initial"
-              label="Fotos de inspección inicial"
-              onFilesChange={handlePhotosChange}
-              onVideosSelected={handleVideosSelected}
-              initialFiles={draftFiles.photos}
-            />
-          )}
-        </CardContent>
-      </CollapsibleSection>
-
-      {/* ── Signature (both montados and desmontados) ── */}
-      <CollapsibleSection
-        id="signature"
-        title="Firma del Propietario"
-        icon={<PenLine className="w-5 h-5 text-rose-600" />}
-        isOpen={openSections.has('signature')}
-        onToggle={handleSectionToggle}
-      >
-        <CardContent>
-          {filesReady && (
-            <SignaturePad
-              key={`sig-${draftEpoch}`}
-              onChange={setSignature}
+            <button
+              type="button"
+              onClick={addCylinder}
               disabled={pending}
-              initialValue={restored?.signature}
-            />
-          )}
-          {fieldErrors.signature && (
-            <p className="text-sm text-destructive mt-1" role="alert">{fieldErrors.signature}</p>
-          )}
-          <p className="text-xs text-muted-foreground mt-2">
-            Esta firma quedará registrada como constancia de la inspección.
-          </p>
-        </CardContent>
-      </CollapsibleSection>
+              className="w-full min-h-[48px] flex items-center justify-center gap-2 border-2 border-dashed border-border hover:border-primary text-foreground hover:text-primary rounded-lg font-semibold transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Plus className="w-5 h-5" />
+              Añadir cilindro
+            </button>
+          </SectionCard>
+        </div>
 
-      {/* ── Vehicle Documents (both paths) ─────────────────────── */}
-      <CollapsibleSection
-        id="documents"
-        title="Documentos del Vehículo"
-        icon={<FileText className="w-5 h-5 text-teal-600" />}
-        isOpen={openSections.has('documents')}
-        onToggle={handleSectionToggle}
-      >
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Cédula */}
-            <div className="space-y-2">
-              <Label>Cédula del Vehículo</Label>
-              <div className="flex flex-col gap-2">
-                {cedulaFile && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
-                    <FileText className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">
-                      {cedulaFile.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCedulaChange(null)}
-                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => cedulaInputRef.current?.click()}
-                    disabled={pending}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
-                  >
-                    <FileText className="w-4 h-4" />
-                    {cedulaFile ? "Reemplazar archivo" : "Seleccionar archivo"}
-                  </button>
-                  <input
-                    ref={cedulaInputRef}
-                    type="file"
-                    accept="image/*,.pdf"
-                    className="sr-only"
-                    onChange={(e) =>
-                      handleCedulaChange(e.target.files?.[0] || null)
-                    }
-                    disabled={pending}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setScannerOpen("cedula")}
-                    disabled={pending}
-                    className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
-                    title="Escanear documento con la cámara"
-                  >
-                    <ScanLine className="w-4 h-4" />
-                    Escanear
-                  </Button>
-                </div>
-              </div>
-            </div>
+        {/* ── STEP: Fotos ── */}
+        <div className={stepId !== "photos" ? "hidden" : "space-y-4"}>
+          <SectionCard
+            id="section-photos"
+            title="Fotografías"
+            stepNumber={1}
+            icon={<Camera className="w-6 h-6" />}
+          >
+            {filesReady && hasVisitedPhotos && (
+              <PhotoUpload
+                key={`photos-${draftEpoch}`}
+                category="initial"
+                label="Fotos de inspección inicial"
+                onFilesChange={handlePhotosChange}
+                onVideosSelected={handleVideosSelected}
+                initialFiles={draftFiles.photos}
+              />
+            )}
+          </SectionCard>
 
-            {/* Carnet */}
-            <div className="space-y-2">
-              <Label>Carnet de Circulación</Label>
-              <div className="flex flex-col gap-2">
-                {carnetFile && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 bg-teal-50 dark:bg-teal-900/20">
-                    <FileText className="w-4 h-4 text-teal-600 shrink-0" />
-                    <span className="text-sm text-teal-700 dark:text-teal-300 truncate flex-1">
-                      {carnetFile.name}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleCarnetChange(null)}
-                      className="text-muted-foreground hover:text-red-500 transition-colors shrink-0"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => carnetInputRef.current?.click()}
-                    disabled={pending}
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed border-border hover:border-teal-400 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 cursor-pointer transition-all text-sm text-muted-foreground"
-                  >
-                    <FileText className="w-4 h-4" />
-                    {carnetFile ? "Reemplazar archivo" : "Seleccionar archivo"}
-                  </button>
-                  <input
-                    ref={carnetInputRef}
-                    type="file"
-                    accept="image/*,.pdf"
-                    className="sr-only"
-                    onChange={(e) =>
-                      handleCarnetChange(e.target.files?.[0] || null)
-                    }
-                    disabled={pending}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setScannerOpen("carnet")}
-                    disabled={pending}
-                    className="gap-1.5 border-teal-200 text-teal-700 hover:bg-teal-50"
-                    title="Escanear documento con la cámara"
-                  >
-                    <ScanLine className="w-4 h-4" />
-                    Escanear
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </CollapsibleSection>
+          <SectionCard
+            id="section-signature"
+            title="Firma del Propietario"
+            stepNumber={2}
+            icon={<PenLine className="w-6 h-6" />}
+          >
+            {filesReady && hasVisitedPhotos && (
+              <SignaturePad
+                key={`sig-${draftEpoch}`}
+                onChange={setSignature}
+                disabled={pending}
+                initialValue={restored?.signature}
+              />
+            )}
+            {fieldErrors.signature && (
+              <InlineError message={fieldErrors.signature} />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Esta firma quedará registrada como constancia de la inspección.
+            </p>
+          </SectionCard>
+        </div>
+      </div>
 
       {/* ── Document Scanner Modal ──────────────────────── */}
       {scannerOpen && (
@@ -1921,13 +1917,14 @@ export function UnifiedInspectionForm({
         />
       )}
 
-      {/* ── Error Messages (above submit) ──────────────────────── */}
+      {/* ── Error Messages ──────────────────────────────── */}
       <AnimatePresence>
         {(state?.error || formError) && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className="px-4"
           >
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -1941,6 +1938,7 @@ export function UnifiedInspectionForm({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
+            className="px-4"
           >
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -1961,169 +1959,285 @@ export function UnifiedInspectionForm({
         )}
       </AnimatePresence>
 
-      {/* ── Submit  ────────────────────────────────────────────── */}
-      <div className="flex items-center justify-end gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.push("/inspections")}
-          disabled={pending}
-        >
-          Cancelar
-        </Button>
-        <Button
-          type="submit"
-          size="lg"
-          disabled={pending}
-          className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25 min-w-[200px]"
-        >
-          {pending ? (
-            <div className="flex items-center gap-2">
-              <svg
-                className="animate-spin h-5 w-5"
-                viewBox="0 0 24 24"
-                fill="none"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
-              Creando...
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5" />
-              {branch === "montados" ? "Crear Inspección" : "Registrar Ingreso"}
-            </div>
-          )}
-        </Button>
+      {/* ── Sticky bottom action bar ───────────────────── */}
+      {/* FIX 3: self-contained safe-area inset (no undefined safe-bottom class) */}
+      <div className="sticky bottom-0 z-30 bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {!isFinalStep ? (
+          <div className="flex items-center justify-between gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => saveAndNavigate("/inspections")}
+              disabled={pending}
+              className="text-muted-foreground"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={goNext}
+              disabled={pending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground min-w-[140px]"
+            >
+              <span className="flex items-center gap-2">
+                Siguiente
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => saveAndNavigate("/inspections")}
+              disabled={pending}
+              className="text-muted-foreground shrink-0"
+            >
+              Cancelar
+            </Button>
+            <div className="flex-1" />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => saveAndNavigate("/inspections")}
+              disabled={pending}
+              className="shrink-0 hidden sm:flex"
+            >
+              Guardar y salir
+            </Button>
+            <Button
+              type="submit"
+              disabled={pending}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 min-w-[160px]"
+            >
+              {pending ? (
+                <div className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Creando...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5" />
+                  {branch === "montados" ? "Crear Inspección" : "Registrar Ingreso"}
+                </div>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </form>
   );
 }
 
-// ─── Checklist Section Sub-component ─────────────────────────────────
+// ─── Document Upload Slot (presentational) ──────────────────────────
+interface DocumentUploadSlotProps {
+  label: string;
+  file: File | null;
+  onPick: () => void;
+  onScan: () => void;
+  onClear: () => void;
+  disabled: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function DocumentUploadSlot({
+  label,
+  file,
+  onPick,
+  onScan,
+  onClear,
+  disabled,
+  inputRef,
+  onChange,
+}: DocumentUploadSlotProps) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs font-bold text-muted-foreground">{label}</Label>
+      <div className="flex flex-col gap-2">
+        {file && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-status-info/40 bg-status-info/10">
+            <FileText className="w-4 h-4 text-status-info shrink-0" />
+            <span className="text-sm text-status-info truncate flex-1">{file.name}</span>
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-muted-foreground hover:text-status-danger transition-colors shrink-0"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onPick}
+            disabled={disabled}
+            className="flex-1 flex items-center justify-center gap-2 px-3 min-h-[48px] rounded-lg border border-dashed border-border hover:border-primary hover:bg-primary/5 cursor-pointer transition-all text-sm text-muted-foreground hover:text-primary"
+          >
+            <FileText className="w-4 h-4" />
+            {file ? "Reemplazar" : "Seleccionar"}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*,.pdf"
+            className="sr-only"
+            onChange={onChange}
+            disabled={disabled}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onScan}
+            disabled={disabled}
+            className="gap-1.5"
+            title="Escanear documento con la cámara"
+          >
+            <ScanLine className="w-4 h-4" />
+            Escanear
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── FIX 12c: AnswerButton with aria-pressed ────────────────────────
+interface AnswerButtonProps {
+  label: string;
+  pressed: boolean;
+  onClick: () => void;
+  disabled: boolean;
+  selectedCls: string;
+  /** N3: full literal hover class string (Tailwind must see the complete token at build time). */
+  hoverCls: string;
+}
+
+function AnswerButton({
+  label,
+  pressed,
+  onClick,
+  disabled,
+  selectedCls,
+  hoverCls,
+}: AnswerButtonProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      disabled={disabled}
+      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 min-h-[48px] rounded-lg border text-sm font-semibold cursor-pointer transition-all ${
+        pressed ? selectedCls : `bg-background border-border text-muted-foreground ${hoverCls}`
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+// ─── Checklist Section Sub-component ────────────────────────────────
 interface ChecklistSectionProps {
-  title: string;
   questions: ChecklistQuestion[];
   answers: Map<string, AnswerState>;
   setAnswer: (key: string, answer: boolean | null) => void;
   setObservation: (key: string, obs: string) => void;
   disabled: boolean;
+  generalObservation?: string;
+  setGeneralObservation?: (obs: string) => void;
 }
 
 function ChecklistSection({
-  title,
   questions,
   answers,
   setAnswer,
   setObservation,
   disabled,
+  generalObservation = "",
+  setGeneralObservation,
 }: ChecklistSectionProps) {
+  const handlePreloadAll = () => {
+    questions.forEach((q) => setAnswer(q.key, true));
+  };
+
   return (
-    <div className="space-y-5">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>Marque cada ítem según corresponda</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {questions.map((q, idx) => {
-          const current = answers.get(q.key) ?? {
-            answer: undefined,
-            observations: "",
-          };
+    <div className="space-y-3">
+      {/* Preload button */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={handlePreloadAll}
+          disabled={disabled}
+          className="text-xs font-semibold text-primary hover:text-primary/80 underline transition-colors"
+        >
+          Precargar todo como Sí
+        </button>
+      </div>
 
-          return (
-            <motion.div
-              key={q.key}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.03 }}
-              className="rounded-xl border border-border bg-secondary/30 p-4"
-            >
-              <div className="flex items-start gap-3">
-                <span className="shrink-0 w-7 h-7 rounded-lg bg-primary/20 text-primary text-xs font-semibold flex items-center justify-center mt-0.5">
-                  {idx + 1}
-                </span>
+      {questions.map((q, idx) => {
+        const current = answers.get(q.key) ?? {
+          answer: undefined,
+          observations: "",
+        };
 
-                <div className="flex-1 space-y-3">
-                  <p className="text-sm font-medium text-foreground">
-                    {q.label}
-                  </p>
+        return (
+          <div
+            key={q.key}
+            className="rounded-lg border border-border bg-background p-3"
+          >
+            <div className="flex items-start gap-3">
+              <span className="shrink-0 w-7 h-7 rounded-md bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
+                {idx + 1}
+              </span>
 
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAnswer(q.key, true)}
-                      disabled={disabled}
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
-                        current.answer === true
-                          ? "bg-primary/10 border-primary text-primary dark:bg-primary/20 dark:border-primary dark:text-primary shadow-sm"
-                          : "bg-background border-border text-muted-foreground hover:border-primary/30 hover:text-primary"
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === true ? "bg-primary" : "bg-muted"}`}
-                      />
-                      Sí
-                    </button>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-foreground">{q.label}</p>
 
-                    <button
-                      type="button"
-                      onClick={() => setAnswer(q.key, false)}
-                      disabled={disabled}
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
-                        current.answer === false
-                          ? "bg-red-50 border-red-300 text-red-700 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400 shadow-sm"
-                          : "bg-background border-border text-muted-foreground hover:border-red-200 hover:text-red-600"
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === false ? "bg-red-500" : "bg-muted"}`}
-                      />
-                      No
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setAnswer(q.key, null)}
-                      disabled={disabled}
-                      className={`relative flex-1 flex items-center justify-center gap-1.5 px-3 py-3 rounded-xl border text-sm font-medium cursor-pointer transition-all duration-200 ${
-                        current.answer === null
-                          ? "bg-amber-50 border-amber-300 text-amber-700 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-400 shadow-sm"
-                          : "bg-background border-border text-muted-foreground hover:border-amber-200 hover:text-amber-600"
-                      }`}
-                    >
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full transition-colors ${current.answer === null ? "bg-amber-500" : "bg-muted"}`}
-                      />
-                      Pendiente
-                    </button>
-                  </div>
-
-                  <Input
-                    value={current.observations}
-                    onChange={(e) => setObservation(q.key, e.target.value)}
+                <div className="flex gap-2">
+                  <AnswerButton
+                    label="Sí"
+                    pressed={current.answer === true}
+                    onClick={() => setAnswer(q.key, true)}
                     disabled={disabled}
-                    placeholder="Observaciones (opcional)..."
-                    className="h-10 text-sm"
+                    selectedCls="bg-status-success/10 border-status-success text-status-success"
+                    hoverCls="hover:border-status-success/40"
+                  />
+                  <AnswerButton
+                    label="No"
+                    pressed={current.answer === false}
+                    onClick={() => setAnswer(q.key, false)}
+                    disabled={disabled}
+                    selectedCls="bg-status-danger/10 border-status-danger text-status-danger"
+                    hoverCls="hover:border-status-danger/40"
                   />
                 </div>
               </div>
-            </motion.div>
-          );
-        })}
-      </CardContent>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* General observation for this section */}
+      {setGeneralObservation && (
+        <div className="mt-4 pt-4 border-t border-border">
+          <Label className="text-sm font-bold text-foreground">
+            Observaciones Generales de esta Sección
+          </Label>
+          <Textarea
+            value={generalObservation}
+            onChange={(e) => setGeneralObservation(e.target.value)}
+            disabled={disabled}
+            placeholder="Observaciones generales sobre esta sección (opcional)..."
+            className="mt-2 min-h-[80px] text-sm bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary"
+          />
+        </div>
+      )}
     </div>
   );
 }
