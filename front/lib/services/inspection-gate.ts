@@ -15,8 +15,8 @@ export interface GateResult {
  * Gate-check: verifies all preconditions before issuing a certificate.
  *
  * Checks (simplified):
- * 1. All vehicle cylinders in final states: reinstalado | condenado
- *    (none in en_planta, pendiente_reinstalacion, desmontado)
+ * 1. All vehicle cylinders in final states: activo | de_baja
+ *    (none in en_certificacion)
  * 2. Post-mount photos exist (inspection_attachments category post_mount, count > 0)
  */
 export async function canIssueCertificate(inspectionId: string): Promise<GateResult> {
@@ -44,7 +44,7 @@ export async function canIssueCertificate(inspectionId: string): Promise<GateRes
     .where(eq(gncCylinders.vehicleId, inspection.vehicleId))
 
   const pendingCylinders = cylinders.filter(
-    (c) => c.status === 'desmontado' || c.status === 'en_planta' || c.status === 'pendiente_reinstalacion'
+    (c) => c.status === 'en_certificacion'
   )
   if (pendingCylinders.length > 0) {
     missing.push('cylinders_pending')

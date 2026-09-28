@@ -164,21 +164,7 @@ export async function createCertificateAction(
     }
   }
 
-  // Auto-transition cylinders after certificate issuance
-  try {
-    const { autoTransitionCylinders } = await import('@/lib/services/cylinder')
-    const [inspectionWithVehicle] = await db
-      .select({ vehicleId: inspections.vehicleId })
-      .from(inspections)
-      .where(eq(inspections.id, validatedInspectionId))
-      .limit(1)
-
-    if (inspectionWithVehicle?.vehicleId) {
-      await autoTransitionCylinders(inspectionWithVehicle.vehicleId, 'certificado')
-    }
-  } catch (e) {
-    console.error('Failed to auto-transition cylinders to reinstalado:', e)
-  }
+  // Cylinder transitions are now explicit via sendToPlantAction/receiveFromPlantAction
 
   revalidatePath(`/inspections/${validatedInspectionId}`)
   revalidatePath('/inspections')

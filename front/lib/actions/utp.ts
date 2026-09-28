@@ -291,7 +291,7 @@ export async function createUtpInspectionAction(
             initialSerial: c.initialSerial,
             manufactureDate: c.manufactureDate || null,
             location: c.location,
-            status: 'instalado' as const,
+            status: 'activo' as const,
             updatedBy: session.sub,
           }))
         )

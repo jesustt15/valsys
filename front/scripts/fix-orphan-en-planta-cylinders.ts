@@ -7,11 +7,11 @@ import { inspections, gncCylinders } from '@/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 
 /**
- * Fix orphan cylinders stuck in 'en_planta' for inspections already closed.
+ * Fix orphan cylinders stuck in 'en_certificacion' for inspections already closed.
  *
  * Finds inspections with status 'certificado' that still have cylinders
- * in 'en_planta' (left over from the bug where createCertificateAction
- * did not gate on cylinder states). Updates those cylinders to 'reinstalado'.
+ * in 'en_certificacion' (left over from the bug where createCertificateAction
+ * did not gate on cylinder states). Updates those cylinders to 'activo'.
  *
  * Usage:
  *   npx tsx scripts/fix-orphan-en-planta-cylinders.ts          # dry-run
@@ -71,7 +71,7 @@ async function main() {
       .where(
         and(
           eq(gncCylinders.vehicleId, insp.vehicleId),
-          eq(gncCylinders.status, 'en_planta')
+          eq(gncCylinders.status, 'en_certificacion')
         )
       )
 
@@ -88,35 +88,35 @@ async function main() {
   }
 
   if (orphans.length === 0) {
-    console.log(`✅ Se revisaron ${closedInspections.length} inspección(es) cerrada(s). No hay cilindros en_planta huérfanos.`)
+    console.log(`✅ Se revisaron ${closedInspections.length} inspección(es) cerrada(s). No hay cilindros en_certificacion huérfanos.`)
     await pool.end()
     return
   }
 
-  console.log(`🔍 ${orphans.length} cilindro(s) en_planta en ${closedInspections.length} inspección(es) cerrada(s):\n`)
+  console.log(`🔍 ${orphans.length} cilindro(s) en_certificacion en ${closedInspections.length} inspección(es) cerrada(s):\n`)
   for (const o of orphans) {
     console.log(`  - Inspección ${o.inspectionId}`)
     console.log(`    Cilindro: ${o.brand} ${o.capacity}L | Serie: ${o.initialSerial} | ID: ${o.cylinderId}`)
   }
 
   if (!apply) {
-    console.log('\n🧹 Modo dry-run: no se cambió nada. Ejecutá con `--apply` para marcar como reinstalado.')
+    console.log('\n🧹 Modo dry-run: no se cambió nada. Ejecutá con `--apply` para marcar como activo.')
     await pool.end()
     return
   }
 
-  // 3. Update cylinders to 'reinstalado'
+  // 3. Update cylinders to 'activo'
   for (const o of orphans) {
     await db
       .update(gncCylinders)
       .set({
-        status: 'reinstalado',
+        status: 'activo',
         updatedAt: new Date(),
       })
       .where(eq(gncCylinders.id, o.cylinderId))
   }
 
-  console.log(`\n✅ Se marcaron ${orphans.length} cilindro(s) como 'reinstalado'.`)
+  console.log(`\n✅ Se marcaron ${orphans.length} cilindro(s) como 'activo'.`)
   await pool.end()
 }
 

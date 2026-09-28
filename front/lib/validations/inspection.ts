@@ -84,7 +84,7 @@ export const cylinderInputSchema = z.object({
   location: z.enum(['Chasis', 'Plataforma', 'Zona de Carga', 'Baul/maletero'], {
     message: 'Seleccione una ubicación',
   }),
-  status: z.literal('desmontado').optional(),
+  status: z.literal('activo').optional(),
 })
 
 const montadosSchema = z.object({

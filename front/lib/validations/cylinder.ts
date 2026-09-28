@@ -18,63 +18,40 @@ export const updateCylinderSchema = z.object({
   location: z.string().min(1, 'La ubicación es obligatoria'),
 })
 
-export const updateCylinderStatusSchema = z.object({
-  id: z.string().uuid(),
-  status: z.enum(['instalado', 'desmontado', 'en_planta', 'pendiente_reinstalacion', 'reinstalado', 'condenado']),
-  actualSerial: z.string().optional(),
-})
-
-export const recertifyCylinderSchema = z.object({
-  id: z.string().uuid(),
-  inspectionId: z.string().uuid(),
-  status: z.enum(['pendiente_reinstalacion', 'condenado']),
-  actualSerial: z.string().optional(),
-  recalificationDate: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.status === 'pendiente_reinstalacion') {
-    if (!data.actualSerial || data.actualSerial.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'El número de serie actual es obligatorio para recertificación',
-        path: ['actualSerial'],
-      })
-    }
-    if (!data.recalificationDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'La fecha de recalificación es obligatoria para recertificación',
-        path: ['recalificationDate'],
-      })
-    }
-  }
-})
-
-export const decideCylinderFateSchema = z.object({
-  id: z.string().uuid(),
-  inspectionId: z.string().uuid(),
-  status: z.enum(['pendiente_reinstalacion', 'condenado']),
-  actualSerial: z.string().optional(),
-  recalificationDate: z.string().optional(),
-}).superRefine((data, ctx) => {
-  if (data.status === 'pendiente_reinstalacion') {
-    if (!data.actualSerial || data.actualSerial.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'El número de serie actual es obligatorio para recertificación',
-        path: ['actualSerial'],
-      })
-    }
-    if (!data.recalificationDate) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'La fecha de recalificación es obligatoria para recertificación',
-        path: ['recalificationDate'],
-      })
-    }
-  }
-})
-
 export const unlinkCylinderSchema = z.object({
   id: z.string().uuid(),
   inspectionId: z.string().uuid(),
+})
+
+// ─── Send / receive cylinder plant flow ─────────────────────────────
+
+export const sendToPlantSchema = z.object({
+  cylinderId: z.string().uuid(),
+  inspectionId: z.string().uuid(),
+  sentAt: z.string().min(1, 'La fecha de envío es requerida'),
+})
+
+export const receiveFromPlantSchema = z.object({
+  cylinderId: z.string().uuid(),
+  inspectionId: z.string().uuid(),
+  result: z.enum(['bueno', 'malo']),
+  receivedAt: z.string().min(1, 'La fecha de recepción es requerida'),
+  actualSerial: z.string().optional().or(z.literal('')),
+  recalificationDate: z.string().optional().or(z.literal('')),
+})
+
+// ─── Bulk send / receive ────────────────────────────────────────────
+
+export const bulkSendToPlantSchema = z.object({
+  cylinderIds: z.array(z.string().uuid()).min(1, 'Debe seleccionar al menos un cilindro').max(20, 'No se pueden seleccionar más de 20 cilindros'),
+  inspectionId: z.string().uuid(),
+  sentAt: z.string().min(1, 'La fecha de envío es requerida'),
+})
+
+export const bulkReceiveFromPlantSchema = z.object({
+  cylinderIds: z.array(z.string().uuid()).min(1, 'Debe seleccionar al menos un cilindro').max(20, 'No se pueden seleccionar más de 20 cilindros'),
+  inspectionId: z.string().uuid(),
+  result: z.enum(['bueno', 'malo']),
+  receivedAt: z.string().min(1, 'La fecha de recepción es requerida'),
+  recalificationDate: z.string().optional().or(z.literal('')),
 })

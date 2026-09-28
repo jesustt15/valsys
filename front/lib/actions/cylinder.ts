@@ -2,17 +2,49 @@
 
 import { revalidatePath } from 'next/cache'
 import { db } from '@/lib/db'
-import { gncCylinders, inspectionAttachments, signatures, inspections } from '@/db/schema'
+import { gncCylinders, inspectionAttachments } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { createCylinderSchema, updateCylinderSchema, updateCylinderStatusSchema, recertifyCylinderSchema, decideCylinderFateSchema, unlinkCylinderSchema } from '@/lib/validations/cylinder'
+import { createCylinderSchema, updateCylinderSchema, unlinkCylinderSchema, sendToPlantSchema, receiveFromPlantSchema, bulkSendToPlantSchema, bulkReceiveFromPlantSchema } from '@/lib/validations/cylinder'
 import { getSession } from '@/lib/auth/get-session'
 import { putObject } from '@/lib/minio'
 import { createNotification } from '@/lib/services/notification'
-import { decideCylinderFate, unlinkCylinderFromVehicle } from '@/lib/services/cylinder'
+import { sendCylinderToPlant, receiveCylinderFromPlant, unlinkCylinderFromVehicle, bulkSendCylindersToPlant, bulkReceiveCylindersFromPlant } from '@/lib/services/cylinder'
+import { sanitizeFileName } from '@/lib/validations/video-upload'
+
+// ─── Shared constants ───────────────────────────────────────────────────────
+
+/** F8: 20 MB server-side cap for plant documents */
+const PLANT_DOC_MAX_BYTES = 20 * 1024 * 1024
+
+// ─── G10: PDF magic-byte sniff ──────────────────────────────────────────────
+
+/**
+ * Reads the first 5 bytes of a File and checks for '%PDF-' magic.
+ * Follows the sniffVideoMagic precedent from video-upload.ts.
+ */
+async function sniffPdfMagic(file: File): Promise<boolean> {
+  try {
+    const buf = await file.slice(0, 5).arrayBuffer()
+    const bytes = new Uint8Array(buf)
+    // '%PDF-' = 0x25 0x50 0x44 0x46 0x2D
+    return (
+      bytes.length >= 5 &&
+      bytes[0] === 0x25 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x44 &&
+      bytes[3] === 0x46 &&
+      bytes[4] === 0x2D
+    )
+  } catch {
+    return false
+  }
+}
 
 export type CylinderFormState = {
   success?: boolean
   error?: string
+  message?: string
+  cylinderId?: string
 }
 
 export async function createCylinderAction(
@@ -30,22 +62,26 @@ export async function createCylinderAction(
   }
 
   try {
-    await db.insert(gncCylinders).values({
+    // F12: use .returning({ id }) to get the real cylinder id for notification
+    const [inserted] = await db.insert(gncCylinders).values({
       ...parsed.data,
+      status: 'activo',
       updatedBy: session.sub,
-    })
+    }).returning({ id: gncCylinders.id })
 
-    // Notification: cylinder sent to plant
-    try {
-      await createNotification(session.sub, {
-        type: 'cylinder_sent_to_plant',
-        title: 'Cilindro enviado a planta',
-        message: `El cilindro ${parsed.data.brand} ${parsed.data.initialSerial} fue enviado a planta`,
-        relatedEntityType: 'cylinder',
-        relatedEntityId: parsed.data.vehicleId,
-      })
-    } catch (e) {
-      console.error('Failed to create notification:', e)
+    // Notification: cylinder created — use real cylinder id (F12)
+    if (inserted) {
+      try {
+        await createNotification(session.sub, {
+          type: 'cylinder_sent_to_plant',
+          title: 'Cilindro registrado',
+          message: `El cilindro ${parsed.data.brand} ${parsed.data.initialSerial} fue registrado como activo`,
+          relatedEntityType: 'cylinder',
+          relatedEntityId: inserted.id,
+        })
+      } catch (e) {
+        console.error('Failed to create notification:', { context: 'createCylinder', error: e })
+      }
     }
 
     const inspectionId = formData.get('inspectionId') as string
@@ -55,7 +91,7 @@ export async function createCylinderAction(
     
     return { success: true }
   } catch (error) {
-    console.error('Error creating cylinder:', error)
+    console.error('Error creating cylinder:', { error })
     return { error: 'Error al registrar el cilindro' }
   }
 }
@@ -81,7 +117,8 @@ export async function updateCylinderAction(
   }
 
   try {
-    await db
+    // F12: use .returning({ id }) to detect no-op (cylinder not found)
+    const [updated] = await db
       .update(gncCylinders)
       .set({
         brand: parsed.data.brand,
@@ -90,363 +127,25 @@ export async function updateCylinderAction(
         manufactureDate: parsed.data.manufactureDate,
         location: parsed.data.location,
         updatedBy: session.sub,
+        updatedAt: new Date(),
       })
       .where(eq(gncCylinders.id, parsed.data.id))
+      .returning({ id: gncCylinders.id })
+
+    if (!updated) {
+      return { error: 'Cilindro no encontrado' }
+    }
 
     const inspectionId = formData.get('inspectionId') as string
     if (inspectionId) {
       revalidatePath(`/inspections/${inspectionId}`)
     }
 
-    return { success: true }
+    return { success: true, cylinderId: parsed.data.id }
   } catch (error) {
-    console.error('Error updating cylinder:', error)
+    console.error('Error updating cylinder:', { cylinderId: parsed.data.id, error })
     return { error: 'Error al actualizar el cilindro' }
   }
-}
-
-export async function updateCylinderStatusAction(
-  _prev: CylinderFormState | null,
-  formData: FormData,
-): Promise<CylinderFormState> {
-  const session = await getSession()
-  if (!session) return { error: 'No hay sesión activa' }
-
-  const parsed = updateCylinderStatusSchema.safeParse({
-    id: formData.get('id'),
-    status: formData.get('status'),
-    actualSerial: formData.get('actualSerial') || undefined,
-  })
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
-  }
-
-  // Extract inspectionId early — needed by condemnation guard
-  const inspectionId = formData.get('inspectionId') as string
-
-  // Condemnation guard: reject if parent inspection is still in inspeccion_inicial
-  if (parsed.data.status === 'condenado' && inspectionId) {
-    const [parentInspection] = await db
-      .select({ status: inspections.status })
-      .from(inspections)
-      .where(eq(inspections.id, inspectionId))
-      .limit(1)
-
-    if (parentInspection && parentInspection.status === 'inspeccion_inicial') {
-      return { error: 'No se puede condenar un cilindro mientras la inspección está en estado inicial. Complete la inspección primero.' }
-    }
-  }
-
-  try {
-    // Status guard: validate allowed transitions based on current status
-    const current = await db.select({ status: gncCylinders.status })
-      .from(gncCylinders)
-      .where(eq(gncCylinders.id, parsed.data.id))
-      .limit(1)
-
-    if (current.length) {
-      if (current[0].status === 'instalado') {
-        if (parsed.data.status !== 'en_planta' && parsed.data.status !== 'condenado') {
-          return { error: 'Los cilindros instalados solo pueden pasarse a "en planta" o "condenado"' }
-        }
-      } else if (current[0].status === 'en_planta') {
-        if (parsed.data.status !== 'pendiente_reinstalacion' && parsed.data.status !== 'condenado') {
-          return { error: 'Los cilindros en planta solo pueden pasar a "pendiente reinstalación" o "condenado"' }
-        }
-      } else if (current[0].status === 'pendiente_reinstalacion') {
-        if (parsed.data.status !== 'reinstalado') {
-          return { error: 'Los cilindros pendientes de reinstalación solo pueden marcarse como "reinstalado"' }
-        }
-      }
-    }
-
-    await db.update(gncCylinders)
-      .set({
-        status: parsed.data.status,
-        actualSerial: parsed.data.actualSerial,
-        updatedBy: session.sub,
-        updatedAt: new Date(),
-      })
-      .where(eq(gncCylinders.id, parsed.data.id))
-
-    // Handle signature when dismounting (en_planta transition)
-    // Only require signature if the inspection doesn't already have one
-    const signatureData = formData.get('signature') as string
-
-    if (parsed.data.status === 'en_planta' && inspectionId) {
-      const [existingInsp] = await db
-        .select({ ownerSignatureId: inspections.ownerSignatureId })
-        .from(inspections)
-        .where(eq(inspections.id, inspectionId))
-        .limit(1)
-
-      if (!existingInsp?.ownerSignatureId) {
-        if (!signatureData || !signatureData.startsWith('data:image')) {
-          return { error: 'La firma del propietario es obligatoria para desmontar cilindros.' }
-        }
-        try {
-          const base64Data = signatureData.split(',')[1]
-          const buffer = Buffer.from(base64Data, 'base64')
-          const timestamp = Date.now()
-          const minioKey = `signatures/${timestamp}.png`
-
-          await putObject(minioKey, new File([buffer], 'signature.png', { type: 'image/png' }))
-
-          const [sig] = await db
-            .insert(signatures)
-            .values({ minioKey })
-            .returning({ id: signatures.id })
-
-          await db
-            .update(inspections)
-            .set({ ownerSignatureId: sig.id, updatedAt: new Date() })
-            .where(eq(inspections.id, inspectionId))
-        } catch (e) {
-          console.error('Error saving signature during dismount:', e)
-          return { success: true, error: 'Cilindro desmontado pero hubo un error al guardar la firma. Puede capturarla luego desde el expediente.' }
-        }
-      }
-    }
-
-    // Handle photo uploads (removal photos etc)
-    const photos = formData.getAll('photos') as File[]
-    const category = formData.get('category') as string // 'removal' | 'post_mount'
-
-    if (photos.length > 0 && inspectionId && category) {
-      for (const file of photos) {
-        if (!file || file.size === 0) continue
-        const timestamp = Date.now()
-        const minioKey = `inspections/${inspectionId}/${category}/${timestamp}-${file.name}`
-        
-        await putObject(minioKey, file)
-        
-        await db.insert(inspectionAttachments).values({
-          inspectionId,
-          fileName: file.name,
-          minioKey,
-          fileType: file.type,
-          fileSize: file.size,
-          category: category as 'removal' | 'post_mount',
-        })
-      }
-    }
-
-    if (inspectionId) {
-      revalidatePath(`/inspections/${inspectionId}`)
-    }
-
-    // Notifications
-    if (parsed.data.status === 'condenado') {
-      try {
-        await createNotification(session.sub, {
-          type: 'cylinder_scrapped',
-          title: 'Cilindro condenado',
-          message: 'El cilindro fue marcado como condenado',
-          relatedEntityType: 'cylinder',
-          relatedEntityId: parsed.data.id,
-        })
-      } catch (e) {
-        console.error('Failed to create notification:', e)
-      }
-    } else if (parsed.data.status === 'reinstalado') {
-      try {
-        await createNotification(session.sub, {
-          type: 'cylinder_sent_to_plant',
-          title: 'Cilindro reinstalado',
-          message: 'El cilindro fue reinstalado en el vehículo',
-          relatedEntityType: 'cylinder',
-          relatedEntityId: parsed.data.id,
-        })
-      } catch (e) {
-        console.error('Failed to create notification:', e)
-      }
-    }
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error updating cylinder status:', error)
-    return { error: 'Error al actualizar el estado del cilindro' }
-  }
-}
-
-export async function recertifyCylinderAction(
-  _prev: CylinderFormState | null,
-  formData: FormData,
-): Promise<CylinderFormState> {
-  const session = await getSession()
-  if (!session) return { error: 'No autorizado' }
-
-  const data = Object.fromEntries(formData)
-  const parsed = recertifyCylinderSchema.safeParse(data)
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
-  }
-
-  try {
-    // DB read: verify current status is en_planta
-    const cylinder = await db.select({ status: gncCylinders.status })
-      .from(gncCylinders)
-      .where(eq(gncCylinders.id, parsed.data.id))
-      .limit(1)
-
-    if (!cylinder.length || cylinder[0].status !== 'en_planta') {
-      return { error: "Solo se pueden recertificar cilindros en estado 'en_planta'" }
-    }
-
-    // Validate plant document BEFORE DB update
-    const plantDoc = formData.get('plantDoc') as File
-    if (plantDoc && plantDoc.size > 0) {
-      if (plantDoc.type !== 'application/pdf') {
-        return { error: 'El documento de planta debe ser PDF' }
-      }
-    }
-
-    // DB update: cylinder record (only after all validation passes)
-    await db.update(gncCylinders)
-      .set({
-        status: parsed.data.status,
-        actualSerial: parsed.data.actualSerial || null,
-        recalificationDate: parsed.data.recalificationDate || null,
-        updatedBy: session.sub,
-        updatedAt: new Date(),
-      })
-      .where(eq(gncCylinders.id, parsed.data.id))
-
-    // Upload plant document (after DB update — orphan risk accepted, consistent with existing patterns)
-    if (plantDoc && plantDoc.size > 0) {
-      const timestamp = Date.now()
-      const minioKey = `inspections/${parsed.data.inspectionId}/plant/${parsed.data.id}/${timestamp}-${plantDoc.name}`
-
-      await putObject(minioKey, plantDoc)
-
-      await db.insert(inspectionAttachments).values({
-        inspectionId: parsed.data.inspectionId,
-        fileName: plantDoc.name,
-        minioKey,
-        fileType: plantDoc.type,
-        fileSize: plantDoc.size,
-        category: 'plant',
-      })
-    }
-
-    // Notification: recertified or scrapped
-    try {
-      if (parsed.data.status === 'pendiente_reinstalacion') {
-        await createNotification(session.sub, {
-          type: 'cylinder_recertified',
-          title: 'Cilindro recertificado',
-          message: `El cilindro ${parsed.data.actualSerial ?? 's/n'} fue recertificado exitosamente`,
-          relatedEntityType: 'cylinder',
-          relatedEntityId: parsed.data.id,
-        })
-      } else if (parsed.data.status === 'condenado') {
-        await createNotification(session.sub, {
-          type: 'cylinder_scrapped',
-          title: 'Cilindro condenado',
-          message: `El cilindro ${parsed.data.actualSerial ?? 's/n'} fue marcado como condenado`,
-          relatedEntityType: 'cylinder',
-          relatedEntityId: parsed.data.id,
-        })
-      }
-    } catch (e) {
-      console.error('Failed to create notification:', e)
-    }
-
-    revalidatePath(`/inspections/${parsed.data.inspectionId}`)
-
-    return { success: true }
-  } catch (error) {
-    console.error('Error recertifying cylinder:', error)
-    return { error: 'Error al recertificar el cilindro' }
-  }
-}
-
-export async function decideCylinderFateAction(
-  _prev: CylinderFormState | null,
-  formData: FormData,
-): Promise<CylinderFormState> {
-  const session = await getSession()
-  if (!session) return { error: 'No autorizado' }
-
-  const data = Object.fromEntries(formData)
-  const parsed = decideCylinderFateSchema.safeParse(data)
-
-  if (!parsed.success) {
-    return { error: parsed.error.issues[0].message }
-  }
-
-  // Validate plant document BEFORE calling service
-  const plantDoc = formData.get('plantDoc') as File
-  if (plantDoc && plantDoc.size > 0) {
-    if (plantDoc.type !== 'application/pdf') {
-      return { error: 'El documento de planta debe ser PDF' }
-    }
-  }
-
-  const result = await decideCylinderFate({
-    cylinderId: parsed.data.id,
-    inspectionId: parsed.data.inspectionId,
-    status: parsed.data.status,
-    actualSerial: parsed.data.actualSerial,
-    recalificationDate: parsed.data.recalificationDate,
-    updatedBy: session.sub,
-  })
-
-  if (!result.success) {
-    return { error: result.error }
-  }
-
-  // Upload plant document after DB update
-  if (plantDoc && plantDoc.size > 0) {
-    try {
-      const timestamp = Date.now()
-      const minioKey = `inspections/${parsed.data.inspectionId}/plant/${parsed.data.id}/${timestamp}-${plantDoc.name}`
-      await putObject(minioKey, plantDoc)
-
-      const { db } = await import('@/lib/db')
-      const { inspectionAttachments } = await import('@/db/schema')
-      await db.insert(inspectionAttachments).values({
-        inspectionId: parsed.data.inspectionId,
-        fileName: plantDoc.name,
-        minioKey,
-        fileType: plantDoc.type,
-        fileSize: plantDoc.size,
-        category: 'plant',
-      })
-    } catch (e) {
-      console.error('Error uploading plant document:', e)
-      // Non-fatal — cylinder fate already decided
-    }
-  }
-
-  // Notification
-  try {
-    if (parsed.data.status === 'pendiente_reinstalacion') {
-      await createNotification(session.sub, {
-        type: 'cylinder_recertified',
-        title: 'Cilindro recertificado',
-        message: `El cilindro fue recertificado exitosamente`,
-        relatedEntityType: 'cylinder',
-        relatedEntityId: parsed.data.id,
-      })
-    } else if (parsed.data.status === 'condenado') {
-      await createNotification(session.sub, {
-        type: 'cylinder_scrapped',
-        title: 'Cilindro condenado',
-        message: `El cilindro fue marcado como condenado`,
-        relatedEntityType: 'cylinder',
-        relatedEntityId: parsed.data.id,
-      })
-    }
-  } catch (e) {
-    console.error('Failed to create notification:', e)
-  }
-
-  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
-
-  return { success: true }
 }
 
 export async function unlinkCylinderAction(
@@ -469,6 +168,8 @@ export async function unlinkCylinderAction(
   )
 
   if (!result.success) {
+    // H2: revalidatePath on failure so stale client state refreshes (parity with bulk)
+    revalidatePath(`/inspections/${parsed.data.inspectionId}`)
     return { error: result.error }
   }
 
@@ -482,10 +183,391 @@ export async function unlinkCylinderAction(
       relatedEntityId: parsed.data.id,
     })
   } catch (e) {
-    console.error('Failed to create notification:', e)
+    console.error('Failed to create notification:', { context: 'unlinkCylinder', error: e })
   }
 
   revalidatePath(`/inspections/${parsed.data.inspectionId}`)
 
-  return { success: true }
+  return { success: true, cylinderId: parsed.data.id }
+}
+
+// ─── Send cylinder to plant ────────────────────────────────────────
+
+export type SendToPlantFormState = {
+  success?: boolean
+  error?: string
+  cylinderId?: string
+}
+
+export async function sendToPlantAction(
+  _prev: SendToPlantFormState | null,
+  formData: FormData,
+): Promise<SendToPlantFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No autorizado' }
+
+  const data = Object.fromEntries(formData)
+  const parsed = sendToPlantSchema.safeParse(data)
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const result = await sendCylinderToPlant({
+    cylinderId: parsed.data.cylinderId,
+    inspectionId: parsed.data.inspectionId,
+    sentAt: new Date(parsed.data.sentAt),
+    updatedBy: session.sub,
+  })
+
+  if (!result.success) {
+    // H2: revalidatePath on failure so stale client state refreshes (parity with bulk)
+    revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+    return { error: result.error }
+  }
+
+  // Notification
+  try {
+    await createNotification(session.sub, {
+      type: 'cylinder_sent_to_plant',
+      title: 'Cilindro enviado a planta',
+      message: 'El cilindro fue enviado a planta para recertificación',
+      relatedEntityType: 'cylinder',
+      relatedEntityId: parsed.data.cylinderId,
+    })
+  } catch (e) {
+    console.error('Failed to create notification:', { context: 'sendToPlant', error: e })
+  }
+
+  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+
+  return { success: true, cylinderId: parsed.data.cylinderId }
+}
+
+// ─── Receive cylinder from plant ───────────────────────────────────
+
+export type ReceiveFromPlantFormState = {
+  success?: boolean
+  error?: string
+  cylinderId?: string
+  docError?: boolean
+}
+
+export async function receiveFromPlantAction(
+  _prev: ReceiveFromPlantFormState | null,
+  formData: FormData,
+): Promise<ReceiveFromPlantFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No autorizado' }
+
+  const data = Object.fromEntries(formData)
+  const parsed = receiveFromPlantSchema.safeParse(data)
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  // F8 + G10: Validate plant document (type + magic-byte sniff + size cap)
+  const plantDoc = formData.get('plantDoc') as File
+  if (plantDoc && plantDoc.size > 0) {
+    if (plantDoc.type !== 'application/pdf') {
+      return { error: 'El documento de planta debe ser PDF' }
+    }
+    // G10: magic-byte sniff — reject spoofed MIME
+    if (!(await sniffPdfMagic(plantDoc))) {
+      return { error: 'El documento de planta debe ser un PDF válido' }
+    }
+    if (plantDoc.size > PLANT_DOC_MAX_BYTES) {
+      return { error: 'El documento de planta no puede superar los 20MB' }
+    }
+  }
+
+  const result = await receiveCylinderFromPlant({
+    cylinderId: parsed.data.cylinderId,
+    inspectionId: parsed.data.inspectionId,
+    result: parsed.data.result,
+    receivedAt: new Date(parsed.data.receivedAt),
+    actualSerial: parsed.data.actualSerial || undefined,
+    recalificationDate: parsed.data.recalificationDate || undefined,
+    updatedBy: session.sub,
+  })
+
+  if (!result.success) {
+    // H2: revalidatePath on failure so stale client state refreshes (parity with bulk)
+    revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+    return { error: result.error }
+  }
+
+  // F6: Upload plant document AFTER tx. On upload failure, return docError
+  // flag so UI shows a warning instead of silently swallowing.
+  let docError = false
+  if (plantDoc && plantDoc.size > 0) {
+    try {
+      const timestamp = Date.now()
+      // F8: sanitize the file name before building the MinIO key
+      const safeName = sanitizeFileName(plantDoc.name)
+      const minioKey = `inspections/${parsed.data.inspectionId}/plant/${parsed.data.cylinderId}/${timestamp}-${safeName}`
+
+      await putObject(minioKey, plantDoc)
+
+      // G6: persist the sanitized name (same safeName used for the MinIO key)
+      await db.insert(inspectionAttachments).values({
+        inspectionId: parsed.data.inspectionId,
+        fileName: safeName,
+        minioKey,
+        fileType: plantDoc.type,
+        fileSize: plantDoc.size,
+        category: 'plant',
+      })
+    } catch (e) {
+      console.error('Error uploading plant document:', {
+        cylinderId: parsed.data.cylinderId,
+        inspectionId: parsed.data.inspectionId,
+        error: e,
+      })
+      docError = true
+    }
+  }
+
+  // G4(b): notification must be honest when docError is set
+  try {
+    if (parsed.data.result === 'bueno') {
+      const baseMsg = `El cilindro ${parsed.data.actualSerial || 's/n'} fue recertificado exitosamente`
+      await createNotification(session.sub, {
+        type: 'cylinder_recertified',
+        title: docError ? 'Cilindro recertificado — documento pendiente' : 'Cilindro recertificado',
+        message: docError ? `${baseMsg} — documento de planta NO subido, pendiente` : baseMsg,
+        relatedEntityType: 'cylinder',
+        relatedEntityId: parsed.data.cylinderId,
+      })
+    } else {
+      const baseMsg = `El cilindro fue marcado como de baja`
+      await createNotification(session.sub, {
+        type: 'cylinder_scrapped',
+        title: docError ? 'Cilindro dado de baja — documento pendiente' : 'Cilindro dado de baja',
+        message: docError ? `${baseMsg} — documento de planta NO subido, pendiente` : baseMsg,
+        relatedEntityType: 'cylinder',
+        relatedEntityId: parsed.data.cylinderId,
+      })
+    }
+  } catch (e) {
+    console.error('Failed to create notification:', { context: 'receiveFromPlant', error: e })
+  }
+
+  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+
+  return { success: true, cylinderId: parsed.data.cylinderId, docError }
+}
+
+// ─── Bulk operations ───────────────────────────────────────────────
+
+export type BulkSendFormState = {
+  success?: boolean
+  error?: string
+  bulk?: boolean
+  count?: number
+}
+
+export async function bulkSendToPlantAction(
+  _prev: BulkSendFormState | null,
+  formData: FormData,
+): Promise<BulkSendFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No autorizado' }
+
+  const rawIds = formData.get('cylinderIds')
+  if (typeof rawIds !== 'string') return { error: 'Selección inválida' }
+
+  let cylinderIds: string[]
+  try {
+    cylinderIds = JSON.parse(rawIds)
+  } catch {
+    return { error: 'Selección inválida' }
+  }
+
+  // G2: guard against non-array JSON (e.g. "5" parses to a number)
+  if (!Array.isArray(cylinderIds)) {
+    return { error: 'Selección inválida' }
+  }
+
+  // F9: dedupe ids before schema validation
+  cylinderIds = [...new Set(cylinderIds)]
+
+  const parsed = bulkSendToPlantSchema.safeParse({
+    cylinderIds,
+    inspectionId: formData.get('inspectionId'),
+    sentAt: formData.get('sentAt'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  const result = await bulkSendCylindersToPlant({
+    cylinderIds: parsed.data.cylinderIds,
+    inspectionId: parsed.data.inspectionId,
+    sentAt: new Date(parsed.data.sentAt),
+    updatedBy: session.sub,
+  })
+
+  if (!result.success) {
+    // F7: revalidatePath on precondition failure so stale client state refreshes
+    revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+    return { error: result.error }
+  }
+
+  // Single summary notification
+  try {
+    await createNotification(session.sub, {
+      type: 'cylinder_sent_to_plant',
+      title: 'Cilindros enviados a planta',
+      message: `${parsed.data.cylinderIds.length} cilindros enviados a planta para recertificación`,
+      relatedEntityType: 'inspection',
+      relatedEntityId: parsed.data.inspectionId,
+    })
+  } catch (e) {
+    console.error('Failed to create notification:', { context: 'bulkSendToPlant', error: e })
+  }
+
+  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+
+  return { success: true, bulk: true, count: parsed.data.cylinderIds.length }
+}
+
+export type BulkReceiveFormState = {
+  success?: boolean
+  error?: string
+  bulk?: boolean
+  count?: number
+  docError?: boolean
+}
+
+export async function bulkReceiveFromPlantAction(
+  _prev: BulkReceiveFormState | null,
+  formData: FormData,
+): Promise<BulkReceiveFormState> {
+  const session = await getSession()
+  if (!session) return { error: 'No autorizado' }
+
+  const rawIds = formData.get('cylinderIds')
+  if (typeof rawIds !== 'string') return { error: 'Selección inválida' }
+
+  let cylinderIds: string[]
+  try {
+    cylinderIds = JSON.parse(rawIds)
+  } catch {
+    return { error: 'Selección inválida' }
+  }
+
+  // G2: guard against non-array JSON (e.g. "5" parses to a number)
+  if (!Array.isArray(cylinderIds)) {
+    return { error: 'Selección inválida' }
+  }
+
+  // F9: dedupe ids before schema validation
+  cylinderIds = [...new Set(cylinderIds)]
+
+  const parsed = bulkReceiveFromPlantSchema.safeParse({
+    cylinderIds,
+    inspectionId: formData.get('inspectionId'),
+    result: formData.get('result'),
+    receivedAt: formData.get('receivedAt'),
+    recalificationDate: formData.get('recalificationDate'),
+  })
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message }
+  }
+
+  // F8 + G10: Validate plant document (type + magic-byte sniff + size cap)
+  const plantDoc = formData.get('plantDoc') as File
+  if (plantDoc && plantDoc.size > 0) {
+    if (plantDoc.type !== 'application/pdf') {
+      return { error: 'El documento de planta debe ser PDF' }
+    }
+    // G10: magic-byte sniff — reject spoofed MIME
+    if (!(await sniffPdfMagic(plantDoc))) {
+      return { error: 'El documento de planta debe ser un PDF válido' }
+    }
+    if (plantDoc.size > PLANT_DOC_MAX_BYTES) {
+      return { error: 'El documento de planta no puede superar los 20MB' }
+    }
+  }
+
+  // F6: Generate MinIO key BEFORE tx, but upload AFTER tx.
+  let plantDocKey: string | undefined
+
+  if (plantDoc && plantDoc.size > 0) {
+    const timestamp = Date.now()
+    // G8: sanitize the file name before building the MinIO key
+    const safeName = sanitizeFileName(plantDoc.name)
+    // G9: add random component to prevent same-second retry collisions
+    const randomSuffix = crypto.randomUUID().slice(0, 8)
+    plantDocKey = `inspections/${parsed.data.inspectionId}/plant/bulk/${timestamp}-${randomSuffix}-${safeName}`
+  }
+
+  // F6: run the tx FIRST — avoids orphaned MinIO object on tx failure
+  const result = await bulkReceiveCylindersFromPlant({
+    cylinderIds: parsed.data.cylinderIds,
+    inspectionId: parsed.data.inspectionId,
+    result: parsed.data.result,
+    receivedAt: new Date(parsed.data.receivedAt),
+    recalificationDate: parsed.data.recalificationDate || undefined,
+    updatedBy: session.sub,
+  })
+
+  if (!result.success) {
+    // F7: revalidatePath on precondition failure so stale client state refreshes
+    revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+    return { error: result.error }
+  }
+
+  // F6: Upload AFTER successful tx. Insert attachment row only if upload
+  // succeeds. On upload failure, return docError flag for UI warning.
+  let docError = false
+  if (plantDoc && plantDoc.size > 0 && plantDocKey) {
+    try {
+      await putObject(plantDocKey, plantDoc)
+
+      // G6: persist the sanitized name (same safeName used for the MinIO key)
+      // We need to re-derive safeName here since it was declared in the outer
+      // block — use the same sanitizeFileName call for consistency.
+      const safeName = sanitizeFileName(plantDoc.name)
+      // Upload succeeded — now insert the attachment row
+      await db.insert(inspectionAttachments).values({
+        inspectionId: parsed.data.inspectionId,
+        fileName: safeName,
+        minioKey: plantDocKey,
+        fileType: plantDoc.type,
+        fileSize: plantDoc.size,
+        category: 'plant',
+      })
+    } catch (e) {
+      console.error('Error uploading plant document:', {
+        inspectionId: parsed.data.inspectionId,
+        cylinderIds: parsed.data.cylinderIds,
+        error: e,
+      })
+      docError = true
+    }
+  }
+
+  // G4(b): notification must be honest when docError is set
+  try {
+    const verb = parsed.data.result === 'bueno' ? 'recertificados' : 'dados de baja'
+    const baseMsg = `${parsed.data.cylinderIds.length} cilindros ${verb}`
+    await createNotification(session.sub, {
+      type: parsed.data.result === 'bueno' ? 'cylinder_recertified' : 'cylinder_scrapped',
+      title: docError ? 'Cilindros recibidos — documento pendiente' : 'Cilindros recibidos de planta',
+      message: docError ? `${baseMsg} — documento de planta NO subido, pendiente` : baseMsg,
+      relatedEntityType: 'inspection',
+      relatedEntityId: parsed.data.inspectionId,
+    })
+  } catch (e) {
+    console.error('Failed to create notification:', { context: 'bulkReceiveFromPlant', error: e })
+  }
+
+  revalidatePath(`/inspections/${parsed.data.inspectionId}`)
+
+  return { success: true, bulk: true, count: parsed.data.cylinderIds.length, docError }
 }

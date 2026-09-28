@@ -32,6 +32,9 @@ jobs:
       - name: Verificar errores de Linter (ESLint)
         run: pnpm run lint
 
+      - name: Ejecutar suite de tests (Vitest)
+        run: pnpm -F front test --run
+
       - name: Validar compilación de Next.js (Build Test)
         run: pnpm run build
         env:

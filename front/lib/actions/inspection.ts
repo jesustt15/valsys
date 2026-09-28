@@ -15,7 +15,7 @@ import { getNonCompliantAnswers, getPostMountAttachments, cycleInspectionAnswer,
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
 import { canIssueCertificate } from '@/lib/services/inspection-gate'
 import { scheduleAppointmentSchema } from '@/lib/validations/inspection'
-import { autoTransitionCylinders } from '@/lib/services/cylinder'
+// autoTransitionCylinders removed — cylinder transitions are now explicit via sendToPlantAction/receiveFromPlantAction
 
 export type InspectionFormState = {
   success?: boolean
@@ -155,7 +155,7 @@ export async function createInspectionAction(
             initialSerial: String(c.initialSerial),
             manufactureDate: c.manufactureDate ? String(c.manufactureDate) : null,
             location: String(c.location),
-            status: 'instalado' as const,
+            status: 'activo' as const,
             updatedBy: session.sub,
           }))
         )
@@ -165,13 +165,7 @@ export async function createInspectionAction(
       // Non-fatal, let it continue
     }
 
-    // Auto-transition cylinders instalado → desmontado
-    try {
-      await autoTransitionCylinders(vid, 'inspeccion_inicial')
-    } catch (e) {
-      console.error('Failed to auto-transition cylinders after creation:', e)
-      // Non-fatal — cylinder status can be updated manually
-    }
+    // Cylinder transitions are now explicit via sendToPlantAction/receiveFromPlantAction
   }
 
   // Upload photos (graceful failure — inspection + answers already persisted)
@@ -238,7 +232,7 @@ export async function updateInspectionStatusAction(
       .where(eq(inspections.id, id))
       .limit(1)
 
-    // Gate: block transition to 'cita' if any cylinders are still 'en_planta'
+    // Gate: block transition to 'cita' if any cylinders are still 'en_certificacion'
     if (parsed.data === 'cita' && currentInspection?.vehicleId) {
       const pendingCylinders = await db
         .select({ id: gncCylinders.id })
@@ -246,7 +240,7 @@ export async function updateInspectionStatusAction(
         .where(
           and(
             eq(gncCylinders.vehicleId, currentInspection.vehicleId),
-            eq(gncCylinders.status, 'en_planta')
+            eq(gncCylinders.status, 'en_certificacion')
           )
         )
         .limit(1)
@@ -260,17 +254,7 @@ export async function updateInspectionStatusAction(
       .set({ status: parsed.data, updatedAt: new Date() })
       .where(eq(inspections.id, id))
 
-    // Auto-transition cylinders based on status change
-    if (currentInspection?.vehicleId) {
-      try {
-        if (currentInspection.status === 'inspeccion_inicial' && (parsed.data === 'recalificacion' || parsed.data === 'por_programar')) {
-          await autoTransitionCylinders(currentInspection.vehicleId, 'recalificacion')
-        }
-      } catch (e) {
-        console.error('Failed to auto-transition cylinders on status update:', e)
-        // Non-fatal — status already updated
-      }
-    }
+    // Cylinder transitions are now explicit via sendToPlantAction/receiveFromPlantAction
 
     revalidatePath(`/inspections/${id}`)
     revalidatePath('/inspections')
@@ -734,7 +718,7 @@ export async function createUnifiedInspectionAction(
             initialSerial: c.initialSerial,
             manufactureDate: c.manufactureDate || null,
             location: c.location,
-            status: data.branch === 'montados' ? ('instalado' as const) : ('desmontado' as const),
+            status: 'activo' as const,
             updatedBy: session.sub,
           }))
         )
@@ -743,15 +727,7 @@ export async function createUnifiedInspectionAction(
       return { inspectionId, vehicleId, ownerId }
     })
 
-    // After transaction: auto-transition cylinders to desmontado
-    // For montados: cylinders are created as 'instalado' → needs to go to 'desmontado'
-    // For desmontados: cylinders are created as 'en_planta'/'condenado' → auto-transition is no-op
-    try {
-      await autoTransitionCylinders(result.vehicleId, 'inspeccion_inicial')
-    } catch (e) {
-      console.error('Failed to auto-transition cylinders:', e)
-      // Non-fatal — cylinder status can be updated manually
-    }
+    // Cylinder transitions are now explicit via sendToPlantAction/receiveFromPlantAction
 
     // After transaction: upload vehicle documents (if any)
     const cedulaFile = formData.get('cedula') as File | null
@@ -912,15 +888,7 @@ export async function markAsScheduledAction(
         .where(eq(inspections.id, inspectionId))
     })
 
-    // Auto-transition pendiente_reinstalacion → reinstalado after certificate issuance
-    if (inspection.vehicleId) {
-      try {
-        await autoTransitionCylinders(inspection.vehicleId, 'certificado')
-      } catch (e) {
-        console.error('Failed to auto-transition cylinders to reinstalado:', e)
-        // Non-fatal — cylinder status can be updated manually
-      }
-    }
+    // Cylinder transitions are now explicit via sendToPlantAction/receiveFromPlantAction
   } catch (e) {
     console.error('Error marking inspection as scheduled:', e)
     return { error: 'Error al emitir el certificado. Intente de nuevo.' }

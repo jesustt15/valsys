@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { RecentInspectionsList } from '@/components/dashboard/recent-inspections-list'
 import { PendingAlerts } from '@/components/dashboard/pending-alerts'
+import { PlantReminderBanner } from '@/components/dashboard/plant-reminder-banner'
 import {
   countInspectionsByStatus,
   countInspectionsToday,
@@ -19,6 +20,7 @@ import {
 import { getPendingAlerts } from '@/lib/services/inspection-pending'
 import { countUtpInspectionsByStatus } from '@/lib/services/utp'
 import { countVehicles } from '@/lib/services/vehicle'
+import { ensurePlantReminders, getPlantWaitingInspections } from '@/lib/services/reminder'
 
 const quickActions = [
   { href: '/inspections/new', label: 'Nueva GNC', icon: Plus, color: 'text-primary' as const },
@@ -35,15 +37,20 @@ export default async function DashboardPage() {
   let utpCounts = { total: 0, inspeccion_inicial: 0, standby: 0, certificado: 0 }
   let recentInspections: Awaited<ReturnType<typeof getRecentInspectionsWithOwner>> = []
   let pendingAlerts: Awaited<ReturnType<typeof getPendingAlerts>> = []
+  let plantWaiting: Awaited<ReturnType<typeof getPlantWaitingInspections>> = []
 
   try {
-    const [sc, tc, vc, uc, ri, pa] = await Promise.allSettled([
+    // Generate plant reminders as a side-effect (idempotent)
+    await ensurePlantReminders()
+
+    const [sc, tc, vc, uc, ri, pa, pw] = await Promise.allSettled([
       countInspectionsByStatus(),
       countInspectionsToday(),
       countVehicles(),
       countUtpInspectionsByStatus(),
       getRecentInspectionsWithOwner(5),
       getPendingAlerts(10),
+      getPlantWaitingInspections(),
     ])
 
     if (sc.status === 'fulfilled') statusCounts = sc.value
@@ -52,6 +59,7 @@ export default async function DashboardPage() {
     if (uc.status === 'fulfilled') utpCounts = uc.value
     if (ri.status === 'fulfilled') recentInspections = ri.value
     if (pa.status === 'fulfilled') pendingAlerts = pa.value
+    if (pw.status === 'fulfilled') plantWaiting = pw.value
   } catch {
     // All sections fall back to zeros/empty — page stays alive
   }
@@ -107,6 +115,9 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Plant Reminder Banner */}
+      <PlantReminderBanner inspections={plantWaiting} />
 
       {/* Stats */}
       <DashboardStats

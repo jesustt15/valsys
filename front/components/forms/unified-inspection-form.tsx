@@ -69,6 +69,11 @@ import {
 import type { OwnerRecord } from "@/lib/services/owner";
 import type { VehicleRecord } from "@/lib/services/vehicle";
 
+// Helper to generate unique IDs without relying on crypto API
+const generateUniqueId = () => {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+};
+
 interface UnifiedInspectionFormProps {
   owners: OwnerRecord[];
   vehicles: VehicleRecord[];
@@ -188,7 +193,7 @@ interface CylinderEntry {
   initialSerial: string;
   manufactureDate: string;
   location: string;
-  status: "desmontado";
+  status: "activo";
 }
 
 // ─── FIX 7: Stable step IDs ──────────────────────────────────────
@@ -503,7 +508,7 @@ export function UnifiedInspectionForm({
       setSignature(draft.signature ?? "");
       setCylinders(draft.cylinders ?? []);
       // FIX 10: regenerate stable IDs for restored cylinders
-      setCylinderIds((draft.cylinders ?? []).map(() => crypto.randomUUID()));
+      setCylinderIds((draft.cylinders ?? []).map(() => generateUniqueId()));
       // FIX 9: restore step, clamped to valid range for the restored branch
       const restoredSteps = (draft.branch ?? "montados") === "montados" ? MONTADOS_STEPS : DESMONTADOS_STEPS;
       const restoredStep = draft.step ?? 0;
@@ -706,7 +711,7 @@ export function UnifiedInspectionForm({
 
   // ── FIX 10: Cylinder Handlers with stable IDs ───────────────
   const addCylinder = () => {
-    setCylinderIds((prev) => [...prev, crypto.randomUUID()]);
+    setCylinderIds((prev) => [...prev, generateUniqueId()]);
     setCylinders((prev) => [
       ...prev,
       {
@@ -715,7 +720,7 @@ export function UnifiedInspectionForm({
         initialSerial: "",
         manufactureDate: "",
         location: "",
-        status: "desmontado" as const,
+        status: "activo" as const,
       },
     ]);
   };

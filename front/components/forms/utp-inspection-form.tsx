@@ -201,7 +201,7 @@ interface CylinderEntry {
   initialSerial: string;
   manufactureDate: string;
   location: string;
-  status: "instalado";
+  status: "activo";
 }
 
 // ─── Main Component ───────────────────────────────────────────────
@@ -797,7 +797,7 @@ export function UtpInspectionForm({
         initialSerial: "",
         manufactureDate: "",
         location: "",
-        status: "instalado",
+        status: "activo",
       },
     ]);
   };

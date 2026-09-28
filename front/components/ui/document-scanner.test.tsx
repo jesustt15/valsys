@@ -86,30 +86,20 @@ describe('DocumentScanner — error & gallery fallback', () => {
     expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument()
   })
 
-  it('shows gallery fallback after 2 errors on mobile (task 4.2)', async () => {
+  it('shows gallery fallback immediately on first camera error on mobile (task 4.2)', async () => {
     // Set mobile
     Object.defineProperty(navigator, 'maxTouchPoints', {
       value: 5, configurable: true, writable: true,
     })
 
-    const { rerender } = render(<DocumentScanner {...defaultProps} />)
+    render(<DocumentScanner {...defaultProps} />)
 
-    // First error — only retry, no gallery
+    // On mobile, the gallery fallback appears on the FIRST camera error
+    // (graceful degradation — mobile permission errors are often permanent)
     await waitFor(() => {
       expect(screen.getByText(/No se pudo acceder a la cámara/)).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /subir desde galería/i })).not.toBeInTheDocument()
-
-    // Click retry → handleRetry resets cameraError, increments webcamKey
-    // The mock webcam fires onUserMediaError again (second error)
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /reintentar/i }))
-    })
-
-    // Gallery button should appear after second error (mobile)
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /subir desde galería/i })).toBeInTheDocument()
-    })
+    expect(screen.getByRole('button', { name: /subir desde galería/i })).toBeInTheDocument()
   })
 
   it('gallery button is hidden on desktop even after multiple errors', async () => {
@@ -152,16 +142,10 @@ describe('DocumentScanner — gallery file select (task 4.3)', () => {
   it('transitions to adjust step after selecting a gallery image', async () => {
     render(<DocumentScanner {...defaultProps} />)
 
-    // First error
+    // On mobile, gallery fallback appears on FIRST camera error
     await waitFor(() => {
       expect(screen.getByText(/No se pudo acceder a la cámara/)).toBeInTheDocument()
     })
-
-    // Retry → second error → gallery button appears
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /reintentar/i }))
-    })
-
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /subir desde galería/i })).toBeInTheDocument()
     })

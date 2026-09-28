@@ -56,8 +56,8 @@ export function PendingBadge({
 export function getPendingTitle(pending: PendingItems): string {
   const parts: string[] = []
   if (pending.nonCompliantCount > 0) parts.push(`${pending.nonCompliantCount} ítem(s) no conforme(s)`)
-  if (pending.cylindersInPlant > 0) parts.push(`${pending.cylindersInPlant} cilindro(s) en planta`)
-  if (pending.cylindersPendingReinstall > 0) parts.push(`${pending.cylindersPendingReinstall} cilindro(s) pendiente(s) de reinstalación`)
+  if (pending.cylindersInCertification > 0) parts.push(`${pending.cylindersInCertification} cilindro(s) en certificación`)
+  if (pending.cylindersRecertified > 0) parts.push(`${pending.cylindersRecertified} cilindro(s) recertificado(s)`)
   if (!pending.hasSignature) parts.push('Sin firma del titular')
   if (!pending.hasPostMountPhotos) parts.push('Sin fotos post-montaje')
   if (!pending.hasCertificate) parts.push('Sin certificado')

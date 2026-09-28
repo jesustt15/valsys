@@ -30,7 +30,7 @@ async function main() {
   const db = drizzle(pool)
 
   const statusesToCheck = ['cita', 'certificado'] as const
-  const blockedStatuses = ['en_planta', 'pendiente_reinstalacion', 'desmontado'] as const
+  const blockedStatuses = ['en_certificacion'] as const
 
   console.log(`🔍 Buscando inspecciones bloqueadas en estados: ${statusesToCheck.join(', ')}`)
 
@@ -119,10 +119,9 @@ async function main() {
 
   if (!apply) {
     console.log('🧹 Modo dry-run: no se cambió nada.')
-    console.log('Ejecutá con --apply para marcar cilindros en_planta/desmontado → pendiente_reinstalacion')
-    console.log('Para cilindros en pendiente_reinstalacion → reinstalado')
+    console.log('Ejecutá con --apply para marcar cilindros en_certificacion → activo')
     console.log('')
-    console.log('⚠️  Si un cilindro específico debe ir a "condenado", hacelo manualmente desde la UI.')
+    console.log('⚠️  Si un cilindro específico debe ir a "de_baja", hacelo manualmente desde la UI.')
     await pool.end()
     return
   }
@@ -131,10 +130,8 @@ async function main() {
   for (const issue of issues) {
     let targetStatus: string
 
-    if (issue.cylinderStatus === 'en_planta' || issue.cylinderStatus === 'desmontado') {
-      targetStatus = 'pendiente_reinstalacion'
-    } else if (issue.cylinderStatus === 'pendiente_reinstalacion') {
-      targetStatus = 'reinstalado'
+    if (issue.cylinderStatus === 'en_certificacion') {
+      targetStatus = 'activo'
     } else {
       console.log(`⏭️  Saltando cilindro ${issue.cylinderId} (estado ${issue.cylinderStatus} no tiene transición automática)`)
       continue

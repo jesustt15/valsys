@@ -9,10 +9,10 @@ export interface PendingItems {
   nonCompliantCount: number
   /** How many checklist items are still unanswered (null) */
   unansweredCount: number
-  /** Cylinders still in "en_planta" status (waiting for recertification) */
-  cylindersInPlant: number
-  /** Cylinders in "pendiente_reinstalacion" status (awaiting remount) */
-  cylindersPendingReinstall: number
+  /** Cylinders still in "en_certificacion" status (waiting for plant result) */
+  cylindersInCertification: number
+  /** Cylinders received as "bueno" (back on vehicle, awaiting final check) */
+  cylindersRecertified: number
   /** Whether the owner's signature has been captured */
   hasSignature: boolean
   /** Whether post-mount photos exist */
@@ -122,9 +122,9 @@ export async function getPendingSummaries(
     .map((r) => r.vehicleId)
     .filter((v): v is string => v !== null)
 
-  // 6. Cylinders en_planta per vehicle
+  // 6. Cylinders en_certificacion per vehicle
   const cylinderMap = new Map<string, number>()
-  // 6b. Cylinders pendiente_reinstalacion per vehicle
+  // 6b. Cylinders received from plant (bueno) per vehicle
   const cylinderReinstallMap = new Map<string, number>()
   if (vehicleIds.length > 0) {
     const cylRows = await db
@@ -136,7 +136,7 @@ export async function getPendingSummaries(
       .where(
         and(
           inArray(gncCylinders.vehicleId, vehicleIds),
-          eq(gncCylinders.status, 'en_planta')
+          eq(gncCylinders.status, 'en_certificacion')
         )
       )
       .groupBy(gncCylinders.vehicleId)
@@ -147,7 +147,9 @@ export async function getPendingSummaries(
       }
     }
 
-    const reinstallRows = await db
+    // Cylinders that returned from plant as bueno (now activo but with recalification data)
+    // We count cylinders that were received from plant by checking they have recalification data
+    const recertRows = await db
       .select({
         vehicleId: gncCylinders.vehicleId,
         count: sql<number>`count(*)`,
@@ -156,12 +158,13 @@ export async function getPendingSummaries(
       .where(
         and(
           inArray(gncCylinders.vehicleId, vehicleIds),
-          eq(gncCylinders.status, 'pendiente_reinstalacion')
+          eq(gncCylinders.status, 'activo'),
+          isNull(gncCylinders.recalificationDate)
         )
       )
       .groupBy(gncCylinders.vehicleId)
 
-    for (const row of reinstallRows) {
+    for (const row of recertRows) {
       if (row.vehicleId) {
         cylinderReinstallMap.set(row.vehicleId, Number(row.count))
       }
@@ -203,8 +206,8 @@ export async function getPendingSummaries(
     result.set(id, {
       nonCompliantCount: nc,
       unansweredCount: ua,
-      cylindersInPlant: cyls,
-      cylindersPendingReinstall: cylsReinstall,
+      cylindersInCertification: cyls,
+      cylindersRecertified: cylsReinstall,
       hasSignature: hasSig,
       hasPostMountPhotos: photos > 0,
       hasCertificate: hasCert,

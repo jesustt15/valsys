@@ -22,7 +22,7 @@ export function CertificateCard({
   plantDocUrl,
 }: CertificateCardProps) {
   // Status gating: hide for inspeccion_inicial and recalificacion
-  // (plant documents are handled by CylinderFatePanel during recalificacion)
+  // (plant documents are handled by CylinderManager receiveFromPlant action)
   if (inspectionStatus === 'inspeccion_inicial' || inspectionStatus === 'recalificacion') {
     return null
   }

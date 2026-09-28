@@ -60,8 +60,8 @@ export function InspectionPendingSummary({ pending, status }: Props) {
       blocking: status === 'recalificacion' || status === 'por_programar',
     },
     {
-      label: 'Cilindros recertificados',
-      ok: pending.cylindersInPlant === 0,
+      label: 'Cilindros en certificación',
+      ok: pending.cylindersInCertification === 0,
       blocking: false,
     },
     {

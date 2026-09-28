@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bell, Truck, AlertTriangle, CheckCircle, XCircle, Loader2, ExternalLink } from 'lucide-react'
+import { Bell, Truck, AlertTriangle, CheckCircle, XCircle, Loader2, ExternalLink, CalendarClock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import {
   fetchNotificationsAction,
@@ -33,6 +33,7 @@ const typeIcons: Record<NotificationType, typeof Truck> = {
   cylinder_scrapped: XCircle,
   inspection_pending_items: AlertTriangle,
   inspection_non_compliant: AlertTriangle,
+  plant_reminder: CalendarClock,
 }
 
 const typeIconColors: Record<NotificationType, string> = {
@@ -41,6 +42,7 @@ const typeIconColors: Record<NotificationType, string> = {
   cylinder_scrapped: 'text-red-500',
   inspection_pending_items: 'text-amber-500',
   inspection_non_compliant: 'text-red-500',
+  plant_reminder: 'text-amber-500',
 }
 
 // ─── Props ────────────────────────────────────────────────────
@@ -110,6 +112,10 @@ export function NotificationPanel({ initialUnreadCount }: NotificationPanelProps
     [router],
   )
 
+  const hasUnreadReminders = notifications.some(
+    (n) => !n.readAt && n.type === 'plant_reminder',
+  )
+
   return (
     <div className="relative">
       {/* Bell Button */}
@@ -117,7 +123,11 @@ export function NotificationPanel({ initialUnreadCount }: NotificationPanelProps
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={openDropdown}
-        className="relative p-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors"
+        className={`relative p-2.5 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl transition-colors ${
+          hasUnreadReminders
+            ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-background animate-pulse'
+            : ''
+        }`}
         aria-label="Notificaciones"
       >
         <Bell className="w-5 h-5" />

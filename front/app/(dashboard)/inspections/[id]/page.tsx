@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { LazyImage } from '@/components/inspections/lazy-image'
 import { getInspectionById } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
-import { getCylindersByVehicleId, getCylindersByInspectionId } from '@/lib/services/cylinder'
+import { getCylindersByVehicleId } from '@/lib/services/cylinder'
 import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { getObjectUrl } from '@/lib/minio'
 import { InspectionPendingSummary } from '@/components/inspections/inspection-pending-summary'
@@ -11,7 +11,7 @@ import { InspectionStatusUpdater } from '@/components/inspections/inspection-sta
 import { AppointmentScheduler } from '@/components/inspections/appointment-scheduler'
 import { PostMountPhotos } from '@/components/inspections/post-mount-photos'
 import { CylinderManager } from '@/components/cylinders/cylinder-manager'
-import { CylinderFatePanel } from '@/components/cylinders/cylinder-fate-panel'
+
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { CertificateCard } from '@/components/certificates/certificate-card'
@@ -41,11 +41,6 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
   }
 
   const cylinders = await getCylindersByVehicleId(inspection.vehicle.id)
-  const recertCylinders = await getCylindersByInspectionId(resolvedParams.id)
-
-  const showFatePanel = inspection.status != null
-    && ['inspeccion_inicial', 'recalificacion', 'por_programar', 'cita'].includes(inspection.status)
-    && recertCylinders.some(c => c.status === 'en_planta')
 
   const attachmentsWithUrls = inspection.attachments.map((att) => ({
     ...att,
@@ -256,25 +251,13 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
             </Card>
           )}
 
-          {/* Cylinder Fate Panel */}
-          {showFatePanel && (
-            <CylinderFatePanel
-              inspectionId={resolvedParams.id}
-              cylinders={recertCylinders.map((c) => ({
-                ...c,
-                status: c.status ?? 'instalado',
-                recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null,
-              }))}
-            />
-          )}
-
           {/* Cylinder Manager */}
           <CylinderManager
             inspectionId={resolvedParams.id}
             vehicleId={inspection.vehicle.id}
             cylinders={cylinders.map((c) => ({
               ...c,
-              status: c.status ?? 'instalado',
+              status: c.status ?? 'activo',
               recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null,
             }))}
           />

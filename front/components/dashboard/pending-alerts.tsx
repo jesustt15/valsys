@@ -92,16 +92,16 @@ export function PendingAlerts({ alerts }: Props) {
                       {isBlocking && (
                         <p className="text-[11px] text-status-danger">
                           {alert.pending.nonCompliantCount} ítem(s) no conforme(s)
-                          {alert.pending.cylindersInPlant > 0 &&
-                            ` · ${alert.pending.cylindersInPlant} cilindro(s)`}
+                          {alert.pending.cylindersInCertification > 0 &&
+                            ` · ${alert.pending.cylindersInCertification} cilindro(s)`}
                         </p>
                       )}
                       {!isBlocking && alert.pending.totalWarnings > 0 && (
                         <p className="text-[11px] text-status-warning">
-                          {alert.pending.cylindersInPlant > 0 &&
-                            `${alert.pending.cylindersInPlant} cilindro(s) en planta`}
+                          {alert.pending.cylindersInCertification > 0 &&
+                            `${alert.pending.cylindersInCertification} cilindro(s) en certificación`}
                           {!alert.pending.hasPostMountPhotos &&
-                            `${alert.pending.cylindersInPlant > 0 ? ' · ' : ''}Sin fotos post-montaje`}
+                            `${alert.pending.cylindersInCertification > 0 ? ' · ' : ''}Sin fotos post-montaje`}
                         </p>
                       )}
                       {!isBlocking && alert.pending.totalWarnings === 0 && (

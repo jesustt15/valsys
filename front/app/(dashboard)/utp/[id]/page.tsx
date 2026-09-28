@@ -254,7 +254,7 @@ export default async function UtpDetailPage({ params }: PageProps) {
                 <div key={cyl.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-medium">{cyl.brand} — {cyl.capacity}L</span>
-                    <Badge variant="info" className="text-xs shrink-0">{cyl.status ?? 'instalado'}</Badge>
+                    <Badge variant={cyl.status === 'activo' ? 'success' : cyl.status === 'en_certificacion' ? 'warning' : cyl.status === 'de_baja' ? 'destructive' : 'secondary'} className="text-xs shrink-0">{cyl.status === 'activo' ? 'Activo' : cyl.status === 'en_certificacion' ? 'En certificación' : cyl.status === 'de_baja' ? 'De baja' : cyl.status ?? 'Activo'}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-muted-foreground">
                     <div className="flex justify-between gap-2">

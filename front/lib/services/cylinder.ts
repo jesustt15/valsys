@@ -1,6 +1,20 @@
 import { db } from '@/lib/db'
 import { gncCylinders, inspections } from '@/db/schema'
-import { eq, and, inArray, sql } from 'drizzle-orm'
+import { eq, and, sql, inArray } from 'drizzle-orm'
+
+// ─── Business error sentinel (F11) ──────────────────────────────────────────
+
+/**
+ * Thrown for precondition / business-rule violations whose messages are safe
+ * to surface to the operator. Unexpected errors (DB down, network, etc.) are
+ * NOT BusinessErrors — they get a generic message and full context is logged.
+ */
+export class BusinessError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'BusinessError'
+  }
+}
 
 export async function getCylindersByVehicleId(vehicleId: string) {
   return await db
@@ -22,108 +36,88 @@ export async function getCylindersByInspectionId(inspectionId: string) {
     return []
   }
 
-  // Step 2: select cylinders ordered with en_planta first, then pendiente_reinstalacion, then others
+  // Step 2: select cylinders ordered with en_certificacion first, then others
   return await db
     .select()
     .from(gncCylinders)
     .where(eq(gncCylinders.vehicleId, inspection.vehicleId))
     .orderBy(
       sql`CASE 
-        WHEN ${gncCylinders.status} = 'en_planta' THEN 0 
-        WHEN ${gncCylinders.status} = 'pendiente_reinstalacion' THEN 1 
-        ELSE 2 
+        WHEN ${gncCylinders.status} = 'en_certificacion' THEN 0 
+        ELSE 1 
       END`,
       gncCylinders.createdAt,
     )
 }
 
-// ─── Auto-transition cylinders based on inspection status ──────────
-
-type CylinderStatus = typeof gncCylinders.status.enumValues[number]
-
-export interface AutoTransitionResult {
-  success: boolean
-  transitioned: number
-  error?: string
-}
+// ─── Shared ownership/inspection guards (pure, exported for tests) ─────
 
 /**
- * Automatically transitions cylinder statuses based on inspection workflow.
- *
- * Rules:
- * - inspeccion_inicial creation: all 'instalado' cylinders → 'desmontado'
- * - inspeccion_inicial → recalificacion: all 'desmontado' cylinders → 'en_planta'
- * - cita → certificado: all 'pendiente_reinstalacion' cylinders → 'reinstalado'
+ * Pure precondition check: asserts every cylinder belongs to the inspection's
+ * vehicle and has the expected status. Throws BusinessError on violation.
+ * FAIL CLOSED: null vehicleId on the inspection rejects (null===null must not
+ * pass — mirrors the bulk-service guard).
  */
-export async function autoTransitionCylinders(
-  vehicleId: string,
-  triggerStatus: 'inspeccion_inicial' | 'recalificacion' | 'certificado',
-): Promise<AutoTransitionResult> {
-  try {
-    let fromStatus: CylinderStatus
-    let toStatus: CylinderStatus
-
-    switch (triggerStatus) {
-      case 'inspeccion_inicial':
-        fromStatus = 'instalado'
-        toStatus = 'desmontado'
-        break
-      case 'recalificacion':
-        fromStatus = 'desmontado'
-        toStatus = 'en_planta'
-        break
-      case 'certificado':
-        fromStatus = 'pendiente_reinstalacion'
-        toStatus = 'reinstalado'
-        break
-      default:
-        return { success: false, transitioned: 0, error: `Unknown trigger status: ${triggerStatus}` }
-    }
-
-    const result = await db
-      .update(gncCylinders)
-      .set({ status: toStatus, updatedAt: new Date() })
-      .where(
-        and(
-          eq(gncCylinders.vehicleId, vehicleId),
-          eq(gncCylinders.status, fromStatus),
-        ),
+export function assertCylinderOwnership(
+  cylinders: ReadonlyArray<{ vehicleId: string | null; status: string | null; initialSerial: string }>,
+  inspection: { vehicleId: string | null },
+  expectedStatus: string,
+  statusErrorLabel: string,
+): void {
+  // G1: fail closed when inspection has no vehicle
+  if (!inspection.vehicleId) {
+    throw new BusinessError('La inspección no tiene vehículo asociado')
+  }
+  for (const c of cylinders) {
+    if (c.vehicleId !== inspection.vehicleId) {
+      throw new BusinessError(
+        `El cilindro serial ${c.initialSerial} no pertenece a este vehículo`,
       )
-
-    return { success: true, transitioned: result.rowCount ?? 0 }
-  } catch (e) {
-    console.error('Error in autoTransitionCylinders:', e)
-    return { success: false, transitioned: 0, error: 'Error transitioning cylinders' }
+    }
+    if (c.status !== expectedStatus) {
+      const statusLabel = c.status ?? 'sin estado registrado'
+      throw new BusinessError(
+        `El cilindro serial ${c.initialSerial} ${statusErrorLabel} (estado actual: ${statusLabel})`,
+      )
+    }
   }
 }
 
-// ─── Decide cylinder fate (recertification at por_programar) ──────
+// ─── Send cylinder to plant ────────────────────────────────────────
 
-export interface DecideCylinderFateInput {
+export interface SendToPlantInput {
   cylinderId: string
   inspectionId: string
-  status: 'pendiente_reinstalacion' | 'condenado'
-  actualSerial?: string
-  recalificationDate?: string
+  sentAt: Date
   updatedBy: string
 }
 
-export interface DecideCylinderFateResult {
-  success: boolean
-  error?: string
-}
-
 /**
- * Handles the recertification decision for a cylinder at por_programar status.
- * Updates status, serial, and recalification date in one operation.
+ * Sends a cylinder to the certification plant.
+ * Cylinder must be 'activo' AND belong to the inspection's vehicle.
+ * Transitions to 'en_certificacion'.
+ * The UPDATE WHERE clause re-asserts the expected status to prevent races.
  */
-export async function decideCylinderFate(
-  input: DecideCylinderFateInput,
-): Promise<DecideCylinderFateResult> {
+export async function sendCylinderToPlant(input: SendToPlantInput): Promise<{ success: boolean; error?: string }> {
   try {
-    // Verify cylinder is in en_planta
+    // G1: load inspection for ownership check
+    const [inspection] = await db
+      .select({ vehicleId: inspections.vehicleId })
+      .from(inspections)
+      .where(eq(inspections.id, input.inspectionId))
+      .limit(1)
+
+    if (!inspection) {
+      return { success: false, error: 'Inspección no encontrada' }
+    }
+
+    // G1: load cylinder with vehicleId + initialSerial for guard
     const [cylinder] = await db
-      .select({ status: gncCylinders.status })
+      .select({
+        status: gncCylinders.status,
+        vehicleId: gncCylinders.vehicleId,
+        initialSerial: gncCylinders.initialSerial,
+      })
       .from(gncCylinders)
       .where(eq(gncCylinders.id, input.cylinderId))
       .limit(1)
@@ -132,25 +126,146 @@ export async function decideCylinderFate(
       return { success: false, error: 'Cilindro no encontrado' }
     }
 
-    if (cylinder.status !== 'en_planta') {
-      return { success: false, error: `Solo se pueden decidir cilindros en 'en_planta', actual: ${cylinder.status}` }
+    // G1: ownership + status guard (fail closed on null vehicleId)
+    try {
+      assertCylinderOwnership(
+        [cylinder],
+        inspection,
+        'activo',
+        'no está activo',
+      )
+    } catch (e) {
+      if (e instanceof BusinessError) {
+        return { success: false, error: e.message }
+      }
+      throw e
     }
 
-    await db
+    // F4: status-conditional UPDATE — only transitions if still 'activo'
+    const [updated] = await db
       .update(gncCylinders)
       .set({
-        status: input.status,
-        actualSerial: input.actualSerial || null,
-        recalificationDate: input.recalificationDate || null,
+        status: 'en_certificacion',
         updatedBy: input.updatedBy,
-        updatedAt: new Date(),
+        updatedAt: input.sentAt,
       })
-      .where(eq(gncCylinders.id, input.cylinderId))
+      .where(and(
+        eq(gncCylinders.id, input.cylinderId),
+        eq(gncCylinders.status, 'activo'),
+      ))
+      .returning({ id: gncCylinders.id })
+
+    if (!updated) {
+      return { success: false, error: 'El estado del cilindro cambió. Reintente.' }
+    }
 
     return { success: true }
   } catch (e) {
-    console.error('Error in decideCylinderFate:', e)
-    return { success: false, error: 'Error al decidir el destino del cilindro' }
+    if (e instanceof BusinessError) {
+      return { success: false, error: e.message }
+    }
+    console.error('Error in sendCylinderToPlant:', { cylinderId: input.cylinderId, inspectionId: input.inspectionId, error: e })
+    return { success: false, error: 'Error al enviar el cilindro a planta' }
+  }
+}
+
+// ─── Receive cylinder from plant ───────────────────────────────────
+
+export interface ReceiveFromPlantInput {
+  cylinderId: string
+  inspectionId: string
+  result: 'bueno' | 'malo'
+  receivedAt: Date
+  actualSerial?: string
+  recalificationDate?: string
+  updatedBy: string
+}
+
+/**
+ * Receives a cylinder back from the certification plant.
+ * Cylinder must be 'en_certificacion'.
+ * - 'bueno': transitions to 'activo', sets actualSerial and recalificationDate
+ * - 'malo': transitions to 'de_baja'
+ * The UPDATE WHERE clause re-asserts the expected status to prevent races.
+ */
+export async function receiveCylinderFromPlant(input: ReceiveFromPlantInput): Promise<{ success: boolean; error?: string }> {
+  try {
+    // G1: load inspection for ownership check
+    const [inspection] = await db
+      .select({ vehicleId: inspections.vehicleId })
+      .from(inspections)
+      .where(eq(inspections.id, input.inspectionId))
+      .limit(1)
+
+    if (!inspection) {
+      return { success: false, error: 'Inspección no encontrada' }
+    }
+
+    // G1: load cylinder with vehicleId + initialSerial for guard
+    const [cylinder] = await db
+      .select({
+        status: gncCylinders.status,
+        vehicleId: gncCylinders.vehicleId,
+        initialSerial: gncCylinders.initialSerial,
+      })
+      .from(gncCylinders)
+      .where(eq(gncCylinders.id, input.cylinderId))
+      .limit(1)
+
+    if (!cylinder) {
+      return { success: false, error: 'Cilindro no encontrado' }
+    }
+
+    // G1: ownership + status guard (fail closed on null vehicleId)
+    try {
+      assertCylinderOwnership(
+        [cylinder],
+        inspection,
+        'en_certificacion',
+        'no está en certificación',
+      )
+    } catch (e) {
+      if (e instanceof BusinessError) {
+        return { success: false, error: e.message }
+      }
+      throw e
+    }
+
+    const newStatus = input.result === 'bueno' ? 'activo' : 'de_baja'
+
+    const updateData: Record<string, unknown> = {
+      status: newStatus,
+      updatedBy: input.updatedBy,
+      updatedAt: input.receivedAt,
+    }
+
+    if (input.result === 'bueno') {
+      if (input.actualSerial) {
+        updateData.actualSerial = input.actualSerial
+      }
+      if (input.recalificationDate) {
+        updateData.recalificationDate = input.recalificationDate
+      }
+    }
+
+    // F4: status-conditional UPDATE — only transitions if still 'en_certificacion'
+    const [updated] = await db
+      .update(gncCylinders)
+      .set(updateData)
+      .where(and(
+        eq(gncCylinders.id, input.cylinderId),
+        eq(gncCylinders.status, 'en_certificacion'),
+      ))
+      .returning({ id: gncCylinders.id })
+
+    if (!updated) {
+      return { success: false, error: 'El estado del cilindro cambió. Reintente.' }
+    }
+
+    return { success: true }
+  } catch (e) {
+    console.error('Error in receiveCylinderFromPlant:', { cylinderId: input.cylinderId, inspectionId: input.inspectionId, error: e })
+    return { success: false, error: 'Error al recibir el cilindro de planta' }
   }
 }
 
@@ -165,16 +280,19 @@ export interface UnlinkCylinderResult {
  * Unlinks a cylinder from its vehicle so it becomes available for reassignment.
  * Only allowed when:
  *  - The parent inspection is still in 'inspeccion_inicial'
- *  - The cylinder is NOT 'instalado', 'reinstalado', or 'condenado'
+ *  - The cylinder is 'en_certificacion' (G3 contract — faithful translation
+ *    of the pre-simplification unlinkable states)
+ *  - The cylinder belongs to the inspection's vehicle (G1)
+ *  - The inspection has a non-null vehicleId (G1 fail-closed)
  */
 export async function unlinkCylinderFromVehicle(
   cylinderId: string,
   inspectionId: string,
 ): Promise<UnlinkCylinderResult> {
   try {
-    // Verify inspection is still in initial state
+    // G1 + G3: load inspection with vehicleId for ownership check
     const [inspection] = await db
-      .select({ status: inspections.status })
+      .select({ status: inspections.status, vehicleId: inspections.vehicleId })
       .from(inspections)
       .where(eq(inspections.id, inspectionId))
       .limit(1)
@@ -187,9 +305,18 @@ export async function unlinkCylinderFromVehicle(
       return { success: false, error: 'Solo se pueden desvincular cilindros en inspección inicial' }
     }
 
-    // Verify cylinder exists and is in an unlinkable state
+    // G1: fail closed when inspection has no vehicle
+    if (!inspection.vehicleId) {
+      return { success: false, error: 'La inspección no tiene vehículo asociado' }
+    }
+
+    // G1 + G3: load cylinder with vehicleId + initialSerial
     const [cylinder] = await db
-      .select({ status: gncCylinders.status })
+      .select({
+        status: gncCylinders.status,
+        vehicleId: gncCylinders.vehicleId,
+        initialSerial: gncCylinders.initialSerial,
+      })
       .from(gncCylinders)
       .where(eq(gncCylinders.id, cylinderId))
       .limit(1)
@@ -198,16 +325,21 @@ export async function unlinkCylinderFromVehicle(
       return { success: false, error: 'Cilindro no encontrado' }
     }
 
-    if (cylinder.status === 'instalado') {
-      return { success: false, error: 'No se puede desvincular un cilindro instalado. Desmóntelo primero.' }
+    // G1: ownership cross-check
+    if (cylinder.vehicleId !== inspection.vehicleId) {
+      return {
+        success: false,
+        error: `El cilindro serial ${cylinder.initialSerial} no pertenece a este vehículo`,
+      }
     }
 
-    if (cylinder.status === 'reinstalado') {
-      return { success: false, error: 'No se puede desvincular un cilindro ya reinstalado' }
-    }
-
-    if (cylinder.status === 'condenado') {
-      return { success: false, error: 'No se puede desvincular un cilindro condenado' }
+    // G3: only 'en_certificacion' is unlinkable
+    if (cylinder.status !== 'en_certificacion') {
+      const statusLabel = cylinder.status ?? 'sin estado registrado'
+      return {
+        success: false,
+        error: `Solo cilindros en certificación pueden desvincularse (serial ${cylinder.initialSerial}, estado actual: ${statusLabel})`,
+      }
     }
 
     // Unlink: set vehicleId to null
@@ -218,39 +350,187 @@ export async function unlinkCylinderFromVehicle(
 
     return { success: true }
   } catch (e) {
-    console.error('Error in unlinkCylinderFromVehicle:', e)
+    console.error('Error in unlinkCylinderFromVehicle:', { cylinderId, inspectionId, error: e })
     return { success: false, error: 'Error al desvincular el cilindro' }
   }
 }
 
-// ─── Get pending cylinders ─────────────────────────────────────────
+// ─── Bulk send cylinders to plant ───────────────────────────────────
 
-export interface PendingCylinder {
-  id: string
-  vehicleId: string | null
-  brand: string
-  capacity: string
-  initialSerial: string
-  actualSerial: string | null
-  status: string | null
-  location: string
-  recalificationDate: string | null
+export interface BulkSendInput {
+  cylinderIds: string[]
+  inspectionId: string
+  sentAt: Date
+  updatedBy: string
 }
 
 /**
- * Returns cylinders that need action for a given vehicle.
- * - 'en_planta': awaiting recertification decision
- * - 'pendiente_reinstalacion': awaiting re-mounting confirmation
+ * Sends multiple cylinders to the certification plant in a single transaction.
+ * All cylinders must be 'activo' and belong to the inspection's vehicle.
+ * If any precondition fails the whole batch is rejected.
  */
-export async function getPendingCylinders(vehicleId: string): Promise<PendingCylinder[]> {
-  return await db
-    .select()
-    .from(gncCylinders)
-    .where(
-      and(
-        eq(gncCylinders.vehicleId, vehicleId),
-        inArray(gncCylinders.status, ['en_planta', 'pendiente_reinstalacion']),
-      ),
-    )
-    .orderBy(gncCylinders.createdAt)
+export async function bulkSendCylindersToPlant(
+  input: BulkSendInput,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    return await db.transaction(async (tx) => {
+      const [inspection] = await tx
+        .select({ vehicleId: inspections.vehicleId })
+        .from(inspections)
+        .where(eq(inspections.id, input.inspectionId))
+        .limit(1)
+
+      if (!inspection) {
+        throw new BusinessError('Inspección no encontrada')
+      }
+
+      // F7: select initialSerial for actionable precondition errors
+      const cylinders = await tx
+        .select({
+          id: gncCylinders.id,
+          status: gncCylinders.status,
+          vehicleId: gncCylinders.vehicleId,
+          initialSerial: gncCylinders.initialSerial,
+        })
+        .from(gncCylinders)
+        .where(inArray(gncCylinders.id, input.cylinderIds))
+
+      if (cylinders.length !== input.cylinderIds.length) {
+        throw new BusinessError('Algunos cilindros no fueron encontrados')
+      }
+
+      // G1: shared ownership/status guard (fail closed on null vehicleId)
+      assertCylinderOwnership(cylinders, inspection, 'activo', 'no está activo')
+
+      // F4: status-conditional UPDATE with affected-row assertion
+      const updated = await tx
+        .update(gncCylinders)
+        .set({
+          status: 'en_certificacion',
+          updatedBy: input.updatedBy,
+          updatedAt: input.sentAt,
+        })
+        .where(and(
+          inArray(gncCylinders.id, input.cylinderIds),
+          eq(gncCylinders.status, 'activo'),
+        ))
+        .returning({ id: gncCylinders.id })
+
+      if (updated.length !== input.cylinderIds.length) {
+        throw new BusinessError(
+          `El estado de algunos cilindros cambió durante la operación. Se esperaba actualizar ${input.cylinderIds.length}, se actualizaron ${updated.length}. Reintente.`,
+        )
+      }
+
+      return { success: true as const }
+    })
+  } catch (e) {
+    if (e instanceof BusinessError) {
+      return { success: false, error: e.message }
+    }
+    console.error('Error in bulkSendCylindersToPlant:', {
+      inspectionId: input.inspectionId,
+      cylinderIds: input.cylinderIds,
+      error: e,
+    })
+    return { success: false, error: 'Error inesperado. Reintente.' }
+  }
+}
+
+// ─── Bulk receive cylinders from plant ──────────────────────────────
+
+export interface BulkReceiveInput {
+  cylinderIds: string[]
+  inspectionId: string
+  result: 'bueno' | 'malo'
+  receivedAt: Date
+  recalificationDate?: string
+  updatedBy: string
+}
+
+/**
+ * Receives multiple cylinders back from the certification plant in a single
+ * transaction. All cylinders must be 'en_certificacion' and belong to the
+ * inspection's vehicle. A shared result ('bueno' → activo, 'malo' → de_baja)
+ * is applied to every cylinder. The caller (action) is responsible for
+ * uploading and attaching the plant document after the tx succeeds.
+ */
+export async function bulkReceiveCylindersFromPlant(
+  input: BulkReceiveInput,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    return await db.transaction(async (tx) => {
+      // F1: load inspection for vehicle ownership check
+      const [inspection] = await tx
+        .select({ vehicleId: inspections.vehicleId })
+        .from(inspections)
+        .where(eq(inspections.id, input.inspectionId))
+        .limit(1)
+
+      if (!inspection) {
+        throw new BusinessError('Inspección no encontrada')
+      }
+
+      // F7: select initialSerial for actionable precondition errors
+      const cylinders = await tx
+        .select({
+          id: gncCylinders.id,
+          status: gncCylinders.status,
+          vehicleId: gncCylinders.vehicleId,
+          initialSerial: gncCylinders.initialSerial,
+        })
+        .from(gncCylinders)
+        .where(inArray(gncCylinders.id, input.cylinderIds))
+
+      if (cylinders.length !== input.cylinderIds.length) {
+        throw new BusinessError('Algunos cilindros no fueron encontrados')
+      }
+
+      // G1: shared ownership/status guard (fail closed on null vehicleId)
+      assertCylinderOwnership(cylinders, inspection, 'en_certificacion', 'no está en certificación')
+
+      const newStatus = input.result === 'bueno' ? 'activo' : 'de_baja'
+
+      const updateData: Record<string, unknown> = {
+        status: newStatus,
+        updatedBy: input.updatedBy,
+        updatedAt: input.receivedAt,
+      }
+      if (input.result === 'bueno' && input.recalificationDate) {
+        updateData.recalificationDate = input.recalificationDate
+      }
+
+      // F4: status-conditional UPDATE with affected-row assertion
+      const updated = await tx
+        .update(gncCylinders)
+        .set(updateData)
+        .where(and(
+          inArray(gncCylinders.id, input.cylinderIds),
+          eq(gncCylinders.status, 'en_certificacion'),
+        ))
+        .returning({ id: gncCylinders.id })
+
+      if (updated.length !== input.cylinderIds.length) {
+        throw new BusinessError(
+          `El estado de algunos cilindros cambió durante la operación. Se esperaba actualizar ${input.cylinderIds.length}, se actualizaron ${updated.length}. Reintente.`,
+        )
+      }
+
+      // F6: attachment insert is handled by the caller (action) AFTER the
+      // MinIO upload succeeds, so we don't end up with a dangling row when
+      // the upload fails. The tx only updates cylinder statuses here.
+
+      return { success: true as const }
+    })
+  } catch (e) {
+    if (e instanceof BusinessError) {
+      return { success: false, error: e.message }
+    }
+    console.error('Error in bulkReceiveCylindersFromPlant:', {
+      inspectionId: input.inspectionId,
+      cylinderIds: input.cylinderIds,
+      error: e,
+    })
+    return { success: false, error: 'Error inesperado. Reintente.' }
+  }
 }

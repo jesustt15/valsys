@@ -24,12 +24,9 @@ export const attachmentCategory = pgEnum('attachment_category', [
 ]);
 
 export const cylinderStatus = pgEnum('cylinder_status', [
-  'instalado',
-  'desmontado',
-  'en_planta',
-  'pendiente_reinstalacion',
-  'reinstalado',
-  'condenado',
+  'activo',
+  'en_certificacion',
+  'de_baja',
 ]);
 
 export const inspectionStatus = pgEnum('inspection_status', [
@@ -112,7 +109,7 @@ export const gncCylinders = pgTable('gnc_cylinders', {
   capacity: varchar('capacity').notNull(),
   initialSerial: varchar('initial_serial').notNull(),
   actualSerial: varchar('actual_serial'),
-  status: cylinderStatus('status').default('instalado'),
+  status: cylinderStatus('status').default('activo'),
   manufactureDate: date('manufacture_date'),
   recalificationDate: date('recalification_date'),
   location: varchar('location').notNull(),
@@ -214,6 +211,7 @@ export const notificationType = [
   'cylinder_sent_to_plant',
   'inspection_pending_items',
   'inspection_non_compliant',
+  'plant_reminder',
 ] as const
 
 export const notifications = pgTable('notifications', {
