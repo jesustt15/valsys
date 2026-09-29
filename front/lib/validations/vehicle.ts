@@ -43,6 +43,12 @@ export const createVehicleSchema = z.object({
     .max(50, 'Marca de KIT no puede exceder 50 caracteres')
     .optional()
     .or(z.literal('')),
+
+  modeloKit: z
+    .string()
+    .max(50, 'Modelo de KIT no puede exceder 50 caracteres')
+    .optional()
+    .or(z.literal('')),
 })
 
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>

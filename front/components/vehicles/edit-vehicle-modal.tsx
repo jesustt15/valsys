@@ -20,6 +20,7 @@ interface Props {
     brand: string | null
     model: string | null
     marcaKit: string | null
+    modeloKit: string | null
   }
 }
 
@@ -135,6 +136,19 @@ export function EditVehicleModal({ vehicle }: Props) {
                   disabled={pending}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="modeloKit">Modelo de KIT GNC</Label>
+                <Input
+                  id="modeloKit"
+                  name="modeloKit"
+                  defaultValue={vehicle.modeloKit ?? ''}
+                  placeholder="Modelo de KIT (Opcional)"
+                  disabled={pending}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <div className="space-y-2">
                 <Label htmlFor="vehicleType" required>Tipo</Label>
                 <select

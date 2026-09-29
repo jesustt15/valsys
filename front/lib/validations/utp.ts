@@ -37,6 +37,7 @@ const vehicleFieldsShape = {
   brand: z.string().min(2).max(50),
   model: z.string().min(1).max(50),
   marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']),
+  modeloKit: z.string().min(1, 'El modelo del KIT es obligatorio').max(50),
   specificAttributes: z.record(z.string(), z.unknown()).optional(),
 } as const
 

@@ -92,6 +92,7 @@ export const vehicles = pgTable('vehicles', {
   brand: varchar('brand'),
   model: varchar('model'),
   marcaKit: varchar('marca_kit'),
+  modeloKit: varchar('modelo_kit'),
   specificAttributes: jsonb('specific_attributes'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),

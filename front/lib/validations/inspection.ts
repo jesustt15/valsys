@@ -68,8 +68,17 @@ const vehicleFieldsShape = {
   vehicleType: z.enum(['sedan', 'autobus', 'camion', 'pickup', 'camioneta', 'van']),
   brand: z.string().min(2).max(50),
   model: z.string().min(1).max(50),
-  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']),
   specificAttributes: z.record(z.string(), z.unknown()).optional(),
+} as const
+
+const kitFieldsMontados = {
+  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']),
+  modeloKit: z.string().min(1, 'El modelo del KIT es obligatorio').max(50),
+} as const
+
+const kitFieldsDesmontados = {
+  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']).optional().or(z.literal('')),
+  modeloKit: z.string().max(50).optional().or(z.literal('')),
 } as const
 
 export const cylinderInputSchema = z.object({
@@ -93,6 +102,7 @@ const montadosSchema = z.object({
   existingLicensePlate: z.string().optional(),
   ...ownerFieldsShape,
   ...vehicleFieldsShape,
+  ...kitFieldsMontados,
   kmCurrent: z.preprocess(
     (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
     z.number().min(1, 'Kilómetros deben ser mayor a 0').nullable().optional()
@@ -109,6 +119,7 @@ const desmontadosSchema = z.object({
   existingLicensePlate: z.string().optional(),
   ...ownerFieldsShape,
   ...vehicleFieldsShape,
+  ...kitFieldsDesmontados,
   kmCurrent: z.preprocess(
     (val) => (val === '' || val === null || val === undefined ? null : Number(val)),
     z.number().min(1, 'Kilómetros deben ser mayor a 0').nullable().optional()

@@ -109,6 +109,7 @@ interface DraftSnapshot {
   brand: string;
   model: string;
   marcaKit: string;
+  modeloKit: string;
   selectedVehicleId: string;
   foundVehicle: {
     id: string;
@@ -119,6 +120,7 @@ interface DraftSnapshot {
     brand: string | null;
     model: string | null;
     marcaKit: string | null;
+    modeloKit: string | null;
     owner: {
       id: string;
       documentId: string;
@@ -282,6 +284,7 @@ export function UtpInspectionForm({
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [marcaKit, setMarcaKit] = useState("");
+  const [modeloKit, setModeloKit] = useState("");
   const [foundVehicle, setFoundVehicle] = useState<{
     id: string;
     vinSerial: string | null;
@@ -291,6 +294,7 @@ export function UtpInspectionForm({
     brand: string | null;
     model: string | null;
     marcaKit: string | null;
+    modeloKit: string | null;
     owner: {
       id: string;
       documentId: string;
@@ -372,6 +376,7 @@ export function UtpInspectionForm({
       brand,
       model,
       marcaKit,
+      modeloKit,
       selectedVehicleId,
       foundVehicle,
       kmCurrent,
@@ -409,6 +414,7 @@ export function UtpInspectionForm({
       brand,
       model,
       marcaKit,
+      modeloKit,
       selectedVehicleId,
       foundVehicle,
       kmCurrent,
@@ -466,6 +472,7 @@ export function UtpInspectionForm({
       setBrand(draft.brand ?? "");
       setModel(draft.model ?? "");
       setMarcaKit(draft.marcaKit ?? "");
+      setModeloKit(draft.modeloKit ?? "");
       setSelectedVehicleId(draft.selectedVehicleId ?? "");
       setFoundVehicle(draft.foundVehicle ?? null);
       setKmCurrent(draft.kmCurrent ?? "");
@@ -653,6 +660,7 @@ export function UtpInspectionForm({
     setBrand("");
     setModel("");
     setMarcaKit("");
+    setModeloKit("");
     setFoundVehicle(null);
     setSelectedVehicleId("");
     setKmCurrent("");
@@ -720,6 +728,7 @@ export function UtpInspectionForm({
       brand: vehicle.brand,
       model: vehicle.model,
       marcaKit: vehicle.marcaKit,
+      modeloKit: vehicle.modeloKit,
       owner: null,
     });
     setVinSerial(vehicle.vinSerial || "");
@@ -729,6 +738,7 @@ export function UtpInspectionForm({
     setBrand(vehicle.brand || "");
     setModel(vehicle.model || "");
     setMarcaKit(vehicle.marcaKit || "");
+    setModeloKit(vehicle.modeloKit || "");
 
     // If the vehicle has an owner, auto-populate the owner section
     if (vehicle.ownerId) {
@@ -763,6 +773,7 @@ export function UtpInspectionForm({
     setBrand("");
     setModel("");
     setMarcaKit("");
+    setModeloKit("");
   };
 
   // ── Checklist Handlers ──────────────────────────────────────
@@ -953,6 +964,7 @@ export function UtpInspectionForm({
     submitData.set("brand", brand);
     submitData.set("model", model);
     submitData.set("marcaKit", marcaKit);
+    submitData.set("modeloKit", modeloKit);
 
     // Inspection
     if (!kmNoMarca) submitData.set("kmCurrent", kmCurrent);
@@ -1428,6 +1440,21 @@ export function UtpInspectionForm({
                 <SelectItem value="Bigas">Bigas</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Modelo de KIT GNC */}
+          <div className="space-y-2">
+            <Label htmlFor="modeloKit">Modelo de KIT GNC</Label>
+            <Input
+              id="modeloKit"
+              name="modeloKit"
+              value={modeloKit}
+              onChange={(e) => setModeloKit(e.target.value)}
+              maxLength={50}
+              disabled={pending || !!foundVehicle}
+              placeholder="Ej: Alp2"
+              className="h-10"
+            />
           </div>
         </CardContent>
       </CollapsibleSection>

@@ -167,6 +167,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                       brand: inspection.vehicle.brand,
                       model: inspection.vehicle.model,
                       marcaKit: inspection.vehicle.marcaKit,
+                      modeloKit: inspection.vehicle.modeloKit,
                     }}
                   />
                 </div>
@@ -183,6 +184,14 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                 <div className="flex justify-between border-b pb-1">
                   <span className="text-muted-foreground">Marca/Modelo:</span>
                   <span className="font-medium">{inspection.vehicle.brand} {inspection.vehicle.model}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-muted-foreground">Marca KIT GNC:</span>
+                  <span className="font-medium">{inspection.vehicle.marcaKit || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1">
+                  <span className="text-muted-foreground">Modelo KIT GNC:</span>
+                  <span className="font-medium">{inspection.vehicle.modeloKit || '—'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Kilómetros:</span>

@@ -46,6 +46,7 @@ export interface VehicleWithOwner {
   brand: string | null
   model: string | null
   marcaKit: string | null
+  modeloKit: string | null
   createdAt: Date | null
   ownerId: string | null
   ownerName: string | null
@@ -61,6 +62,7 @@ export async function getVehiclesForList(): Promise<VehicleWithOwner[]> {
       brand: vehicles.brand,
       model: vehicles.model,
       marcaKit: vehicles.marcaKit,
+      modeloKit: vehicles.modeloKit,
       createdAt: vehicles.createdAt,
       ownerId: vehicles.ownerId,
       ownerName: owners.fullName,
@@ -79,6 +81,7 @@ export async function getVehiclesForList(): Promise<VehicleWithOwner[]> {
     brand: r.brand,
     model: r.model,
     marcaKit: r.marcaKit,
+    modeloKit: r.modeloKit,
     createdAt: r.createdAt,
     ownerId: r.ownerId,
     ownerName: r.ownerName ?? null,
@@ -106,6 +109,7 @@ export type UpdateVehicleData = Partial<{
   brand: string
   model: string
   marcaKit: string | null
+  modeloKit: string | null
   specificAttributes: Record<string, unknown>
 }>
 

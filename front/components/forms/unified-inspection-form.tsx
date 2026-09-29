@@ -112,6 +112,7 @@ interface DraftSnapshot {
   brand: string;
   model: string;
   marcaKit: string;
+  modeloKit: string;
   selectedVehicleId: string;
   foundVehicle: {
     id: string;
@@ -122,6 +123,7 @@ interface DraftSnapshot {
     brand: string | null;
     model: string | null;
     marcaKit: string | null;
+    modeloKit: string | null;
     owner: {
       id: string;
       documentId: string;
@@ -330,6 +332,7 @@ export function UnifiedInspectionForm({
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [marcaKit, setMarcaKit] = useState("");
+  const [modeloKit, setModeloKit] = useState("");
   const [foundVehicle, setFoundVehicle] = useState<{
     id: string;
     vinSerial: string | null;
@@ -339,6 +342,7 @@ export function UnifiedInspectionForm({
     brand: string | null;
     model: string | null;
     marcaKit: string | null;
+    modeloKit: string | null;
     owner: {
       id: string;
       documentId: string;
@@ -410,6 +414,7 @@ export function UnifiedInspectionForm({
       brand,
       model,
       marcaKit,
+      modeloKit,
       selectedVehicleId,
       foundVehicle,
       kmCurrent,
@@ -449,6 +454,7 @@ export function UnifiedInspectionForm({
       brand,
       model,
       marcaKit,
+      modeloKit,
       selectedVehicleId,
       foundVehicle,
       kmCurrent,
@@ -499,6 +505,7 @@ export function UnifiedInspectionForm({
       setBrand(draft.brand ?? "");
       setModel(draft.model ?? "");
       setMarcaKit(draft.marcaKit ?? "");
+      setModeloKit(draft.modeloKit ?? "");
       setSelectedVehicleId(draft.selectedVehicleId ?? "");
       setFoundVehicle(draft.foundVehicle ?? null);
       setKmCurrent(draft.kmCurrent ?? "");
@@ -646,6 +653,7 @@ export function UnifiedInspectionForm({
       brand: vehicle.brand,
       model: vehicle.model,
       marcaKit: vehicle.marcaKit,
+      modeloKit: vehicle.modeloKit,
       owner: null,
     });
     setVinSerial(vehicle.vinSerial || "");
@@ -655,6 +663,7 @@ export function UnifiedInspectionForm({
     setBrand(vehicle.brand || "");
     setModel(vehicle.model || "");
     setMarcaKit(vehicle.marcaKit || "");
+    setModeloKit(vehicle.modeloKit || "");
 
     if (vehicle.ownerId) {
       const owner = owners.find((o) => o.id === vehicle.ownerId);
@@ -688,6 +697,7 @@ export function UnifiedInspectionForm({
     setBrand("");
     setModel("");
     setMarcaKit("");
+    setModeloKit("");
   };
 
   // ── Checklist Handlers ──────────────────────────────────────
@@ -881,6 +891,7 @@ export function UnifiedInspectionForm({
     submitData.set("brand", brand);
     submitData.set("model", model);
     submitData.set("marcaKit", marcaKit);
+    submitData.set("modeloKit", modeloKit);
 
     if (!kmNoMarca) submitData.set("kmCurrent", kmCurrent);
     if (observations) submitData.set("observations", observations);
@@ -939,6 +950,7 @@ export function UnifiedInspectionForm({
     setBrand("");
     setModel("");
     setMarcaKit("");
+    setModeloKit("");
     setFoundVehicle(null);
     setSelectedVehicleId("");
     setKmCurrent("");
@@ -1538,7 +1550,7 @@ export function UnifiedInspectionForm({
             {/* Marca KIT GNC */}
             <div className="space-y-2">
               <Label htmlFor="marcaKit" className="text-xs font-bold text-muted-foreground">
-                Marca de KIT GNC
+                Marca de KIT GNC {branch === "desmontados" && <span className="font-normal text-amber-600">(Opcional)</span>}
               </Label>
               <Select value={marcaKit} onValueChange={setMarcaKit}>
                 <SelectTrigger id="marcaKit" disabled={pending || !!foundVehicle} className={SELECT_TRIGGER_CLS}>
@@ -1554,6 +1566,24 @@ export function UnifiedInspectionForm({
                   <SelectItem value="Bigas">Bigas</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Modelo KIT GNC */}
+            <div className="space-y-2">
+              <Label htmlFor="modeloKit" className="text-xs font-bold text-muted-foreground">
+                Modelo de KIT GNC {branch === "desmontados" && <span className="font-normal text-amber-600">(Opcional)</span>}
+              </Label>
+              <Input
+                id="modeloKit"
+                name="modeloKit"
+                value={modeloKit}
+                onChange={(e) => setModeloKit(e.target.value)}
+                maxLength={50}
+                disabled={pending || !!foundVehicle}
+                placeholder={branch === "desmontados" ? "Modelo del KIT (Opcional)" : "Ej: Alp2"}
+                className="h-[52px] bg-background border-border focus:border-primary focus:ring-1 focus:ring-primary text-[13px]"
+                enterKeyHint="next"
+              />
             </div>
           </SectionCard>
 

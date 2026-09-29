@@ -17,6 +17,7 @@ interface VehiclesTableProps {
     brand: string | null
     model: string | null
     marcaKit: string | null
+    modeloKit: string | null
     createdAt: Date | null
     ownerName: string | null
   }>
@@ -109,6 +110,9 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                 <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
                   Marca KIT GNC
                 </th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide hidden sm:table-cell">
+                  Modelo KIT GNC
+                </th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
                   Acciones
                 </th>
@@ -142,6 +146,9 @@ export function VehiclesTable({ vehicles }: VehiclesTableProps) {
                   </td>
                   <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
                     {v.marcaKit ?? '—'}
+                  </td>
+                  <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
+                    {v.modeloKit ?? '—'}
                   </td>
                   <td className="px-4 py-3.5 text-right">
                     <Link

@@ -26,6 +26,7 @@ export async function createVehicle(
     brand: formData.get('brand'),
     model: formData.get('model'),
     marcaKit: formData.get('marcaKit') || undefined,
+    modeloKit: formData.get('modeloKit') || undefined,
   })
 
   if (!parsed.success) {
@@ -120,6 +121,7 @@ export async function updateVehicleAction(
     brand: formData.get('brand') || undefined,
     model: formData.get('model') || undefined,
     marcaKit: formData.get('marcaKit') !== null ? (formData.get('marcaKit') as string) : undefined,
+    modeloKit: formData.get('modeloKit') !== null ? (formData.get('modeloKit') as string) : undefined,
   })
 
   if (!parsed.success) {

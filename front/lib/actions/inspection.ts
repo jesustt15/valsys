@@ -486,6 +486,7 @@ export async function createUnifiedInspectionAction(
     brand: formData.get('brand') as string || undefined,
     model: formData.get('model') as string || undefined,
     marcaKit: formData.get('marcaKit') as string || undefined,
+    modeloKit: formData.get('modeloKit') as string || undefined,
     specificAttributes: formData.get('specificAttributes') as string || undefined,
     kmCurrent: formData.get('kmCurrent') as string || undefined,
     observations: formData.get('observations') as string || undefined,
@@ -654,6 +655,7 @@ export async function createUnifiedInspectionAction(
               brand: data.brand || null,
               model: data.model || null,
               marcaKit: data.marcaKit || null,
+              modeloKit: data.modeloKit || null,
               specificAttributes: data.specificAttributes || null,
             })
             .returning({ id: vehicles.id })

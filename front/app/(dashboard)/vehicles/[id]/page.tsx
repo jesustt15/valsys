@@ -75,6 +75,10 @@ export default async function VehicleDetailPage({ params }: PageProps) {
                 <span className="font-medium">{vehicle.marcaKit || '—'}</span>
               </div>
               <div className="flex justify-between border-b pb-2">
+                <span className="text-muted-foreground">Modelo KIT GNC</span>
+                <span className="font-medium">{vehicle.modeloKit || '—'}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
                 <span className="text-muted-foreground">Código Único GNC</span>
                 <span className="font-mono">{vehicle.codigoUnicoGnc || '—'}</span>
               </div>

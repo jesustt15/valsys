@@ -174,6 +174,23 @@ export function VehicleForm({ owners }: { owners: OwnerOption[] }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Modelo de KIT */}
+            <div className="space-y-2">
+              <Label htmlFor="modeloKit">Modelo de KIT GNC</Label>
+              <Input
+                id="modeloKit"
+                name="modeloKit"
+                type="text"
+                maxLength={50}
+                placeholder="Ej: Alp2 (Opcional)"
+                className="h-12 text-base"
+                disabled={pending}
+              />
+              <p className="text-xs text-muted-foreground">Opcional</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Marca */}
             <div className="space-y-2">
               <Label htmlFor="brand" required>Marca</Label>

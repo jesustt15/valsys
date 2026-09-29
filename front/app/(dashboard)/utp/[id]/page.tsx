@@ -174,6 +174,7 @@ export default async function UtpDetailPage({ params }: PageProps) {
                   brand: inspection.vehicle.brand,
                   model: inspection.vehicle.model,
                   marcaKit: inspection.vehicle.marcaKit,
+                  modeloKit: inspection.vehicle.modeloKit,
                 }}
               />
             </div>
@@ -193,9 +194,13 @@ export default async function UtpDetailPage({ params }: PageProps) {
               <span className="text-muted-foreground">Tipo:</span>
               <span className="font-medium">{inspection.vehicle.vehicleType ?? '—'}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Kit:</span>
+            <div className="flex justify-between border-b pb-1">
+              <span className="text-muted-foreground">Marca KIT:</span>
               <span className="font-medium">{inspection.vehicle.marcaKit ?? '—'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Modelo KIT:</span>
+              <span className="font-medium">{inspection.vehicle.modeloKit ?? '—'}</span>
             </div>
           </CardContent>
         </Card>
