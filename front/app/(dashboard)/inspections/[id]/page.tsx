@@ -58,14 +58,12 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
     (a, b) => (questionOrder.get(a.questionKey) ?? 999) - (questionOrder.get(b.questionKey) ?? 999),
   )
 
-  let signatureUrl: string | null = null
-  if (inspection.signature) {
-    try {
-      signatureUrl = await getObjectUrl(inspection.signature.minioKey)
-    } catch {
-      signatureUrl = null
-    }
-  }
+  // Signature is served through the same-origin streaming route used for
+  // attachments — a presigned MinIO URL points at an internal host the
+  // browser can't reach (and is blocked as mixed content over https).
+  const signatureUrl = inspection.signature
+    ? `/api/signatures/${inspection.signature.id}`
+    : null
 
   const certificate = await getCertificateByInspectionId(resolvedParams.id)
 

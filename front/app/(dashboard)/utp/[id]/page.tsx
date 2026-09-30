@@ -36,15 +36,11 @@ export default async function UtpDetailPage({ params }: PageProps) {
     url: `/api/attachments/${att.id}`,
   }))
 
-  // Get signature URL
-  let signatureUrl: string | null = null
-  if (inspection.signature) {
-    try {
-      signatureUrl = await getObjectUrl(inspection.signature.minioKey)
-    } catch {
-      signatureUrl = null
-    }
-  }
+  // Same-origin streaming route — see inspections/[id] for why presigned
+  // MinIO URLs don't work from the browser.
+  const signatureUrl = inspection.signature
+    ? `/api/signatures/${inspection.signature.id}`
+    : null
 
   // Sort answers by checklist order
   const questionOrder = new Map(ALL_QUESTIONS.map((q, i) => [q.key, i]))

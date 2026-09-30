@@ -4,6 +4,7 @@ import { db } from '@/lib/db'
 import { inspectionAttachments } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { getObject } from '@/lib/minio'
+import { readableNodeToWeb } from '@/lib/minio/web-stream'
 import { Client } from 'minio'
 
 const BUCKET = process.env.MINIO_BUCKET || 'valsys'
@@ -84,25 +85,4 @@ export async function GET(
   }
 
   return new NextResponse(webStream, { headers })
-}
-
-function readableNodeToWeb(nodeStream: NodeJS.ReadableStream): ReadableStream<Uint8Array> {
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      nodeStream.on('data', (chunk: Buffer) => {
-        controller.enqueue(new Uint8Array(chunk))
-      })
-      nodeStream.on('end', () => {
-        controller.close()
-      })
-      nodeStream.on('error', (err: Error) => {
-        controller.error(err)
-      })
-    },
-    cancel() {
-      if ('destroy' in nodeStream && typeof nodeStream.destroy === 'function') {
-        nodeStream.destroy()
-      }
-    },
-  })
 }
