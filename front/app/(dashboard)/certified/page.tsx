@@ -32,10 +32,16 @@ export default async function CertifiedPage() {
       model: null, // UTP doesn't have model
     })),
   ].sort((a, b) => {
-    // Sort by correlative number descending (#00004 before #00003)
-    const numA = a.correlativeNumber ? parseInt(a.correlativeNumber.replace('#', ''), 10) : 0
-    const numB = b.correlativeNumber ? parseInt(b.correlativeNumber.replace('#', ''), 10) : 0
-    return numB - numA
+    // Sort by correlative number descending (highest first)
+    const aNum = a.correlativeNumber ? parseInt(a.correlativeNumber, 10) : NaN
+    const bNum = b.correlativeNumber ? parseInt(b.correlativeNumber, 10) : NaN
+
+    if (!isNaN(aNum) && !isNaN(bNum)) {
+      return bNum - aNum
+    }
+    if (!isNaN(aNum)) return -1
+    if (!isNaN(bNum)) return 1
+    return (b.correlativeNumber ?? '').localeCompare(a.correlativeNumber ?? '')
   })
 
   return (
