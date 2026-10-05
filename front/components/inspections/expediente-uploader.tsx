@@ -182,9 +182,9 @@ function UploaderModal({
               multiple
               disabled={pending}
               className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium"
-              accept="image/*,application/pdf"
+              accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
             />
-            <p className="text-xs text-muted-foreground">Soporta imágenes y PDFs. Opcional si sube un video.</p>
+            <p className="text-xs text-muted-foreground">Soporta imágenes (JPG, PNG, GIF, WebP) y PDFs. Opcional si sube un video.</p>
           </div>
 
           <div className="space-y-2">

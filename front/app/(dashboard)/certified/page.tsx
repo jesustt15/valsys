@@ -32,10 +32,10 @@ export default async function CertifiedPage() {
       model: null, // UTP doesn't have model
     })),
   ].sort((a, b) => {
-    // Sort by creation date descending
-    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-    return dateB - dateA
+    // Sort by correlative number descending (#00004 before #00003)
+    const numA = a.correlativeNumber ? parseInt(a.correlativeNumber.replace('#', ''), 10) : 0
+    const numB = b.correlativeNumber ? parseInt(b.correlativeNumber.replace('#', ''), 10) : 0
+    return numB - numA
   })
 
   return (

@@ -293,11 +293,23 @@ export async function uploadInspectionFileAction(
       
       await putObject(minioKey, file)
       
+      // Normalize file type for mobile browsers that may send empty type
+      let fileType = file.type
+      if (!fileType && file.name) {
+        const ext = file.name.split('.').pop()?.toLowerCase()
+        if (ext === 'jpg' || ext === 'jpeg') fileType = 'image/jpeg'
+        else if (ext === 'png') fileType = 'image/png'
+        else if (ext === 'gif') fileType = 'image/gif'
+        else if (ext === 'webp') fileType = 'image/webp'
+        else if (ext === 'pdf') fileType = 'application/pdf'
+        else fileType = 'application/octet-stream'
+      }
+      
       await db.insert(inspectionAttachments).values({
         inspectionId,
         fileName: file.name,
         minioKey,
-        fileType: file.type,
+        fileType,
         fileSize: file.size,
         category: category as 'initial' | 'removal' | 'post_mount' | 'plant' | 'signature',
       })
