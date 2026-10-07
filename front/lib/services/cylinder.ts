@@ -301,9 +301,7 @@ export async function unlinkCylinderFromVehicle(
       return { success: false, error: 'Inspección no encontrada' }
     }
 
-    if (inspection.status !== 'inspeccion_inicial') {
-      return { success: false, error: 'Solo se pueden desvincular cilindros en inspección inicial' }
-    }
+
 
     // G1: fail closed when inspection has no vehicle
     if (!inspection.vehicleId) {
