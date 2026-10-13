@@ -1699,6 +1699,7 @@ export function UtpInspectionForm({
                           <SelectItem value="Plataforma">Plataforma</SelectItem>
                           <SelectItem value="Zona de Carga">Zona de Carga</SelectItem>
                           <SelectItem value="Baul/maletero">Baúl/maletero</SelectItem>
+                          <SelectItem value="Lateral">Lateral</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

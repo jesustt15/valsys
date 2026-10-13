@@ -90,7 +90,7 @@ export const cylinderInputSchema = z.object({
   }),
   initialSerial: z.string().min(1, 'Número de serial es requerido'),
   manufactureDate: z.string().min(1, 'La fecha de prueba es requerida'),
-  location: z.enum(['Chasis', 'Plataforma', 'Zona de Carga', 'Baul/maletero'], {
+  location: z.enum(['Chasis', 'Plataforma', 'Zona de Carga', 'Baul/maletero', 'Lateral'], {
     message: 'Seleccione una ubicación',
   }),
   status: z.literal('activo').optional(),
