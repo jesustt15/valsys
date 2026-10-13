@@ -139,6 +139,36 @@ function ResultSelect({ disabled }: { disabled: boolean }) {
   )
 }
 
+const CYLINDER_LOCATIONS = [
+  'Delantero',
+  'Trasero',
+  'Lateral',
+  'Baúl',
+  'Techo',
+] as const
+
+function LocationSelect({ disabled, defaultValue }: { disabled: boolean; defaultValue?: string }) {
+  const id = useId()
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id} required>Ubicación</Label>
+      <select
+        id={id}
+        name="location"
+        required
+        disabled={disabled}
+        defaultValue={defaultValue ?? ''}
+        className="flex h-11 w-full rounded-xl border border-input bg-background px-4 py-2 text-sm bg-white dark:bg-card"
+      >
+        <option value="">Seleccionar...</option>
+        {CYLINDER_LOCATIONS.map((loc) => (
+          <option key={loc} value={loc}>{loc}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function DateField({
   name,
   label,
@@ -227,10 +257,7 @@ function CreateCylinderForm({
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${uid}-location`} required>Ubicación</Label>
-            <Input id={`${uid}-location`} name="location" required disabled={pending} placeholder="Ej: Baúl" />
-          </div>
+          <LocationSelect disabled={pending} />
         </div>
 
         {state?.error && (
@@ -386,10 +413,7 @@ function EditCylinderFieldsForm({
               required
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor={`${uid}-location`} required>Ubicación</Label>
-            <Input id={`${uid}-location`} name="location" defaultValue={cylinder.location} required disabled={pending} placeholder="Ej: Baúl" />
-          </div>
+          <LocationSelect disabled={pending} defaultValue={cylinder.location} />
         </div>
 
         {state?.error && (
