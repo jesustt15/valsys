@@ -1423,23 +1423,24 @@ export function UtpInspectionForm({
           {/* Marca de KIT GNC */}
           <div className="space-y-2">
             <Label htmlFor="marcaKit">Marca de KIT GNC</Label>
-            <Select value={marcaKit} onValueChange={setMarcaKit}>
-              <SelectTrigger
-                disabled={pending || !!foundVehicle}
-                className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <SelectValue placeholder="Seleccione una marca" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Landi Renzo">Landi Renzo</SelectItem>
-                <SelectItem value="Tomasetto">Tomasetto</SelectItem>
-                <SelectItem value="BRC">BRC</SelectItem>
-                <SelectItem value="Tartarini">Tartarini</SelectItem>
-                <SelectItem value="OMVL">OMVL</SelectItem>
-                <SelectItem value="Excion">Excion</SelectItem>
-                <SelectItem value="Bigas">Bigas</SelectItem>
-              </SelectContent>
-            </Select>
+            <input
+              id="marcaKit"
+              name="marcaKit"
+              value={marcaKit}
+              onChange={(e) => setMarcaKit(e.target.value)}
+              list="marcaKit-options"
+              disabled={pending || !!foundVehicle}
+              className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            <datalist id="marcaKit-options">
+              <option value="Landi Renzo" />
+              <option value="Tomasetto" />
+              <option value="BRC" />
+              <option value="Tartarini" />
+              <option value="OMVL" />
+              <option value="Excion" />
+              <option value="Bigas" />
+            </datalist>
           </div>
 
           {/* Modelo de KIT GNC */}

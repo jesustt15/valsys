@@ -1552,20 +1552,24 @@ export function UnifiedInspectionForm({
               <Label htmlFor="marcaKit" className="text-xs font-bold text-muted-foreground">
                 Marca de KIT GNC {branch === "desmontados" && <span className="font-normal text-amber-600">(Opcional)</span>}
               </Label>
-              <Select value={marcaKit} onValueChange={setMarcaKit}>
-                <SelectTrigger id="marcaKit" disabled={pending || !!foundVehicle} className={SELECT_TRIGGER_CLS}>
-                  <SelectValue placeholder="Seleccione una marca" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Landi Renzo">Landi Renzo</SelectItem>
-                  <SelectItem value="Tomasetto">Tomasetto</SelectItem>
-                  <SelectItem value="BRC">BRC</SelectItem>
-                  <SelectItem value="Tartarini">Tartarini</SelectItem>
-                  <SelectItem value="OMVL">OMVL</SelectItem>
-                  <SelectItem value="Excion">Excion</SelectItem>
-                  <SelectItem value="Bigas">Bigas</SelectItem>
-                </SelectContent>
-              </Select>
+              <input
+                id="marcaKit"
+                name="marcaKit"
+                value={marcaKit}
+                onChange={(e) => setMarcaKit(e.target.value)}
+                list="marcaKit-options"
+                disabled={pending || !!foundVehicle}
+                className={SELECT_TRIGGER_CLS}
+              />
+              <datalist id="marcaKit-options">
+                <option value="Landi Renzo" />
+                <option value="Tomasetto" />
+                <option value="BRC" />
+                <option value="Tartarini" />
+                <option value="OMVL" />
+                <option value="Excion" />
+                <option value="Bigas" />
+              </datalist>
             </div>
 
             {/* Modelo KIT GNC */}

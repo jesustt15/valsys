@@ -72,12 +72,12 @@ const vehicleFieldsShape = {
 } as const
 
 const kitFieldsMontados = {
-  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']),
+  marcaKit: z.string().min(1, 'La marca del KIT es obligatoria').max(50),
   modeloKit: z.string().min(1, 'El modelo del KIT es obligatorio').max(50),
 } as const
 
 const kitFieldsDesmontados = {
-  marcaKit: z.enum(['Landi Renzo', 'Tomasetto', 'BRC', 'Tartarini', 'OMVL', 'Excion', 'Bigas']).optional().or(z.literal('')),
+  marcaKit: z.string().max(50).optional().or(z.literal('')),
   modeloKit: z.string().max(50).optional().or(z.literal('')),
 } as const
 
