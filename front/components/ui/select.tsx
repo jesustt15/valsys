@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 
 interface SelectProps {
@@ -15,13 +16,15 @@ const SelectContext = React.createContext<{
   open: boolean
   setOpen: (open: boolean) => void
   placeholder?: string
-}>({ value: undefined, onValueChange: undefined, open: false, setOpen: () => {}, placeholder: 'Seleccionar...' })
+  triggerRef: React.RefObject<HTMLButtonElement | null>
+}>({ value: undefined, onValueChange: undefined, open: false, setOpen: () => {}, placeholder: 'Seleccionar...', triggerRef: { current: null } })
 
 function Select({ value, onValueChange, children, placeholder = 'Seleccionar...', className = '' }: SelectProps) {
   const [open, setOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
 
   return (
-    <SelectContext.Provider value={{ value, onValueChange, open, setOpen, placeholder }}>
+    <SelectContext.Provider value={{ value, onValueChange, open, setOpen, placeholder, triggerRef }}>
       <div className={cn('relative', className)}>
         {children}
       </div>
@@ -30,10 +33,11 @@ function Select({ value, onValueChange, children, placeholder = 'Seleccionar...'
 }
 
 function SelectTrigger({ className = '', children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
-  const { open, setOpen, value, placeholder } = React.useContext(SelectContext)
+  const { open, setOpen, value, placeholder, triggerRef } = React.useContext(SelectContext)
 
   return (
     <button
+      ref={triggerRef}
       type="button"
       role="combobox"
       aria-expanded={open}
@@ -69,19 +73,78 @@ function SelectValue({ placeholder = 'Seleccionar...' }: { placeholder?: string 
 }
 
 function SelectContent({ className = '', children }: { className?: string; children: React.ReactNode }) {
-  const { open } = React.useContext(SelectContext)
-  if (!open) return null
+  const { open, setOpen, triggerRef } = React.useContext(SelectContext)
+  const [position, setPosition] = React.useState<{ top: number; left: number; width: number } | null>(null)
+  const contentRef = React.useRef<HTMLDivElement>(null)
 
-  return (
+  React.useEffect(() => {
+    if (open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight
+      const dropdownHeight = 300 // estimated max height
+      const spaceBelow = viewportHeight - rect.bottom
+      const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight
+      
+      setPosition({
+        top: showAbove 
+          ? rect.top + window.scrollY - dropdownHeight - 8
+          : rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX,
+        width: rect.width,
+      })
+    } else {
+      setPosition(null)
+    }
+  }, [open, triggerRef])
+
+  // Close on scroll
+  React.useEffect(() => {
+    if (!open) return
+    const handleScroll = () => setOpen(false)
+    window.addEventListener('scroll', handleScroll, true)
+    return () => window.removeEventListener('scroll', handleScroll, true)
+  }, [open, setOpen])
+
+  // Close on click outside
+  React.useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        contentRef.current &&
+        !contentRef.current.contains(event.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open, setOpen, triggerRef])
+
+  if (!open || typeof document === 'undefined') return null
+
+  return createPortal(
     <div
+      ref={contentRef}
       className={cn(
-        'absolute z-50 mt-2 w-full min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover shadow-lg',
+        'fixed z-[100] min-w-[8rem] overflow-hidden rounded-xl border border-border bg-popover shadow-lg',
         'animate-in fade-in-0 zoom-in-95',
         className
       )}
+      style={
+        position
+          ? {
+              top: `${position.top}px`,
+              left: `${position.left}px`,
+              width: `${position.width}px`,
+            }
+          : undefined
+      }
     >
       <div className="p-1">{children}</div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
