@@ -1805,19 +1805,21 @@ export function UnifiedInspectionForm({
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-bold text-muted-foreground">Marca</Label>
-                        <Select value={cyl.brand} onValueChange={(val) => updateCylinder(idx, "brand", val)}>
-                          <SelectTrigger disabled={pending} className={SELECT_TRIGGER_CLS}>
-                            <SelectValue placeholder="Marca" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="MAT">MAT</SelectItem>
-                            <SelectItem value="Sinoma">Sinoma</SelectItem>
-                            <SelectItem value="Kioshi">Kioshi</SelectItem>
-                            <SelectItem value="Cilbras">Cilbras</SelectItem>
-                            <SelectItem value="Faber">Faber</SelectItem>
-                            <SelectItem value="Inflex">Inflex</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <input
+                          value={cyl.brand}
+                          onChange={(e) => updateCylinder(idx, "brand", e.target.value)}
+                          list={`unified-cyl-brand-${idx}`}
+                          disabled={pending}
+                          className={SELECT_TRIGGER_CLS}
+                        />
+                        <datalist id={`unified-cyl-brand-${idx}`}>
+                          <option value="MAT" />
+                          <option value="Sinoma" />
+                          <option value="Kioshi" />
+                          <option value="Cilbras" />
+                          <option value="Faber" />
+                          <option value="Inflex" />
+                        </datalist>
                       </div>
                       <div className="space-y-1.5">
                         <Label className="text-xs font-bold text-muted-foreground">Capacidad (L)</Label>

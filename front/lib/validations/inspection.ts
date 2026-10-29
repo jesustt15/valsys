@@ -82,9 +82,7 @@ const kitFieldsDesmontados = {
 } as const
 
 export const cylinderInputSchema = z.object({
-  brand: z.enum(['MAT', 'Sinoma', 'Kioshi', 'Cilbras', 'Faber', 'Inflex'], {
-    message: 'Seleccione una marca de cilindro',
-  }),
+  brand: z.string().min(1, 'La marca del cilindro es obligatoria').max(50),
   capacity: z.enum(['27', '40', '50', '57', '60', '80', '90', '115'], {
     message: 'Seleccione una capacidad',
   }),

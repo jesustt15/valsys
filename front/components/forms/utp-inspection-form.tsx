@@ -1613,27 +1613,21 @@ export function UtpInspectionForm({
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label>Marca</Label>
-                      <Select
+                      <input
                         value={cyl.brand}
-                        onValueChange={(val) =>
-                          updateCylinder(idx, "brand", val)
-                        }
-                      >
-                        <SelectTrigger
-                          disabled={pending}
-                          className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        >
-                          <SelectValue placeholder="Seleccione marca" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="MAT">MAT</SelectItem>
-                          <SelectItem value="Sinoma">Sinoma</SelectItem>
-                          <SelectItem value="Kioshi">Kioshi</SelectItem>
-                          <SelectItem value="Cilbras">Cilbras</SelectItem>
-                          <SelectItem value="Faber">Faber</SelectItem>
-                          <SelectItem value="Inflex">Inflex</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        onChange={(e) => updateCylinder(idx, "brand", e.target.value)}
+                        list={`utp-cyl-brand-${idx}`}
+                        disabled={pending}
+                        className="flex h-10 w-full rounded-lg border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                      <datalist id={`utp-cyl-brand-${idx}`}>
+                        <option value="MAT" />
+                        <option value="Sinoma" />
+                        <option value="Kioshi" />
+                        <option value="Cilbras" />
+                        <option value="Faber" />
+                        <option value="Inflex" />
+                      </datalist>
                     </div>
                     <div className="space-y-2">
                       <Label>Capacidad (L)</Label>
