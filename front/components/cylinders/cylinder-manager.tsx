@@ -67,6 +67,8 @@ function statusLabel(status: string): string {
 
 const TODAY_ISO = () => new Date().toISOString().split('T')[0]
 
+const CYLINDER_BRAND_SUGGESTIONS = ['MAT', 'Sinoma', 'Kioshi', 'Cilbras', 'Faber', 'Inflex'] as const
+
 // ─── Shared form sub-components (F2 — reduce markup duplication) ─────
 
 /** File input + scanner button. Owns its own ref (F3) and scanner state. */
@@ -208,7 +210,12 @@ function CreateCylinderForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label htmlFor={`${uid}-brand`} required>Marca</Label>
-            <Input id={`${uid}-brand`} name="brand" required disabled={pending} />
+            <Input id={`${uid}-brand`} name="brand" required disabled={pending} list={`${uid}-brand-suggestions`} />
+            <datalist id={`${uid}-brand-suggestions`}>
+              {CYLINDER_BRAND_SUGGESTIONS.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
           </div>
           <div className="space-y-2">
             <Label htmlFor={`${uid}-capacity`} required>Capacidad (L)</Label>
@@ -367,7 +374,12 @@ function EditCylinderFieldsForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-2">
             <Label htmlFor={`${uid}-brand`} required>Marca</Label>
-            <Input id={`${uid}-brand`} name="brand" defaultValue={cylinder.brand} required disabled={pending} />
+            <Input id={`${uid}-brand`} name="brand" defaultValue={cylinder.brand} required disabled={pending} list={`${uid}-brand-suggestions`} />
+            <datalist id={`${uid}-brand-suggestions`}>
+              {CYLINDER_BRAND_SUGGESTIONS.map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
           </div>
           <div className="space-y-2">
             <Label htmlFor={`${uid}-capacity`} required>Capacidad (L)</Label>

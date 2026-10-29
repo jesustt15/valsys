@@ -1827,7 +1827,7 @@ export function UnifiedInspectionForm({
                           <SelectTrigger disabled={pending} className={SELECT_TRIGGER_CLS}>
                             <SelectValue placeholder="Cap." />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent position="popper">
                             <SelectItem value="27">27 L</SelectItem>
                             <SelectItem value="40">40 L</SelectItem>
                             <SelectItem value="50">50 L</SelectItem>
@@ -1869,7 +1869,7 @@ export function UnifiedInspectionForm({
                           <SelectTrigger disabled={pending} className={SELECT_TRIGGER_CLS}>
                             <SelectValue placeholder="Ubicación" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent position="popper">
                             <SelectItem value="Chasis">Chasis</SelectItem>
                             <SelectItem value="Plataforma">Plataforma</SelectItem>
                             <SelectItem value="Zona de Carga">Zona de Carga</SelectItem>
