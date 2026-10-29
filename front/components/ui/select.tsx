@@ -72,54 +72,93 @@ function SelectValue({ placeholder = 'Seleccionar...' }: { placeholder?: string 
   return <span>{value}</span>
 }
 
+const GAP = 8
+
+// useLayoutEffect warns during SSR; fall back to useEffect on the server
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect
+
 function SelectContent({ className = '', children }: { className?: string; children: React.ReactNode }) {
   const { open, setOpen, triggerRef } = React.useContext(SelectContext)
-  const [position, setPosition] = React.useState<{ top: number; left: number; width: number } | null>(null)
   const contentRef = React.useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = React.useState<{
+    left: number
+    width: number
+    top?: number
+    bottom?: number
+  } | null>(null)
 
-  React.useEffect(() => {
-    if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect()
-      const viewportHeight = window.innerHeight
-      const dropdownHeight = 300 // estimated max height
-      const spaceBelow = viewportHeight - rect.bottom
-      const showAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight
-      
-      setPosition({
-        top: showAbove 
-          ? rect.top + window.scrollY - dropdownHeight - 8
-          : rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      })
-    } else {
-      setPosition(null)
+  /**
+   * Position is computed in viewport coordinates because the dropdown uses
+   * `position: fixed`. getBoundingClientRect() already returns viewport-relative
+   * values, so window.scrollY/scrollX must NOT be added — doing so pushes the
+   * panel far off-screen on a scrolled page.
+   */
+  const updatePosition = React.useCallback(() => {
+    const trigger = triggerRef.current
+    if (!trigger) return
+
+    const rect = trigger.getBoundingClientRect()
+    const contentHeight = contentRef.current?.offsetHeight ?? 0
+    const spaceBelow = window.innerHeight - rect.bottom - GAP
+    const spaceAbove = rect.top - GAP
+    // Flip upward only when it does not fit below and there is more room above
+    const openUp = contentHeight > spaceBelow && spaceAbove > spaceBelow
+
+    setCoords(
+      openUp
+        ? {
+            left: rect.left,
+            width: rect.width,
+            bottom: window.innerHeight - rect.top + GAP,
+          }
+        : { left: rect.left, width: rect.width, top: rect.bottom + GAP }
+    )
+  }, [triggerRef])
+
+  useIsomorphicLayoutEffect(() => {
+    if (!open) {
+      setCoords(null)
+      return
     }
-  }, [open, triggerRef])
+    updatePosition()
+  }, [open, updatePosition])
 
-  // Close on scroll
+  // Follow the trigger on scroll / resize instead of closing: on mobile the
+  // browser may scroll to focus the trigger right after it opens, and closing
+  // there would make the panel appear to never show. Only close once the
+  // trigger has actually left the viewport.
   React.useEffect(() => {
     if (!open) return
-    const handleScroll = () => setOpen(false)
-    window.addEventListener('scroll', handleScroll, true)
-    return () => window.removeEventListener('scroll', handleScroll, true)
-  }, [open, setOpen])
-
-  // Close on click outside
-  React.useEffect(() => {
-    if (!open) return
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        contentRef.current &&
-        !contentRef.current.contains(event.target as Node) &&
-        triggerRef.current &&
-        !triggerRef.current.contains(event.target as Node)
-      ) {
+    const handleMove = () => {
+      const trigger = triggerRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      if (rect.bottom < 0 || rect.top > window.innerHeight) {
         setOpen(false)
+        return
       }
+      updatePosition()
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    window.addEventListener('scroll', handleMove, true)
+    window.addEventListener('resize', handleMove)
+    return () => {
+      window.removeEventListener('scroll', handleMove, true)
+      window.removeEventListener('resize', handleMove)
+    }
+  }, [open, setOpen, triggerRef, updatePosition])
+
+  // Close on click/tap outside
+  React.useEffect(() => {
+    if (!open) return
+    const handleClickOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (contentRef.current?.contains(target)) return
+      if (triggerRef.current?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', handleClickOutside)
+    return () => document.removeEventListener('pointerdown', handleClickOutside)
   }, [open, setOpen, triggerRef])
 
   if (!open || typeof document === 'undefined') return null
@@ -133,16 +172,17 @@ function SelectContent({ className = '', children }: { className?: string; child
         className
       )}
       style={
-        position
+        coords
           ? {
-              top: `${position.top}px`,
-              left: `${position.left}px`,
-              width: `${position.width}px`,
+              left: `${coords.left}px`,
+              width: `${coords.width}px`,
+              ...(coords.top !== undefined ? { top: `${coords.top}px` } : {}),
+              ...(coords.bottom !== undefined ? { bottom: `${coords.bottom}px` } : {}),
             }
           : undefined
       }
     >
-      <div className="p-1">{children}</div>
+      <div className="p-1 max-h-[min(20rem,calc(100dvh_-_4rem))] overflow-y-auto">{children}</div>
     </div>,
     document.body
   )
