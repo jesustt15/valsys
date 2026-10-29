@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { AttachmentGallery } from '@/components/inspections/attachment-gallery'
 import { LazyImage } from '@/components/inspections/lazy-image'
 import { getInspectionById } from '@/lib/services/inspection'
 import { getCertificateByInspectionId } from '@/lib/services/certificate'
@@ -16,7 +17,6 @@ import { ExpedienteUploader } from '@/components/inspections/expediente-uploader
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { CertificateCard } from '@/components/certificates/certificate-card'
 import { VideoQueuePanel } from '@/components/inspections/video-queue-panel'
-import { AttachmentTile } from '@/components/inspections/attachment-tile'
 import { getPendingSummary } from '@/lib/services/inspection-pending'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -373,31 +373,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
                 </div>
               ) : (
                 <>
-                  {/* Mobile: horizontal scrollable gallery */}
-                  <div className="md:hidden flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory">
-                    {attachmentsWithUrls.map((att) => (
-                      <div key={att.id} className="shrink-0 w-[80vw] max-w-[300px] snap-start">
-                        <LazyImage
-                          src={att.url}
-                          alt={att.fileName || att.category}
-                          className="aspect-square rounded-xl overflow-hidden border border-border shadow-sm min-h-[200px]"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {/* Desktop: grid */}
-                  <div className="hidden md:grid grid-cols-2 gap-3">
-                    {attachmentsWithUrls.map((att) => (
-                      <AttachmentTile
-                        key={att.id}
-                        id={att.id}
-                        fileName={att.fileName}
-                        fileType={att.fileType}
-                        category={att.category}
-                        url={att.url}
-                      />
-                    ))}
-                  </div>
+                  <AttachmentGallery attachments={attachmentsWithUrls} />
                 </>
               )}
             </CardContent>

@@ -16,7 +16,7 @@ import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
 import { VideoQueuePanel } from '@/components/inspections/video-queue-panel'
-import { AttachmentTile } from '@/components/inspections/attachment-tile'
+import { AttachmentGallery } from '@/components/inspections/attachment-gallery'
 import { formatMonthYear } from '@/lib/utils/format-month-year'
 
 interface PageProps {
@@ -377,18 +377,7 @@ export default async function UtpDetailPage({ params }: PageProps) {
               {attachmentsWithUrls.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">Sin fotos.</p>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {attachmentsWithUrls.map((att) => (
-                    <AttachmentTile
-                      key={att.id}
-                      id={att.id}
-                      fileName={att.fileName}
-                      fileType={att.fileType}
-                      category={att.category}
-                      url={att.url}
-                    />
-                  ))}
-                </div>
+                <AttachmentGallery attachments={attachmentsWithUrls} mobileLayout="grid" />
               )}
             </CardContent>
           </Card>

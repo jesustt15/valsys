@@ -13,6 +13,8 @@ interface AttachmentTileProps {
   url?: string | null
   /** When true, renders the tile with pointer cursor and hover effect. */
   clickable?: boolean
+  /** When provided, images open this callback (lightbox) instead of a new tab. */
+  onOpen?: () => void
 }
 
 /**
@@ -33,6 +35,7 @@ export function AttachmentTile({
   category,
   url,
   clickable = true,
+  onOpen,
 }: AttachmentTileProps) {
   const [imageLoaded, setImageLoaded] = useState(false)
   const isLink = Boolean(url)
@@ -111,6 +114,24 @@ export function AttachmentTile({
   }
 
   if (isLink && clickable) {
+    // Images with an onOpen handler open the in-app lightbox (swipeable)
+    // instead of leaving the page in a new tab.
+    if (isImage && onOpen) {
+      return (
+        <button
+          type="button"
+          key={id}
+          onClick={onOpen}
+          className={`${baseClassName} w-full text-left p-0`}
+          aria-label={`Ver ${fileName}`}
+        >
+          {content}
+          {badge}
+          <DeleteAttachmentButton attachmentId={id} />
+        </button>
+      )
+    }
+
     return (
       <a
         key={id}

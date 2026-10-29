@@ -15,12 +15,14 @@ export function DeleteAttachmentButton({ attachmentId }: DeleteAttachmentButtonP
     null,
   )
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
     if (confirming) return
     setConfirming(true)
   }
 
-  const handleCancel = () => {
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation()
     setConfirming(false)
   }
 
@@ -53,6 +55,7 @@ export function DeleteAttachmentButton({ attachmentId }: DeleteAttachmentButtonP
         <input type="hidden" name="attachmentId" value={attachmentId} />
         <button
           type="submit"
+          onClick={(e) => e.stopPropagation()}
           className="w-7 h-7 rounded-full bg-red-600 shadow flex items-center justify-center hover:bg-red-700 transition-colors"
           title="Confirmar eliminación"
         >
