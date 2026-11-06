@@ -11,13 +11,13 @@ import { EditInspectionFields } from '@/components/inspections/edit-inspection-f
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/ui/status-badge'
-import { FileText, Camera, CheckSquare, Truck, User, Database } from 'lucide-react'
+import { FileText, Camera, CheckSquare, Truck, User } from 'lucide-react'
 import { getDocsByVehicle } from '@/lib/services/vehicle-document'
 import { VehicleDocumentUploader } from '@/components/forms/vehicle-document-upload'
 import { ExpedienteUploader } from '@/components/inspections/expediente-uploader'
 import { VideoQueuePanel } from '@/components/inspections/video-queue-panel'
 import { AttachmentGallery } from '@/components/inspections/attachment-gallery'
-import { formatMonthYear } from '@/lib/utils/format-month-year'
+import { CylinderManager } from '@/components/cylinders/cylinder-manager'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -240,43 +240,18 @@ export default async function UtpDetailPage({ params }: PageProps) {
         </Card>
       </div>
 
-      {/* Cylinders (read-only list) */}
-      {inspection.cylinders.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Database className="w-4 h-4 text-blue-500" />
-              Cilindros Registrados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {inspection.cylinders.map((cyl) => (
-                <div key={cyl.id} className="p-3 bg-muted/50 rounded-lg text-sm space-y-2">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <span className="font-medium">{cyl.brand} — {cyl.capacity}L</span>
-                    <Badge variant={cyl.status === 'activo' ? 'success' : cyl.status === 'en_certificacion' ? 'warning' : cyl.status === 'de_baja' ? 'destructive' : 'secondary'} className="text-xs shrink-0">{cyl.status === 'activo' ? 'Activo' : cyl.status === 'en_certificacion' ? 'En certificación' : cyl.status === 'de_baja' ? 'De baja' : cyl.status ?? 'Activo'}</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-muted-foreground">
-                    <div className="flex justify-between gap-2">
-                      <span>Serial:</span>
-                      <span className="font-mono font-medium text-foreground text-right break-all">{cyl.initialSerial}</span>
-                    </div>
-                    <div className="flex justify-between gap-2">
-                      <span>Prueba:</span>
-                      <span className="font-medium text-foreground">{formatMonthYear(cyl.manufactureDate)}</span>
-                    </div>
-                    <div className="flex justify-between gap-2 col-span-2">
-                      <span>Ubicación:</span>
-                      <span className="font-medium text-foreground text-right">{cyl.location}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Cylinders (with add/edit) */}
+      <CylinderManager
+        inspectionId={resolvedParams.id}
+        vehicleId={inspection.vehicle.id}
+        inspectionStatus={status}
+        cylinders={inspection.cylinders.map((c) => ({
+          ...c,
+          status: c.status ?? 'activo',
+          manufactureDate: c.manufactureDate ? new Date(c.manufactureDate).toISOString() : null,
+          recalificationDate: c.recalificationDate ? new Date(c.recalificationDate).toISOString() : null,
+        }))}
+      />
 
       {/* Grid: Checklist + Side Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

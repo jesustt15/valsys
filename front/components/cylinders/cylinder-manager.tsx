@@ -42,6 +42,7 @@ interface Cylinder {
 interface Props {
   inspectionId: string
   vehicleId: string
+  inspectionStatus?: string
   cylinders: Cylinder[]
 }
 
@@ -848,7 +849,7 @@ function BulkReceiveForm({
 
 // ─── Main Component ──────────────────────────────────────────────
 
-export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
+export function CylinderManager({ inspectionId, vehicleId, inspectionStatus, cylinders }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [editingFieldsId, setEditingFieldsId] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
@@ -932,6 +933,16 @@ export function CylinderManager({ inspectionId, vehicleId, cylinders }: Props) {
         </Button>
       </CardHeader>
       <CardContent className="space-y-6 flex-1">
+
+        {/* ── Warning for certified inspections ── */}
+        {inspectionStatus === 'certificado' && (
+          <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800">
+            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
+            <AlertDescription className="text-amber-800 dark:text-amber-300">
+              Esta inspección ya fue certificada. Agregar o modificar cilindros ahora puede requerir emitir un nuevo certificado.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* ── Add cylinder form (G8 — per-instance component) ── */}
         <AnimatePresence>

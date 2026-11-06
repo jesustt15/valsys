@@ -262,6 +262,7 @@ export default async function InspectionExpedientePage({ params }: PageProps) {
           <CylinderManager
             inspectionId={resolvedParams.id}
             vehicleId={inspection.vehicle.id}
+            inspectionStatus={inspection.status || 'inspeccion_inicial'}
             cylinders={cylinders.map((c) => ({
               ...c,
               status: c.status ?? 'activo',
