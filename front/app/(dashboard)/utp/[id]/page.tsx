@@ -216,6 +216,7 @@ export default async function UtpDetailPage({ params }: PageProps) {
                   phone: inspection.owner.phone,
                   email: inspection.owner.email,
                 }}
+                vehicleId={inspection.vehicle.id}
               />
             </div>
           </CardHeader>

@@ -25,17 +25,22 @@ export type UpdateOwnerData = Partial<{
   email: string
 }>
 
-export async function updateOwner(id: string, data: UpdateOwnerData): Promise<{ success: true; owner: OwnerRecord } | { success: false; error: string }> {
+export async function updateOwner(id: string, data: UpdateOwnerData): Promise<{ success: true; owner: OwnerRecord } | { success: false; error: string } | { success: false; duplicate: true; existingOwnerId: string; existingOwnerName: string }> {
   // Document ID uniqueness check (exclude self)
   if (data.documentId) {
     const dup = await db
-      .select({ id: owners.id })
+      .select({ id: owners.id, fullName: owners.fullName })
       .from(owners)
       .where(and(eq(owners.documentId, data.documentId), ne(owners.id, id)))
       .limit(1)
 
     if (dup.length > 0) {
-      return { success: false, error: `Ya existe otro propietario con documento ${data.documentId}` }
+      return {
+        success: false,
+        duplicate: true,
+        existingOwnerId: dup[0].id,
+        existingOwnerName: dup[0].fullName,
+      }
     }
   }
 

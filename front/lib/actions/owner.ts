@@ -1,15 +1,18 @@
 'use server'
 
 import { db } from '@/lib/db'
-import { owners } from '@/db/schema'
+import { owners, vehicles } from '@/db/schema'
 import { createOwnerSchema, updateOwnerSchema, buildDocumentId } from '@/lib/validations/owner'
 import { updateOwner } from '@/lib/services/owner'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 export type OwnerFormState = {
   success?: boolean
   error?: string
   data?: { id: string; fullName: string }
+  duplicate?: boolean
+  existingOwnerId?: string
+  existingOwnerName?: string
 }
 
 export async function createOwner(
@@ -108,8 +111,62 @@ export async function updateOwnerAction(
   const result = await updateOwner(ownerId, parsed.data)
 
   if (!result.success) {
-    return { error: result.error }
+    // If duplicate detected, return duplicate info instead of error
+    if ('duplicate' in result) {
+      const dupResult = result as { duplicate: true; existingOwnerId: string; existingOwnerName: string }
+      return {
+        error: dupResult.existingOwnerName
+          ? `Ya existe un propietario con ese documento: ${dupResult.existingOwnerName}`
+          : 'Ya existe un propietario con ese documento',
+        duplicate: true,
+        existingOwnerId: dupResult.existingOwnerId,
+        existingOwnerName: dupResult.existingOwnerName,
+      }
+    }
+    // Regular error case
+    const errorResult = result as { error: string }
+    return { error: errorResult.error }
   }
 
   return { success: true, data: { id: result.owner.id, fullName: result.owner.fullName } }
+}
+
+// ─── Reassign vehicle to existing owner ───────────────────────
+
+export async function reassignVehicleToOwnerAction(
+  _prev: OwnerFormState | null,
+  formData: FormData,
+): Promise<OwnerFormState> {
+  const vehicleId = formData.get('vehicleId') as string
+  const newOwnerId = formData.get('newOwnerId') as string
+  const oldOwnerId = formData.get('oldOwnerId') as string
+
+  if (!vehicleId || !newOwnerId) {
+    return { error: 'Datos incompletos para la reasignación' }
+  }
+
+  try {
+    // Update vehicle's ownerId to point to the existing owner
+    await db
+      .update(vehicles)
+      .set({ ownerId: newOwnerId, updatedAt: new Date() })
+      .where(eq(vehicles.id, vehicleId))
+
+    // Optionally delete the old (wrong) owner if it has no other vehicles
+    if (oldOwnerId) {
+      const [otherVehicles] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(vehicles)
+        .where(eq(vehicles.ownerId, oldOwnerId))
+
+      if (Number(otherVehicles.count) === 0) {
+        await db.delete(owners).where(eq(owners.id, oldOwnerId))
+      }
+    }
+
+    return { success: true }
+  } catch (e) {
+    console.error('Error reassigning vehicle:', e)
+    return { error: 'Error al reasignar el propietario. Intente de nuevo.' }
+  }
 }
